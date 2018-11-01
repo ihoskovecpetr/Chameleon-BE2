@@ -1,0 +1,7 @@
+.*
+!.gitignore
+!.babelrc
+!.dockerignore
+!.crossbar
+npm-debug.log
+node_modules
