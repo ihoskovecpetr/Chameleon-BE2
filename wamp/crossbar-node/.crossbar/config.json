@@ -1,0 +1,59 @@
+{
+    "version": 2,
+    "controller": {},
+    "workers": [
+        {
+            "type": "router",
+            "realms": [
+                {
+                    "name": "booking",
+                    "roles": [
+                        {
+                            "name": "booking",
+                            "permissions": [
+                                {
+                                    "uri": "",
+                                    "match": "prefix",
+                                    "allow": {
+                                        "call": true,
+                                        "register": true,
+                                        "publish": true,
+                                        "subscribe": true
+                                    },
+                                    "disclose": {
+                                        "caller": true,
+                                        "publisher": true
+                                    },
+                                    "cache": true
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ],
+            "transports": [
+                {
+                    "type": "websocket",
+                    "auth": {
+                        "wampcra": {
+                            "type": "static",
+                            "users": {
+                                "booking": {
+                                    "secret": "lg0YdoIamUq4z40MiZVWjA==",
+                                    "role": "booking",
+                                    "salt": "sugar4upp",
+                                    "iterations": 100,
+                                    "keylen": 16
+                                }
+                            }
+                        }
+                    },
+                    "endpoint": {
+                        "type": "tcp",
+                        "port": 9000
+                    }
+                }
+            ]
+        }
+    ]
+}

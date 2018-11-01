@@ -5,3 +5,4 @@
 !.crossbar
 npm-debug.log
 node_modules
+/docker-image-archives/*
