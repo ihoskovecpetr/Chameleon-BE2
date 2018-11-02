@@ -3,6 +3,8 @@
 !.babelrc
 !.dockerignore
 !.crossbar
+!.env
 npm-debug.log
 node_modules
 /docker-image-archives/*
+logs
