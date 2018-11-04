@@ -1,12 +1,9 @@
 version: "3"
 
 services:
-  web-server:
-    image: chameleon/web-server:1.0.0
-    container_name: web-server
-    ports:
-      - "3000:3000"
+  web:
     volumes:
       - ~/Development/chameleon-backend/web-server/logs:/opt/web-server/logs
       - ~/Development/chameleon-backend/web-server/www:/opt/web-server/www
-    restart: always
+    environment:
+      NODE_ENV: 'development'
