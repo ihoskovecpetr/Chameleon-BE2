@@ -1,12 +1,38 @@
 version: "3"
 
 services:
+  proxy:
+    image: nginx:1.15.5-alpine
+    container_name: proxy
+    ports:
+      - "8000:80"
+    volumes:
+      - ./www/static:/srv/www/static
+      - ./proxy/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - web-server
+      - rest-api
+    restart: always
+
   web-server:
-    image: chameleon/web-server:1.0.0
+    image: chameleon/web-server:latest
+    environment:
+      HOST_PORT: '3001'
     container_name: web-server
     ports:
-      - "3000:3000"
+      - "3001:3000"
     volumes:
-      - ~/Development/chameleon-backend/web-server/logs:/opt/web-server/logs
-      - ~/Development/chameleon-backend/web-server/www:/opt/web-server/www
+      - ./logs:/opt/web-server/logs
+      - ./www:/opt/web-server/www
+    restart: always
+
+  rest-api:
+    image: chameleon/rest-api:latest
+    environment:
+      HOST_PORT: '3002'
+    container_name: rest-api
+    ports:
+      - "3002:3000"
+    volumes:
+      - ./logs:/opt/rest-api/logs
     restart: always

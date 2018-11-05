@@ -1,2 +1,2 @@
 #!/usr/bin/env bash
-docker run --rm -it --init -p 3000:3000 --name web-server -v ~/Development/chameleon-backend/web-server/logs:/opt/web-server/logs -v ~/Development/chameleon-backend/web-server/www:/opt/web-server/www chameleon/web-server
+docker run --rm -it --init -p 3001:3000 -e NODE_ENV=development -e HOST_PORT=3001 --name web-server -v ~/Development/chameleon-backend/logs:/opt/web-server/logs -v ~/Development/chameleon-backend/www:/opt/web-server/www chameleon/web-server

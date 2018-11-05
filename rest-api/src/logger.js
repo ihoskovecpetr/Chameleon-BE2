@@ -1,5 +1,4 @@
 'use strict';
-
 const logger = require('winston');
 require('./winston-mail2').Mail;
 const fs = require('fs-extra');

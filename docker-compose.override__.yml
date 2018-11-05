@@ -1,9 +1,0 @@
-version: "3"
-
-services:
-  web:
-    volumes:
-      - ~/Development/chameleon-backend/web-server/logs:/opt/web-server/logs
-      - ~/Development/chameleon-backend/web-server/www:/opt/web-server/www
-    environment:
-      NODE_ENV: 'development'
