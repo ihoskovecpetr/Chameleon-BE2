@@ -26,10 +26,10 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(cookieParser());
 
-app.get('/api/1/', validateToken, (req, res) => res.status(200).end('Chameleon RESTful API v.1'));
+app.get('/api', validateToken, (req, res) => res.status(200).end('Chameleon RESTful API v.1'));
 
 //app.use('/api/1/user', apiRouterUser);
-app.use('/api/1/project', apiRouterProject);
+app.use('/api/project', apiRouterProject);
 
 // *********************************************************************************************************************
 app.listen(PORT, HOST, (err) => {

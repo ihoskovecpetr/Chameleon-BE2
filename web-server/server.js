@@ -63,7 +63,7 @@ app.get('/hub', (req, res) => res.sendFile(path.join(__dirname, '/www/html/hub.h
 app.get('/projects',  validateToken, (req, res) => res.sendFile(path.join(__dirname, '/www/html/projects.html')));
 
 
-//app.use(express.static(__dirname + '/www/static'));
+app.use(express.static(__dirname + '/www/static'));
 
 // *********************************************************************************************************************
 app.listen(PORT, HOST, (err) => {
