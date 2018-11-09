@@ -1,68 +1,60 @@
-version: "3.4"
-
+version: '3.4'
 services:
   reverse-proxy:
-    image: traefik:1.7.4-alpine
-    command: --docker
+    image: 'traefik:1.7.4-alpine'
+    command: '--docker'
     container_name: reverse-proxy
     ports:
-      - "80:80"
-      #- "433:433"
-      #- "9001:9001"
+      - '80:80'
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ./traefik.toml:/traefik.toml
-      - ./acme.json:/acme.json
+      - '/var/run/docker.sock:/var/run/docker.sock'
+      - './traefik.toml:/traefik.toml'
+      - './acme.json:/acme.json'
     restart: always
     networks:
       - traefik_default
     labels:
       - traefik.backend=reverse-proxy
-      - traefik.frontend.rule=Host:localhost;PathPrefixStrip:/traefik
+      - 'traefik.frontend.rule=Host:localhost;PathPrefixStrip:/traefik'
       - traefik.port=8080
-
   web-server:
-    image: chameleon/web-server:latest
+    image: 'chameleon/web-server:latest'
     container_name: web-server
     volumes:
-      - ./logs:/opt/web-server/logs
-      - ./www:/opt/web-server/www
+      - './logs:/opt/web-server/logs'
+      - './www:/opt/web-server/www'
     labels:
       - traefik.enable=true
       - traefik.backend=web-server
-      - traefik.frontend.rule=Host:localhost
+      - 'traefik.frontend.rule=Host:localhost'
       - traefik.port=3000
       - traefik.docker.network=traefik_default
     networks:
       - traefik_default
     restart: always
-
   wamp-server:
-    image: chameleon/wamp-server:latest
+    image: 'chameleon/wamp-server:latest'
     container_name: wamp-server
     ports:
-      - "9000:9000"
+      - '9000:9000'
     restart: always
     labels:
       - traefik.enable=false
-
   rest-api:
-    image: chameleon/rest-api:latest
+    image: 'chameleon/rest-api:latest'
     container_name: rest-api
     volumes:
-      - ./logs:/opt/rest-api/logs
+      - './logs:/opt/rest-api/logs'
     labels:
       - traefik.enable=true
       - traefik.backend=rest-api
-      - traefik.frontend.rule=Host:localhost;PathPrefix:/api
+      - 'traefik.frontend.rule=Host:localhost;PathPrefix:/api'
       - traefik.port=3000
       - traefik.docker.network=traefik_default
     networks:
       - traefik_default
     restart: always
-
 networks:
   traefik_default:
     external:
       name: traefik_default
-
