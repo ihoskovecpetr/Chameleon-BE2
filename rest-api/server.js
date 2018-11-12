@@ -26,9 +26,9 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(cookieParser());
 
-app.get('/api', validateToken, (req, res) => res.status(200).end('Chameleon RESTful API v.1'));
+app.get('/api', validateToken, (req, res) => res.status(200).end('Chameleon RESTful API'));
 
-//app.use('/api/1/user', apiRouterUser);
+//app.use('/api/user', apiRouterUser);
 app.use('/api/project', apiRouterProject);
 
 // *********************************************************************************************************************
@@ -36,6 +36,6 @@ app.listen(PORT, HOST, (err) => {
     if (err) logger.error(err);
     else {
         connectDb();
-        logger.info(`Server listening on port: ${PORT} -> ${process.env.HOST_PORT}`);
+        logger.info(`Server listening on port: ${PORT}`);
     }
 });

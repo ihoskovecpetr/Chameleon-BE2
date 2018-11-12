@@ -2,21 +2,24 @@ version: '3.4'
 services:
   reverse-proxy:
     image: 'traefik:1.7.4-alpine'
-    command: '--docker'
+    command: '--docker --docker.domain=${CHAMELEON_HOST}'
     container_name: reverse-proxy
     ports:
       - '80:80'
+      - '443:443'
+      - '9001:9001'
     volumes:
       - '/var/run/docker.sock:/var/run/docker.sock'
       - './traefik.toml:/traefik.toml'
-      - './acme.json:/acme.json'
+      - './certs:/etc/traefik/certs'
     restart: always
     networks:
       - traefik_default
     labels:
       - traefik.backend=reverse-proxy
-      - 'traefik.frontend.rule=Host:localhost;PathPrefixStrip:/traefik'
+      - 'traefik.frontend.rule=Host:${CHAMELEON_HOST};PathPrefixStrip:/traefik'
       - traefik.port=8080
+
   web-server:
     image: 'chameleon/web-server:latest'
     container_name: web-server
@@ -26,20 +29,13 @@ services:
     labels:
       - traefik.enable=true
       - traefik.backend=web-server
-      - 'traefik.frontend.rule=Host:localhost'
+      - 'traefik.frontend.rule=Host:${CHAMELEON_HOST}'
       - traefik.port=3000
       - traefik.docker.network=traefik_default
     networks:
       - traefik_default
     restart: always
-  wamp-server:
-    image: 'chameleon/wamp-server:latest'
-    container_name: wamp-server
-    ports:
-      - '9000:9000'
-    restart: always
-    labels:
-      - traefik.enable=false
+
   rest-api:
     image: 'chameleon/rest-api:latest'
     container_name: rest-api
@@ -48,12 +44,19 @@ services:
     labels:
       - traefik.enable=true
       - traefik.backend=rest-api
-      - 'traefik.frontend.rule=Host:localhost;PathPrefix:/api'
+      - 'traefik.frontend.rule=Host:${CHAMELEON_HOST};PathPrefix:/api'
       - traefik.port=3000
       - traefik.docker.network=traefik_default
     networks:
       - traefik_default
+    environment:
+      - MONGO_DB_HOST
+      - MONGO_DB_PORT
+      - MONGO_DB_DATABASE
+      - MONGO_DB_USER
+      - MONGO_DB_PASSWORD
     restart: always
+
 networks:
   traefik_default:
     external:

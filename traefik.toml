@@ -1,41 +1,32 @@
-debug = true
-logLevel = "INFO" #DEBUG, INFO, WARN, ERROR, FATAL, PANIC
+debug = false
+logLevel = "WARN" #DEBUG, INFO, WARN, ERROR, FATAL, PANIC
 
-defaultEntryPoints = ["http"]
+defaultEntryPoints = ["http", "htps", "wss"]
 
 [docker]
   endpoint = "unix:///var/run/docker.sock"
-  domain = "localhost" #TODO set correct domain
   watch = true
   exposedByDefault = false
-  #usebindportip = true
 
 [api]
   entryPoint = "traefik"
   dashboard = true
   debug = true
   address = ":8080"
-  #[web.auth.basic]
-  #users = ["admin:your_encrypted_password"]
 
 [entryPoints]
   [entryPoints.http]
     address = ":80"
     #[entryPoints.http.redirect]
-      #entryPoint = "https"
-  #[entryPoints.https]
-    #address = ":443"
-      #[entryPoints.https.tls]
-  #[entryPoints.ws]
-    #address = ":9001"
-     #[entryPoints.ws.tls]
-
-
-
-#[acme]
-  #email = "miroslav.kozel@upp.cz"
-  #storage = "acme.json"
-  #entryPoint = "https"
-  #acmeLogging = true
-  #onHostRule = true
-  #onDemand = false
+    #  entryPoint = "https"
+  [entryPoints.https]
+    address = ":443"
+     [entryPoints.https.tls]
+     [[entryPoints.https.tls.certificates]]
+       certFile = "/etc/traefik/certs/upp.cz.crt"
+       keyFile = "/etc/traefik/certs/upp.ct.key"
+  [entryPoints.wss]
+    address = ":9001"
+     [entryPoints.ws.tls]
+       certFile = "/etc/traefik/certs/upp.cz.crt"
+       keyFile = "/etc/traefik/certs/upp.ct.key"

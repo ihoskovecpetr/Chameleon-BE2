@@ -68,5 +68,5 @@ app.use(express.static(__dirname + '/www/static'));
 // *********************************************************************************************************************
 app.listen(PORT, HOST, (err) => {
     if (err) logger.error(err);
-    else logger.info(`Server listening on port: ${PORT} -> ${process.env.HOST_PORT}`);
+    else logger.info(`Server listening on port: ${PORT}`);
 });

@@ -3,12 +3,11 @@ const mongoose = require('mongoose');
 const logger = require('./logger');
 
 const config = {
-    "host": "docker.for.mac.localhost",
-    "port": 27017,
-    "database": "booking",
-    "user": "booking",
-    "password": "h35l0_b00king",
-    "authAdmin": true,
+    "host": process.env.MONGO_DB_HOST,
+    "port": process.env.MONGO_DB_PORT,
+    "database": process.env.MONGO_DB_DATABASE,
+    "user": process.env.MONGO_DB_USER,
+    "password": process.env.MONGO_DB_PASSWORD,
     "reconnectInterval": 10, //seconds
     "firstConnectionTriesToError": 6, //1min
     "connectionTriesToError": 30 //5min
@@ -21,7 +20,7 @@ let disconnectTimer = null;
 
 mongoose.Promise = global.Promise;
 
-const dbURI = `mongodb://${config.host || 'localhost'}:${config.port}/${config.database || 'booking'}${config.authAdmin ? '?authSource=admin' : ''}`;
+const dbURI = `mongodb://${config.host}:${config.port}/${config.database}?authSource=admin`;
 const dbOptions = {
     user: config.user,
     pass: config.password,
