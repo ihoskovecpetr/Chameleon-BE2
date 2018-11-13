@@ -4,12 +4,12 @@ const ActiveDirectory = require('activedirectory');
 const jwt = require('jsonwebtoken');
 
 const configAd = {
-    "host": "Srv-UPP01.global.upp.cz",
-    "ssl": true,
-    "baseDn": "dc=global,dc=upp,dc=cz"
+    "host": process.env.AUTH_AD_HOST,
+    "ssl": process.env.AUTH_AD_SSL && (process.env.AUTH_AD_SSL === 'true' || process.env.AUTH_AD_SSL === 'TRUE'),
+    "baseDn": process.env.AUTH_AD_BASE_DN
 };
 
-const AUTH_TOKEN_SECRET = process.env.AUTH_TOKEN_SECRET || 'cham3l30n_Aut43nt1cat10n_53cr3t';
+const AUTH_TOKEN_SECRET = process.env.AUTH_TOKEN_SECRET;
 const EXPIRATION_MIN_DURATION = 2 * 3600000; //2hours
 
 module.exports = async function(username, password) {

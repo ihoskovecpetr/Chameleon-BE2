@@ -1,9 +1,9 @@
 'use strict';
-
+// >>>>>> SHARED WITH REST-API SERVER <<<<<<<
 const jwt = require('jsonwebtoken');
 
-const AUTHENTICATION_COOKIE_NAME = process.env.AUTH_COOKIE_NAME || 'auth_token';
-const AUTH_TOKEN_SECRET = process.env.AUTH_TOKEN_SECRET || 'cham3l30n_Aut43nt1cat10n_53cr3t';
+const AUTHENTICATION_COOKIE_NAME = process.env.AUTH_COOKIE_NAME;
+const AUTH_TOKEN_SECRET = process.env.AUTH_TOKEN_SECRET;
 
 module.exports = async function(req, res, next) {
     try {
@@ -12,7 +12,8 @@ module.exports = async function(req, res, next) {
         req.token_expiration = tokenPayload.exp * 1000;
         next();
     } catch (e) {
-        res.redirect(`/login${req.url ? `?app=${req.url}` : ''}`);
+        const app = getApplication(req);
+        res.redirect(`/login${app ? `?app=${app}` : ''}`);
     }
 };
 
@@ -31,4 +32,10 @@ function validateToken(token) {
             }
         });
     });
+}
+
+function getApplication(req) {
+    if(!req.url) return null;
+    //TODO check and format valid application string REGEX? switch?
+    return req.url;
 }

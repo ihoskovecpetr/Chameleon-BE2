@@ -2,18 +2,16 @@ const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
 const db = require('../dbData/mongoDb-project');
-//const dbCommon = require(('../mongodb-data'));
+const dbUser = require('../dbData/mongoDb-user');
 const logger = require('../logger');
 const validateToken = require('../validateToken');
 
 module.exports = router;
 
-const ROLE_HIERARCHY = ['booking:admin', 'booking:main-producer', ''];
-
 // *********************************************************************************************************************
 // PROJECTS CRUD
 // *********************************************************************************************************************
-router.post('/projects', [validateToken, authorizeApiAccess('')], async (req, res, next) => {
+router.post('/projects', [validateToken, authorizeApiAccess(['projects:full'])], async (req, res, next) => {
     try {
         const projectData = req.body;
         const project = await db.createProject(projectData, req.remote_user);
@@ -23,7 +21,7 @@ router.post('/projects', [validateToken, authorizeApiAccess('')], async (req, re
     }
 });
 
-router.get('/projects', [validateToken, authorizeApiAccess('')],  async (req, res, next) => {
+router.get('/projects', [validateToken, authorizeApiAccess(['projects:full'])],  async (req, res, next) => {
     try {
         const projects = await db.getProjects();
         res.status(200).json(projects);
@@ -32,7 +30,7 @@ router.get('/projects', [validateToken, authorizeApiAccess('')],  async (req, re
     }
 });
 
-router.put('/projects/:id', [validateToken, authorizeApiAccess('')], async (req, res, next) => {
+router.put('/projects/:id', [validateToken, authorizeApiAccess(['projects:full'])], async (req, res, next) => {
     try {
         const id = req.params.id && mongoose.Types.ObjectId.isValid(req.params.id) ? req.params.id : null;
         const projectData = req.body;
@@ -47,7 +45,7 @@ router.put('/projects/:id', [validateToken, authorizeApiAccess('')], async (req,
     }
 });
 
-router.delete('/projects/:id', [validateToken, authorizeApiAccess('')], async (req, res, next) => {
+router.delete('/projects/:id', [validateToken, authorizeApiAccess(['projects:full'])], async (req, res, next) => {
     try {
         const id = req.params.id && mongoose.Types.ObjectId.isValid(req.params.id) ? req.params.id : null;
         if(!id) {
@@ -64,7 +62,7 @@ router.delete('/projects/:id', [validateToken, authorizeApiAccess('')], async (r
 // *********************************************************************************************************************
 // PERSONS CRUD
 // *********************************************************************************************************************
-router.post('/persons', [validateToken, authorizeApiAccess('')], async (req, res, next) => {
+router.post('/persons', [validateToken, authorizeApiAccess(['projects:full'])], async (req, res, next) => {
     try {
         const personData = req.body;
         const person = await db.createPerson(personData, req.remote_user);
@@ -74,7 +72,7 @@ router.post('/persons', [validateToken, authorizeApiAccess('')], async (req, res
     }
 });
 
-router.get('/persons', [validateToken, authorizeApiAccess('')],  async (req, res, next) => {
+router.get('/persons', [validateToken, authorizeApiAccess(['projects:full'])],  async (req, res, next) => {
     try {
         const persons = await db.getPersons();
         res.status(200).json(persons);
@@ -83,7 +81,7 @@ router.get('/persons', [validateToken, authorizeApiAccess('')],  async (req, res
     }
 });
 
-router.put('/persons/:id', [validateToken, authorizeApiAccess('')], async (req, res, next) => {
+router.put('/persons/:id', [validateToken, authorizeApiAccess(['projects:full'])], async (req, res, next) => {
     try {
         const id = req.params.id && mongoose.Types.ObjectId.isValid(req.params.id) ? req.params.id : null;
         const personData = req.body;
@@ -98,7 +96,7 @@ router.put('/persons/:id', [validateToken, authorizeApiAccess('')], async (req, 
     }
 });
 
-router.delete('/persons/:id', [validateToken, authorizeApiAccess('')], async (req, res, next) => {
+router.delete('/persons/:id', [validateToken, authorizeApiAccess(['projects:full'])], async (req, res, next) => {
     try {
         const id = req.params.id && mongoose.Types.ObjectId.isValid(req.params.id) ? req.params.id : null;
         if(!id) {
@@ -114,7 +112,7 @@ router.delete('/persons/:id', [validateToken, authorizeApiAccess('')], async (re
 // *********************************************************************************************************************
 // COMPANIES CRUD
 // *********************************************************************************************************************
-router.post('/companies', [validateToken, authorizeApiAccess('')], async (req, res, next) => {
+router.post('/companies', [validateToken, authorizeApiAccess(['projects:full'])], async (req, res, next) => {
     try {
         const companyData = req.body;
         const company = await db.createCompany(companyData, req.remote_user);
@@ -124,7 +122,7 @@ router.post('/companies', [validateToken, authorizeApiAccess('')], async (req, r
     }
 });
 
-router.get('/companies', [validateToken, authorizeApiAccess('')],  async (req, res, next) => {
+router.get('/companies', [validateToken, authorizeApiAccess(['projects:full'])],  async (req, res, next) => {
     try {
         const companies = await db.getCompanies();
         res.status(200).json(companies);
@@ -133,7 +131,7 @@ router.get('/companies', [validateToken, authorizeApiAccess('')],  async (req, r
     }
 });
 
-router.put('/companies/:id', [validateToken, authorizeApiAccess('')], async (req, res, next) => {
+router.put('/companies/:id', [validateToken, authorizeApiAccess(['projects:full'])], async (req, res, next) => {
     try {
         const id = req.params.id && mongoose.Types.ObjectId.isValid(req.params.id) ? req.params.id : null;
         const companyData = req.body;
@@ -148,7 +146,7 @@ router.put('/companies/:id', [validateToken, authorizeApiAccess('')], async (req
     }
 });
 
-router.delete('/companies/:id', [validateToken, authorizeApiAccess('')], async (req, res, next) => {
+router.delete('/companies/:id', [validateToken, authorizeApiAccess(['projects:full'])], async (req, res, next) => {
     try {
         const id = req.params.id && mongoose.Types.ObjectId.isValid(req.params.id) ? req.params.id : null;
         if(!id) {
@@ -162,46 +160,50 @@ router.delete('/companies/:id', [validateToken, authorizeApiAccess('')], async (
     }
 });
 
+//TODO DEPRECATED - use api for user
 // *********************************************************************************************************************
 // USERS _R__
 // *********************************************************************************************************************
-router.get('/users', [validateToken, authorizeApiAccess('')],  async (req, res, next) => {
+router.get('/users', [validateToken, authorizeApiAccess(['projects:full'])],  async (req, res, next) => {
     try {
-        const users = await db.getUsers();
+        const users = await dbUser.getUsers();
         res.status(200).json(users);
     } catch(e) {
         next(e);
     }
 });
+//TODO -----------------------------
 
 // *********************************************************************************************************************
 // AUTHORIZE API ACCESS
 // *********************************************************************************************************************
-function authorizeApiAccess(role) {
-    return function(req, res, next) {
-        next();
-        return;
-        const roleHierarchyIndex = ROLE_HIERARCHY.indexOf(role);
-        const user = req.headers['remote_user'] || req.remote_user; //TODO remove this
-        if(!user || roleHierarchyIndex < 0 ) {
+function authorizeApiAccess(access) {
+    return async function(req, res, next) {
+        const user = req.remote_user;
+        if(!user) {
             res.status(403).json({error: 'Unauthorized! Access Forbidden.'});
         } else {
-            const roleHierarchy = ROLE_HIERARCHY.slice(0, roleHierarchyIndex + 1);
-            /*dbCommon.getUserBySsoId(user).then(userIds => {
-                const hasRole = role === '' || roleHierarchy.some(access => userIds.role.indexOf(access) >= 0);
-                if(hasRole) {
-                    req.remote_user = user;
-                    next();
+            if(!access) next();
+            else {
+                if(!Array.isArray(access)) access = [access];
+                try {
+                    const userAccess = await dbUser.getUserAppAccess(user);
+                    let hasAccess = false;
+                    for(const a of access) hasAccess = !hasAccess && userAccess.indexOf(a) >= 0;
+                    if(hasAccess) next();
+                    else res.status(403).json({error: 'Unauthorized! Access Forbidden.'});
+                } catch(e) {
+                    res.status(403).json({error: `${e}`});
                 }
-                else res.status(403).json({error: 'Unauthorized! Access Forbidden.'});
-            }, () => res.status(403).json({error: 'Unauthorized! Access Forbidden.'}));*/
+            }
         }
     };
 }
+
 // *********************************************************************************************************************
 // API REQUEST ERROR HANDLING
 // *********************************************************************************************************************
-router.use(function (err, req, res, next) {
+router.use(function (err, req, res) {
     delete err.stack;
     logger.error(err);
     let statusCode = err.statusCode || 500;

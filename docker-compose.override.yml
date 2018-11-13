@@ -3,8 +3,8 @@ version: "3.4"
 services:
   web-server:
     environment:
-      NODE_ENV: 'development'
+     - NODE_ENV=development
 
   rest-api:
     environment:
-      NODE_ENV: 'development'
+      - NODE_ENV=development

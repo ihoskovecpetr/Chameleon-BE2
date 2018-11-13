@@ -8,7 +8,6 @@ const NANOID_LENGTH = 10;
 const Project = require('../models/project');
 const Person = require('../models/contact-person');
 const Company = require('../models/contact-company');
-const User = require('../models/user');
 
 // *******************************************************************************************
 // PROJECTS CRUD
@@ -86,13 +85,6 @@ exports.updatePerson = async (id, personData, user) => {
 exports.removePerson = async (id, user) => {
     await Person.findByIdAndUpdate(id, {deleted: new Date(), _user: user});
     await Company.update({person: id}, {$pull: {person: id}}, {multiple: true});
-    /*
-    const companies = await Company.find({person: id}, {person: true});
-    companies.forEach(async company => {
-        company.person = company.person.filter(person => person !== id);
-        await company.save();
-    });
-    */
 };
 
 // *******************************************************************************************
@@ -137,18 +129,4 @@ exports.updateCompany = async (id, companyData, user) => {
 exports.removeCompany = async (id, user) => {
     await Company.findByIdAndUpdate(id, {deleted: new Date(), _user: user});
     await Person.update({company: id}, {$pull: {company: id}}, {multiple: true});
-    /*
-    const persons = await Person.find({company: id}, {company: true});
-    persons.forEach(async person => {
-        person.company = person.company.filter(company => company !== id);
-        await person.save();
-    });
-    */
-};
-
-// *******************************************************************************************
-// USERS _R__
-// *******************************************************************************************
-exports.getUsers = async () => {
-    return await User.find({},{name: true, role: true, ssoId: true}).lean();
 };

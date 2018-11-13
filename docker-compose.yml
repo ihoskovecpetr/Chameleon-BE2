@@ -34,6 +34,12 @@ services:
       - traefik.docker.network=traefik_default
     networks:
       - traefik_default
+    environment:
+      - AUTH_TOKEN_SECRET
+      - AUTH_COOKIE_NAME
+      - AUTH_AD_HOST
+      - AUTH_AD_SSL
+      - AUTH_AD_BASE_DN
     restart: always
 
   rest-api:
@@ -55,6 +61,8 @@ services:
       - MONGO_DB_DATABASE
       - MONGO_DB_USER
       - MONGO_DB_PASSWORD
+      - AUTH_TOKEN_SECRET
+      - AUTH_COOKIE_NAME
     restart: always
 
 networks:

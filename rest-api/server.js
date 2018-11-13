@@ -10,6 +10,7 @@ const logger = require('./src/logger');
 
 const validateToken = require('./src/validateToken');
 
+const apiRouterUser = require('./src/routers/api-router-user');
 const apiRouterProject = require('./src/routers/api-router-project');
 
 // *********************************************************************************************************************
@@ -28,7 +29,7 @@ app.use(cookieParser());
 
 app.get('/api', validateToken, (req, res) => res.status(200).end('Chameleon RESTful API'));
 
-//app.use('/api/user', apiRouterUser);
+app.use('/api/users', apiRouterUser);
 app.use('/api/project', apiRouterProject);
 
 // *********************************************************************************************************************

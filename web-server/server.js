@@ -10,10 +10,9 @@ const logger = require('./src/logger');
 
 const validateToken = require('./src/validateToken');
 const authenticate =  require('./src/authenticate');
-const remoteUser =  require('./src/remoteUser');
 
-const AUTHENTICATION_COOKIE_NAME = process.env.AUTH_COOKIE_NAME || 'auth_token';
-const AUTHENTICATION_COOKIE_OPTION = {httpOnly: true, secure: process.env.NODE_ENV === 'production'};
+const AUTHENTICATION_COOKIE_NAME = process.env.AUTH_COOKIE_NAME;
+const AUTHENTICATION_COOKIE_OPTION = {httpOnly: true, secure: process.env.NODE_ENV !== 'development'};
 
 // *********************************************************************************************************************
 const PORT = 3000;
@@ -28,8 +27,6 @@ const app = express();
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(cookieParser());
-
-app.get('/remote-user', validateToken, remoteUser);
 
 app.get('/login', (req, res) => {
     res.clearCookie(AUTHENTICATION_COOKIE_NAME, AUTHENTICATION_COOKIE_OPTION);
@@ -48,7 +45,7 @@ app.delete('/authenticate', (req, res) => {
 
 app.post('/authenticate', async (req, res) => {
     const tokenData = await authenticate(req.body.username, req.body.password);
-    logger.info(tokenData);
+    //logger.info(tokenData);
     if(tokenData.token) {
         res.cookie(AUTHENTICATION_COOKIE_NAME, tokenData.token, AUTHENTICATION_COOKIE_OPTION);
         res.status(200).json();
