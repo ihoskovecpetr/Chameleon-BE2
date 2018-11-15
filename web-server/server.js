@@ -12,7 +12,7 @@ const validateToken = require('./src/validateToken');
 const authenticate =  require('./src/authenticate');
 
 const AUTHENTICATION_COOKIE_NAME = process.env.AUTH_COOKIE_NAME;
-const AUTHENTICATION_COOKIE_OPTION = {httpOnly: true, secure: process.env.NODE_ENV !== 'development'};
+const AUTHENTICATION_COOKIE_OPTION = {httpOnly: true, secure: process.env.AUTH_COOKIE_HTTPS_ONLY !== 'false'};
 
 // *********************************************************************************************************************
 const PORT = 3000;

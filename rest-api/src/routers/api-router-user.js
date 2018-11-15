@@ -22,7 +22,6 @@ router.get('/authenticated', validateToken, async (req, res, next) => {
         if(!authenticatedUserId) throw new Error('No remote user authenticated');
         const user = await db.getUserByUid(req.remote_user);
         user.exp = req.token_expiration;
-        res.json(user);
         res.status(200).json(user);
     } catch(e) {
         next(e);

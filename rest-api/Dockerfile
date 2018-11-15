@@ -1,5 +1,5 @@
 FROM node:8.12.0-alpine
-RUN addgroup -S chameleon && adduser -S chameleon chameleon
+RUN addgroup -g 2000 -S chameleon && adduser -S -u 2000 chameleon -G chameleon
 RUN mkdir /opt/rest-api  && chown chameleon /opt/rest-api
 USER chameleon
 WORKDIR /opt/rest-api

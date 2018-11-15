@@ -1,5 +1,5 @@
 FROM node:8.12.0-alpine
-RUN addgroup -S chameleon && adduser -S chameleon chameleon
+RUN addgroup -g 2000 -S chameleon && adduser -S -u 2000 chameleon -G chameleon
 RUN mkdir /opt/web-server  && chown chameleon /opt/web-server
 USER chameleon
 WORKDIR /opt/web-server
