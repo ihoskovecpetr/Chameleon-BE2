@@ -1,6 +1,7 @@
 {
   "name": "chameleon-rest-api",
-  "version": "1.0.0",
+  "log-tag": "rest-api",
+  "version": "0.1.0",
   "description": "Chameleon RESTFull Api",
   "author": "Miroslav Kozel <mirek.kozel@gmail.com>",
   "main": "server.js",
@@ -10,15 +11,14 @@
   "dependencies": {
     "body-parser": "^1.18.3",
     "cookie-parser": "^1.4.3",
-    "emailjs": "^2.2.0",
     "express": "^4.16.4",
     "fast-json-patch": "^2.0.7",
-    "fs-extra": "^7.0.0",
-    "jsonwebtoken": "^8.3.0",
+    "fluent-logger": "^3.2.1",
+    "jsonwebtoken": "^8.4.0",
     "moment": "^2.22.2",
     "mongoose": "^5.3.9",
     "nanoid": "^2.0.0",
-    "winston": "^2.4.4"
+    "winston": "^3.1.0"
   },
   "repository": "~mk",
   "license": "UNLICENSED"

@@ -19,9 +19,7 @@ const PORT = 3000;
 const HOST = '0.0.0.0';
 // *********************************************************************************************************************
 
-logger.info("=========================================================================");
 logger.info(`Chameleon Web Server version: ${version}, (${process.env.NODE_ENV === 'production' ? 'production' : 'development'})`);
-logger.info("=========================================================================");
 
 const app = express();
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -45,7 +43,6 @@ app.delete('/authenticate', (req, res) => {
 
 app.post('/authenticate', async (req, res) => {
     const tokenData = await authenticate(req.body.username, req.body.password);
-    //logger.info(tokenData);
     if(tokenData.token) {
         res.cookie(AUTHENTICATION_COOKIE_NAME, tokenData.token, AUTHENTICATION_COOKIE_OPTION);
         res.status(200).json();

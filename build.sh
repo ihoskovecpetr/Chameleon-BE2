@@ -51,5 +51,4 @@ cp -r ./docker-image-archives/ ./dist/docker-images/
 cp ./.prod.env ./dist/.env
 cp ./docker-compose.yml ./dist/docker-compose.yml
 cp ./traefik.toml ./dist/traefik.toml
-cp ./fluent.conf ./dist/fluent.conf
 cp -r ./www ./dist/www

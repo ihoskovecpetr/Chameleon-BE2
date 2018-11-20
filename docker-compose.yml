@@ -18,10 +18,10 @@ services:
     restart: always
     networks:
     - net
-    labels:
-    - traefik.backend=reverse-proxy
-    - 'traefik.frontend.rule=Host:${CHAMELEON_HOST};PathPrefixStrip:/traefik'
-    - traefik.port=8080
+#    labels:
+#    - traefik.backend=reverse-proxy
+#    - 'traefik.frontend.rule=Host:${CHAMELEON_HOST};PathPrefixStrip:/traefik'
+#    - traefik.port=8080
     depends_on:
     - fluentd
     logging:
@@ -40,9 +40,13 @@ services:
     image: ${FLUENTD_IMAGE}
     container_name: fluentd
     volumes:
-    - './fluent.conf:/fluentd/etc/fluent.conf'
     - './logs:/fluentd/log'
     restart: always
+    environment:
+      - LOGGING_MAIL_SERVER
+      - LOGGING_MAIL_USER
+      - LOGGING_MAIL_PASSWORD
+      - LOGGING_MAIL_RECIPIENT
     networks:
       net:
         ipv4_address: ${FLUENTD_IPV4}
@@ -76,14 +80,6 @@ services:
     restart: always
     depends_on:
     - fluentd
-    logging:
-      driver: fluentd
-      options:
-        fluentd-address: '${FLUENTD_IPV4}:24224'
-        fluentd-async-connect: 'true'
-        fluentd-retry-wait: '1s'
-        fluentd-max-retries: '30'
-        tag: chameleon.{{.Name}}
 
   ######################################################################################################################
   # REST API - NODE
@@ -115,14 +111,6 @@ services:
     restart: always
     depends_on:
     - fluentd
-    logging:
-      driver: fluentd
-      options:
-        fluentd-address: '${FLUENTD_IPV4}:24224'
-        fluentd-async-connect: 'true'
-        fluentd-retry-wait: '1s'
-        fluentd-max-retries: '30'
-        tag: chameleon.{{.Name}}
 
 networks:
   net:
