@@ -1,2 +1,3 @@
 #!/usr/bin/env bash
-docker build -t chameleon/web-server:latest -t chameleon/web-server:1.0.0 .
+version=$(<VERSION)
+docker build -t chameleon/web-server:latest -t chameleon/web-server:$version .

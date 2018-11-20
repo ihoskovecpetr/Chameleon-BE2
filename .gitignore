@@ -4,9 +4,11 @@
 !.dockerignore
 !.crossbar
 !.env
+!.prod.env
 npm-debug.log
 node_modules
 /docker-image-archives/*
 logs
 www
 certs
+dist
