@@ -1,0 +1,32 @@
+debug = false
+logLevel = "WARN" #DEBUG, INFO, WARN, ERROR, FATAL, PANIC
+
+defaultEntryPoints = ["http", "https", "wss"]
+
+[docker]
+  endpoint = "unix:///var/run/docker.sock"
+  watch = true
+  exposedByDefault = false
+
+[api]
+  entryPoint = "traefik"
+  dashboard = true
+  debug = true
+  address = ":8080"
+
+[entryPoints]
+  [entryPoints.http]
+    address = ":80"
+    [entryPoints.http.redirect]
+      entryPoint = "https"
+  [entryPoints.https]
+    address = ":443"
+     [entryPoints.https.tls]
+     [[entryPoints.https.tls.certificates]]
+       CertFile = "/etc/traefik/certs/upp.cz.crt"
+       KeyFile = "/etc/traefik/certs/upp.cz.key"
+  [entryPoints.wss]
+    address = ":9001"
+     [entryPoints.wss.tls]
+       CertFile = "/etc/traefik/certs/upp.cz.crt"
+       KeyFile = "/etc/traefik/certs/upp.cz.key"

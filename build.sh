@@ -29,10 +29,10 @@ cd ..
 # --------------------
 # crossbar
 # --------------------
-cd ./crossbar
-./build.sh
-./archive.sh
-cd ..
+#cd ./crossbar
+#./build.sh
+#./archive.sh
+#cd ..
 
 # --------------------
 # fluentd
@@ -50,5 +50,5 @@ mkdir ./dist/
 cp -r ./docker-image-archives/ ./dist/docker-images/
 cp ./.prod.env ./dist/.env
 cp ./docker-compose.yml ./dist/docker-compose.yml
-cp ./traefik.toml ./dist/traefik.toml
+cp ./traefik-prod.toml ./dist/traefik.toml
 cp -r ./www ./dist/www
