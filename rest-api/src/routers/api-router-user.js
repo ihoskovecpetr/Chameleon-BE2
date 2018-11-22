@@ -7,7 +7,9 @@ const validateToken = require('../validateToken');
 
 module.exports = router;
 
-router.get('/', [validateToken, authorizeApiAccess(['projects:full'])],  async (req, res, next) => {
+const PROJECTS_FULL_ACCESS  = ['projects:full'];
+
+router.get('/', [validateToken, authorizeApiAccess(PROJECTS_FULL_ACCESS)],  async (req, res, next) => {
     try {
         const users = await db.getUsers();
         res.status(200).json(users);

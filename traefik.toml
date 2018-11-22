@@ -1,5 +1,5 @@
 debug = false
-logLevel = "INFO" #DEBUG, INFO, WARN, ERROR, FATAL, PANIC
+logLevel = "WARN" #DEBUG, INFO, WARN, ERROR, FATAL, PANIC
 
 defaultEntryPoints = ["http"]
 

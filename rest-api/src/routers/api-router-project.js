@@ -8,10 +8,12 @@ const validateToken = require('../validateToken');
 
 module.exports = router;
 
+const FULL_ACCESS  = ['projects:full'];
+
 // *********************************************************************************************************************
 // PROJECTS CRUD
 // *********************************************************************************************************************
-router.post('/projects', [validateToken, authorizeApiAccess(['projects:full'])], async (req, res, next) => {
+router.post('/projects', [validateToken, authorizeApiAccess(FULL_ACCESS)], async (req, res, next) => {
     try {
         const projectData = req.body;
         const project = await db.createProject(projectData, req.remote_user);
@@ -21,7 +23,7 @@ router.post('/projects', [validateToken, authorizeApiAccess(['projects:full'])],
     }
 });
 
-router.get('/projects', [validateToken, authorizeApiAccess(['projects:full'])],  async (req, res, next) => {
+router.get('/projects', [validateToken, authorizeApiAccess(FULL_ACCESS)],  async (req, res, next) => {
     try {
         const projects = await db.getProjects();
         res.status(200).json(projects);
@@ -30,7 +32,7 @@ router.get('/projects', [validateToken, authorizeApiAccess(['projects:full'])], 
     }
 });
 
-router.put('/projects/:id', [validateToken, authorizeApiAccess(['projects:full'])], async (req, res, next) => {
+router.put('/projects/:id', [validateToken, authorizeApiAccess(FULL_ACCESS)], async (req, res, next) => {
     try {
         const id = req.params.id && mongoose.Types.ObjectId.isValid(req.params.id) ? req.params.id : null;
         const projectData = req.body;
@@ -45,7 +47,7 @@ router.put('/projects/:id', [validateToken, authorizeApiAccess(['projects:full']
     }
 });
 
-router.delete('/projects/:id', [validateToken, authorizeApiAccess(['projects:full'])], async (req, res, next) => {
+router.delete('/projects/:id', [validateToken, authorizeApiAccess(FULL_ACCESS)], async (req, res, next) => {
     try {
         const id = req.params.id && mongoose.Types.ObjectId.isValid(req.params.id) ? req.params.id : null;
         if(!id) {
@@ -62,7 +64,7 @@ router.delete('/projects/:id', [validateToken, authorizeApiAccess(['projects:ful
 // *********************************************************************************************************************
 // PERSONS CRUD
 // *********************************************************************************************************************
-router.post('/persons', [validateToken, authorizeApiAccess(['projects:full'])], async (req, res, next) => {
+router.post('/persons', [validateToken, authorizeApiAccess(FULL_ACCESS)], async (req, res, next) => {
     try {
         const personData = req.body;
         const person = await db.createPerson(personData, req.remote_user);
@@ -72,7 +74,7 @@ router.post('/persons', [validateToken, authorizeApiAccess(['projects:full'])], 
     }
 });
 
-router.get('/persons', [validateToken, authorizeApiAccess(['projects:full'])],  async (req, res, next) => {
+router.get('/persons', [validateToken, authorizeApiAccess(FULL_ACCESS)],  async (req, res, next) => {
     try {
         const persons = await db.getPersons();
         res.status(200).json(persons);
@@ -81,7 +83,7 @@ router.get('/persons', [validateToken, authorizeApiAccess(['projects:full'])],  
     }
 });
 
-router.put('/persons/:id', [validateToken, authorizeApiAccess(['projects:full'])], async (req, res, next) => {
+router.put('/persons/:id', [validateToken, authorizeApiAccess(FULL_ACCESS)], async (req, res, next) => {
     try {
         const id = req.params.id && mongoose.Types.ObjectId.isValid(req.params.id) ? req.params.id : null;
         const personData = req.body;
@@ -96,7 +98,7 @@ router.put('/persons/:id', [validateToken, authorizeApiAccess(['projects:full'])
     }
 });
 
-router.delete('/persons/:id', [validateToken, authorizeApiAccess(['projects:full'])], async (req, res, next) => {
+router.delete('/persons/:id', [validateToken, authorizeApiAccess(FULL_ACCESS)], async (req, res, next) => {
     try {
         const id = req.params.id && mongoose.Types.ObjectId.isValid(req.params.id) ? req.params.id : null;
         if(!id) {
@@ -112,7 +114,7 @@ router.delete('/persons/:id', [validateToken, authorizeApiAccess(['projects:full
 // *********************************************************************************************************************
 // COMPANIES CRUD
 // *********************************************************************************************************************
-router.post('/companies', [validateToken, authorizeApiAccess(['projects:full'])], async (req, res, next) => {
+router.post('/companies', [validateToken, authorizeApiAccess(FULL_ACCESS)], async (req, res, next) => {
     try {
         const companyData = req.body;
         const company = await db.createCompany(companyData, req.remote_user);
@@ -122,7 +124,7 @@ router.post('/companies', [validateToken, authorizeApiAccess(['projects:full'])]
     }
 });
 
-router.get('/companies', [validateToken, authorizeApiAccess(['projects:full'])],  async (req, res, next) => {
+router.get('/companies', [validateToken, authorizeApiAccess(FULL_ACCESS)],  async (req, res, next) => {
     try {
         const companies = await db.getCompanies();
         res.status(200).json(companies);
@@ -131,7 +133,7 @@ router.get('/companies', [validateToken, authorizeApiAccess(['projects:full'])],
     }
 });
 
-router.put('/companies/:id', [validateToken, authorizeApiAccess(['projects:full'])], async (req, res, next) => {
+router.put('/companies/:id', [validateToken, authorizeApiAccess(FULL_ACCESS)], async (req, res, next) => {
     try {
         const id = req.params.id && mongoose.Types.ObjectId.isValid(req.params.id) ? req.params.id : null;
         const companyData = req.body;
@@ -146,7 +148,7 @@ router.put('/companies/:id', [validateToken, authorizeApiAccess(['projects:full'
     }
 });
 
-router.delete('/companies/:id', [validateToken, authorizeApiAccess(['projects:full'])], async (req, res, next) => {
+router.delete('/companies/:id', [validateToken, authorizeApiAccess(FULL_ACCESS)], async (req, res, next) => {
     try {
         const id = req.params.id && mongoose.Types.ObjectId.isValid(req.params.id) ? req.params.id : null;
         if(!id) {
@@ -164,7 +166,7 @@ router.delete('/companies/:id', [validateToken, authorizeApiAccess(['projects:fu
 // *********************************************************************************************************************
 // USERS _R__
 // *********************************************************************************************************************
-router.get('/users', [validateToken, authorizeApiAccess(['projects:full'])],  async (req, res, next) => {
+router.get('/users', [validateToken, authorizeApiAccess(FULL_ACCESS)],  async (req, res, next) => {
     try {
         const users = await dbUser.getUsers();
         res.status(200).json(users);

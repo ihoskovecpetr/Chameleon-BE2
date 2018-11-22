@@ -3,14 +3,14 @@ const mongoose = require('mongoose');
 const logger = require('./logger');
 
 const config = {
-    "host": process.env.MONGO_DB_HOST,
-    "port": process.env.MONGO_DB_PORT,
-    "database": process.env.MONGO_DB_DATABASE,
-    "user": process.env.MONGO_DB_USER,
-    "password": process.env.MONGO_DB_PASSWORD,
-    "reconnectInterval": 10, //seconds
-    "firstConnectionTriesToError": 6, //1min
-    "connectionTriesToError": 30 //5min
+    host: process.env.MONGO_DB_HOST,
+    port: process.env.MONGO_DB_PORT,
+    database: process.env.MONGO_DB_DATABASE,
+    user: process.env.MONGO_DB_USER,
+    password: process.env.MONGO_DB_PASSWORD,
+    reconnectInterval: 15, //seconds
+    firstConnectionTriesToError: 8, //tries * reconnectInterval => 8 = 2min
+    connectionTriesToError: 40 //tries * reconnectInterval => 40 = 10min
 };
 
 let mongoWasConnectedBefore = false;
@@ -66,13 +66,6 @@ module.exports = async () => {
 
     mongoose.connection.once('open', function () {
         mongoWasConnectedBefore = true;
-    });
-
-    process.on('SIGINT', function () {
-        mongoose.connection.close(function () {
-            logger.info('Disconnected MongoDB through app termination.');
-            process.exit(0);
-        });
     });
 
     connect();

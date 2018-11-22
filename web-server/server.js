@@ -44,9 +44,11 @@ app.delete('/authenticate', (req, res) => {
 app.post('/authenticate', async (req, res) => {
     const tokenData = await authenticate(req.body.username, req.body.password);
     if(tokenData.token) {
+        logger.info(`User '${req.body.username}' authenticated, token: ${tokenData.token}.`);
         res.cookie(AUTHENTICATION_COOKIE_NAME, tokenData.token, AUTHENTICATION_COOKIE_OPTION);
         res.status(200).json();
     } else {
+        logger.warn(`User '${req.body.username}' not authenticated. ${tokenData.error}`);
         res.clearCookie(AUTHENTICATION_COOKIE_NAME, AUTHENTICATION_COOKIE_OPTION);
         res.status(401).json(tokenData);
     }
@@ -60,7 +62,26 @@ app.get('/projects',  validateToken, (req, res) => res.sendFile(path.join(__dirn
 app.use(express.static(__dirname + '/www/static'));
 
 // *********************************************************************************************************************
-app.listen(PORT, HOST, (err) => {
-    if (err) logger.error(err);
-    else logger.info(`Server listening on port: ${PORT}`);
+const server = app.listen(PORT, HOST, (err) => {
+    if (err) {
+        logger.error(err);
+        process.exit(1);
+    } else logger.info(`Server listening on port: ${PORT}`);
+});
+
+const signals = {
+    'SIGINT': 2,
+    'SIGTERM': 15
+};
+
+Object.keys(signals).forEach(signal => {
+    process.on(signal, async () => {
+        logger.info(`Received Signal ${signal}, shutting down.`);
+        // Server
+        logger.info('Stopping server gracefully...');
+        await server.close();
+        logger.info(`Server stopped.`);
+        // Shutdown
+        process.exit(128 + signals[signal]);
+    });
 });

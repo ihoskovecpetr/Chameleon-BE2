@@ -76,7 +76,9 @@ services:
     - AUTH_AD_SSL
     - AUTH_AD_BASE_DN
     - NODE_ENV
+    - LOGGER_LEVEL
     - FLUENTD_IPV4
+    - AUTH_DEBUG_PASSWORD
     restart: always
     depends_on:
     - fluentd
@@ -107,6 +109,7 @@ services:
     - AUTH_TOKEN_SECRET
     - AUTH_COOKIE_NAME
     - NODE_ENV
+    - LOGGER_LEVEL
     - FLUENTD_IPV4
     restart: always
     depends_on:

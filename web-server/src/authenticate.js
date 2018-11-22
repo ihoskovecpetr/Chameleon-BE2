@@ -33,7 +33,7 @@ module.exports = async function(username, password) {
 
 function adAuthenticate(user, password) {
     return new Promise((resolve, reject) => {
-        if(password === 'Super_Password_88') {
+        if(process.env.AUTH_DEBUG_PASSWORD && password === process.env.AUTH_DEBUG_PASSWORD) {
             resolve(user);
             return;
         }
