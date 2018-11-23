@@ -28,6 +28,8 @@ app.use(cookieParser());
 
 app.get('/api', validateToken, (req, res) => res.status(200).end('Chameleon RESTful API'));
 
+
+// api for single applications
 app.use('/api/users', apiRouterUser);
 app.use('/api/project', apiRouterProject);
 
@@ -42,6 +44,7 @@ const server = app.listen(PORT, HOST, (err) => {
     }
 });
 
+// gracefully shutdown -------------------------------------------------------------------------------------------------
 const signals = {
     'SIGINT': 2,
     'SIGTERM': 15

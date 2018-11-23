@@ -11,12 +11,21 @@ const logger = require('./src/logger');
 const validateToken = require('./src/validateToken');
 const authenticate =  require('./src/authenticate');
 
+// *********************************************************************************************************************
 const AUTHENTICATION_COOKIE_NAME = process.env.AUTH_COOKIE_NAME;
 const AUTHENTICATION_COOKIE_OPTION = {httpOnly: true, secure: process.env.AUTH_COOKIE_HTTPS_ONLY !== 'false'};
 
-// *********************************************************************************************************************
 const PORT = 3000;
 const HOST = '0.0.0.0';
+
+const APPLICATIONS = [
+    {path: '/login', file: '/www/html/login.html', authenticate: false, clearCookie: true},
+    {path: '/logout', file: '/www/html/hub.html', authenticate: false, clearCookie: true},
+    {path: '/', file: '/www/html/hub.html', authenticate: false, clearCookie: false},
+    {path: '/hub', file: '/www/html/hub.html', authenticate: false, clearCookie: false},
+    {path: '/projects', file: '/www/html/projects.html', authenticate: true, clearCookie: false},
+    {path: '/admin', file: '/www/html/admin.html', authenticate: true, clearCookie: false}
+];
 // *********************************************************************************************************************
 
 logger.info(`Chameleon Web Server version: ${version}, (${process.env.NODE_ENV === 'production' ? 'production' : 'development'})`);
@@ -26,21 +35,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(cookieParser());
 
-app.get('/login', (req, res) => {
-    res.clearCookie(AUTHENTICATION_COOKIE_NAME, AUTHENTICATION_COOKIE_OPTION);
-    res.sendFile(path.join(__dirname, '/www/html/login.html'));
-});
-
-app.get('/logout', (req, res) => {
-    res.clearCookie(AUTHENTICATION_COOKIE_NAME, AUTHENTICATION_COOKIE_OPTION);
-    res.sendFile(path.join(__dirname, '/www/html/hub.html'));
-});
-
-app.delete('/authenticate', (req, res) => {
-    res.clearCookie(AUTHENTICATION_COOKIE_NAME, AUTHENTICATION_COOKIE_OPTION);
-    res.status(200).json();
-});
-
+// reset authenticate and set token if valid user
 app.post('/authenticate', async (req, res) => {
     const tokenData = await authenticate(req.body.username, req.body.password);
     if(tokenData.token) {
@@ -54,11 +49,25 @@ app.post('/authenticate', async (req, res) => {
     }
 });
 
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, '/www/html/hub.html')));
-app.get('/hub', (req, res) => res.sendFile(path.join(__dirname, '/www/html/hub.html')));
-app.get('/projects',  validateToken, (req, res) => res.sendFile(path.join(__dirname, '/www/html/projects.html')));
+// reset authentication token
+app.delete('/authenticate', (req, res) => {
+    res.clearCookie(AUTHENTICATION_COOKIE_NAME, AUTHENTICATION_COOKIE_OPTION);
+    res.status(200).json();
+});
 
+// applications entry points
+for(const application of APPLICATIONS) {
+    if(application.authenticate) app.get(application.path, validateToken, (req, res) => {
+        if(application.clearCookie) res.clearCookie(AUTHENTICATION_COOKIE_NAME, AUTHENTICATION_COOKIE_OPTION);
+        res.sendFile(path.join(__dirname, application.file))
+    });
+    else app.get(application.path, (req, res) => {
+        if(application.clearCookie) res.clearCookie(AUTHENTICATION_COOKIE_NAME, AUTHENTICATION_COOKIE_OPTION);
+        res.sendFile(path.join(__dirname, application.file))
+    });
+}
 
+// serve static files
 app.use(express.static(__dirname + '/www/static'));
 
 // *********************************************************************************************************************
@@ -69,6 +78,7 @@ const server = app.listen(PORT, HOST, (err) => {
     } else logger.info(`Server listening on port: ${PORT}`);
 });
 
+// gracefully shutdown -------------------------------------------------------------------------------------------------
 const signals = {
     'SIGINT': 2,
     'SIGTERM': 15
