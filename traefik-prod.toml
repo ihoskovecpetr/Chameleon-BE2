@@ -1,5 +1,6 @@
 debug = false
 logLevel = "WARN" #DEBUG, INFO, WARN, ERROR, FATAL, PANIC
+checkNewVersion = false
 
 defaultEntryPoints = ["http", "https", "wss"]
 
