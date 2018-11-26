@@ -108,6 +108,8 @@ services:
     - MONGO_DB_PASSWORD
     - AUTH_TOKEN_SECRET
     - AUTH_COOKIE_NAME
+    - AD_USER
+    - AD_PASSWORD
     - NODE_ENV
     - LOGGER_LEVEL
     - FLUENTD_IPV4

@@ -13,6 +13,8 @@ const validateToken = require('./src/validateToken');
 
 const apiRouterUser = require('./src/routers/api-router-user');
 const apiRouterProject = require('./src/routers/api-router-project');
+const apiRouterBooking = require('./src/routers/api-router-booking');
+const apiRouterPusher = require('./src/routers/api-router-pusher');
 
 // *********************************************************************************************************************
 const PORT = 3000;
@@ -32,6 +34,8 @@ app.get('/api', validateToken, (req, res) => res.status(200).end('Chameleon REST
 // api for single applications
 app.use('/api/users', apiRouterUser);
 app.use('/api/project', apiRouterProject);
+app.use('/api/booking', apiRouterBooking);
+app.use('/api/pusher', apiRouterPusher);
 
 // *********************************************************************************************************************
 const server = app.listen(PORT, HOST, (err) => {
