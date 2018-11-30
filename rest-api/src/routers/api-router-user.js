@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
 const db = require('../dbData/mongoDb-user');
-const logger = require('../logger');
+const ad = require('../dbData/ADdata');
 const validateToken = require('../validateToken');
 
 module.exports = router;
@@ -53,96 +53,53 @@ router.get('/admin', [validateToken, authorizeApiAccess(ADMIN_ACCESS)],  async (
 });
 
 // *********************************************************************************************************************
-// PUT USER - UPDATE USER FROM ADMIN CONSOLE
+// PUT USER - UPDATE USER
 // *********************************************************************************************************************
+router.put('/:id', [validateToken, authorizeApiAccess(ADMIN_ACCESS)],  async (req, res, next) => {
+    try {
+        const id = req.params.id && mongoose.Types.ObjectId.isValid(req.params.id) ? req.params.id : null;
+        const userData = req.body;
+        if(!id || !userData || (userData._id && userData._id !== id)) {
+            next(new Error('Wrong or mismatched user data.'));
+        } else {
+            await db.updateUser(id, userData);
+            res.status(200).end();
+        }
+    } catch(e) {
+        next(e);
+    }
+});
 
 // *********************************************************************************************************************
-// POST USERS - ADD FROM ADMIN CONSOLE
+// POST USERS - ADD NEW  USER
 // *********************************************************************************************************************
+router.post('/', [validateToken, authorizeApiAccess(ADMIN_ACCESS)],  async (req, res, next) => {
+    try {
+        const userData = req.body;
+        if(!userData) {
+            next(new Error('Missing user data.'));
+        } else {
+            await db.addUser(userData);
+            res.status(200).end();
+        }
+    } catch(e) {
+        next(e);
+    }
+});
 
 // *********************************************************************************************************************
 // GET USER'S AD DATA FOR ADMIN CONSOLE
 // *********************************************************************************************************************
-
-// *********************************************************************************************************************
-// PUT /groups - update groupa
-// *********************************************************************************************************************
-
-/*
-async function getUsersForAdminConsole() {
-    const users = await User.find({}, {_id: true, name: true, ssoId: true, pinGroupId: true, access: true, role: true, resource: true, email:true, tlf: true}).lean();
-    const resources = await BookingResource.find({type: 'OPERATOR'}, {_id: true, label: true}).lean();
-    const groups = await PusherGroup.find({owner: null}, {_id: true, label: true, members: true}).lean();
-    return {users, resources, groups}
-}
-
-async function updateUserForAdminConsole(uid, data) {
-    const user = await User.findByIdAndUpdate(uid, {$set: data});
-    if(user) {
-        const groups = await PusherGroup.find({owner: null}, {_id: true, label: true, members: true}).lean();
-        const promises = [];
-        groups.forEach(group => {
-            const wasMemberOfGroup = group.members.map(member => member.toString()).indexOf(uid) >= 0;
-            const willBeMemberOfGroup = data.groups.indexOf(group._id.toString()) >= 0;
-            if(wasMemberOfGroup !== willBeMemberOfGroup) {
-                const updateData = wasMemberOfGroup ? {$pull: {members: uid}} : {$push: {members: uid}};
-                promises.push(PusherGroup.findByIdAndUpdate(group._id, updateData));
-            }
-        });
-        await Promise.all(promises);
-    } else {
-        throw new Error(`Can't update user "${uid}" - User not found.`);
+router.get('/ad/:uid', [validateToken, authorizeApiAccess(ADMIN_ACCESS)],  async (req, res, next) => {
+    try {
+        const uid = req.params.uid;
+        const user = await ad.getUser(uid);
+        res.status(200).json(user);
+    } catch(e) {
+        next(e);
     }
-}
+});
 
-async function addUserForAdminConsole(data) {
-    const user = await User.create(data);
-    await Promise.all(data.groups.map(group => PusherGroup.findByIdAndUpdate(group, {$push: {members: user._id}})));
-}
-
-async function updateGroupsForAdminConsole(data) {
-    if(data) {
-        const promises = [];
-        const groups = await PusherGroup.find({owner: null}, {_id: true, label: true, members: true}).lean();
-        data.forEach(group => {
-            if(group._id === null) {
-                delete group._id;
-                promises.push(PusherGroup.create(group));
-            } else {
-                const original = groups.find(g => g._id.toString() === group._id);
-                if(original) {
-                    let update = null;
-                    if(original.label !== group.label) {
-                        if(!update) update = {};
-                        update.label = group.label;
-                    }
-                    const originalMembers = original.members.map(m => m.toString()).sort();
-                    const currentMembers = group.members.map(m => m.toString()).sort();
-                    if(originalMembers.length !== currentMembers.length) {
-                        if(!update) update = {};
-                        update.members = group.members;
-                    } else {
-                        let needUpdate = false;
-                        for(let i=0; i < originalMembers.length; i++) {
-                            if(!needUpdate && originalMembers[i] !== currentMembers[i]) {
-                                needUpdate = true;
-                                if(!update) update = {};
-                                update.members = group.members;
-                            }
-                        }
-                    }
-                    if(update) promises.push(PusherGroup.update({_id: group._id}, {$set: update}));
-                }
-            }
-        });
-        const toRemove = groups.map(g => g._id.toString()).filter(g => !data.find(gg => gg._id === g));
-        if(toRemove.length > 0) {
-            promises.push(PusherGroup.remove({_id: {$in: toRemove}}));
-        }
-        await Promise.all(promises);
-    }
-}
-*/
 // *********************************************************************************************************************
 // AUTHORIZE API ACCESS
 // *********************************************************************************************************************
@@ -169,12 +126,3 @@ function authorizeApiAccess(access) {
     };
 }
 
-// *********************************************************************************************************************
-// API REQUEST ERROR HANDLING
-// *********************************************************************************************************************
-router.use(function (err, req, res) {
-    delete err.stack;
-    logger.error(err);
-    let statusCode = err.statusCode || 500;
-    res.status(statusCode).json({error: `${err}`});
-});

@@ -28,15 +28,27 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(cookieParser());
 
+// api info
 app.get('/api', validateToken, (req, res) => res.status(200).end('Chameleon RESTful API'));
-
-
 // api for single applications
 app.use('/api/users', apiRouterUser);
 app.use('/api/project', apiRouterProject);
 app.use('/api/booking', apiRouterBooking);
 app.use('/api/pusher', apiRouterPusher);
 
+// *********************************************************************************************************************
+// Error handler
+// *********************************************************************************************************************
+app.use((err, req, res, next) => {
+    delete err.stack;
+    let statusCode = err.statusCode || 500;
+    if(statusCode >= 500) logger.error(`${err}`);
+    else logger.warn(`${err}`);
+    res.status(statusCode).json({Error: `${err}`});
+});
+
+// *********************************************************************************************************************
+// SERVER start
 // *********************************************************************************************************************
 const server = app.listen(PORT, HOST, (err) => {
     if (err) {
@@ -48,7 +60,9 @@ const server = app.listen(PORT, HOST, (err) => {
     }
 });
 
-// gracefully shutdown -------------------------------------------------------------------------------------------------
+// *********************************************************************************************************************
+// gracefully shutdown
+// *********************************************************************************************************************
 const signals = {
     'SIGINT': 2,
     'SIGTERM': 15

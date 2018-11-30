@@ -30,7 +30,8 @@ const dbOptions = {
     reconnectTries: Number.MAX_VALUE,
     reconnectInterval: config.reconnectInterval * 1000,
     useNewUrlParser: true,
-    useCreateIndex: true
+    useCreateIndex: true,
+    useFindAndModify: false
 };
 
 module.exports = async () => {

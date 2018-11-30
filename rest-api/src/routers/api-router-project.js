@@ -188,12 +188,3 @@ function authorizeApiAccess(access) {
     };
 }
 
-// *********************************************************************************************************************
-// API REQUEST ERROR HANDLING
-// *********************************************************************************************************************
-router.use(function (err, req, res) {
-    delete err.stack;
-    logger.error(err);
-    let statusCode = err.statusCode || 500;
-    res.status(statusCode).json({error: `${err}`});
-});

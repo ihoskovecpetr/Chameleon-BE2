@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 
 //Collections
 const User = require('../models/user');
+const PusherGroup = require('../models/pusher-group');
 
 // *******************************************************************************************
 // USERS
@@ -21,6 +22,30 @@ exports.getUserByUid = async (uid, fields) => {
     const user =  await User.findOne({ssoId: uid}, requestedField).lean();
     if (user) return user;
     throw new Error(`User: ${uid} not found.`);
+};
+
+exports.updateUser = async (id, data) => {
+    const user = await User.findByIdAndUpdate(id, {$set: data});
+    if(user) {
+        const groups = await PusherGroup.find({owner: null}, {_id: true, label: true, members: true}).lean();
+        const promises = [];
+        groups.forEach(group => {
+            const wasMemberOfGroup = group.members.map(member => member.toString()).indexOf(id) >= 0;
+            const willBeMemberOfGroup = data.groups.indexOf(group._id.toString()) >= 0;
+            if(wasMemberOfGroup !== willBeMemberOfGroup) {
+                const updateData = wasMemberOfGroup ? {$pull: {members: id}} : {$push: {members: id}};
+                promises.push(PusherGroup.findByIdAndUpdate(group._id, updateData));
+            }
+        });
+        await Promise.all(promises);
+    } else {
+        throw new Error(`Can't update user "${id}" - User not found.`);
+    }
+};
+
+exports.addUser = async (data) => {
+    const user = await User.create(data);
+    await Promise.all(data.groups.map(group => PusherGroup.findByIdAndUpdate(group, {$push: {members: user._id}})));
 };
 
 // *******************************************************************************************

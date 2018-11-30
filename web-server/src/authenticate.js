@@ -4,9 +4,9 @@ const ActiveDirectory = require('activedirectory');
 const jwt = require('jsonwebtoken');
 
 const configAd = {
-    "host": process.env.AUTH_AD_HOST,
-    "ssl": process.env.AUTH_AD_SSL && (process.env.AUTH_AD_SSL === 'true' || process.env.AUTH_AD_SSL === 'TRUE'),
-    "baseDn": process.env.AUTH_AD_BASE_DN
+    host: process.env.AUTH_AD_HOST,
+    ssl: process.env.AUTH_AD_SSL && (process.env.AUTH_AD_SSL === 'true' || process.env.AUTH_AD_SSL === 'TRUE'),
+    baseDn: process.env.AUTH_AD_BASE_DN
 };
 
 const AUTH_TOKEN_SECRET = process.env.AUTH_TOKEN_SECRET;

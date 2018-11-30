@@ -13,3 +13,19 @@ exports.getPublicPusherGroups = async fields => {
     if(fields) for(const field of fields) requestedField[field] = true;
     return await PusherGroup.find({owner: null}, requestedField).lean();
 };
+
+exports.updatePusherGroup = async (id, data) => {
+    delete data._id;
+    await PusherGroup.findOneAndUpdate({_id: id}, data);
+};
+
+exports.addPusherGroup = async data => {
+    delete data._id;
+    await PusherGroup.create(data);
+};
+
+
+exports.removePusherGroup = async (id) => {
+    await PusherGroup.findOneAndDelete({_id: id});
+};
+
