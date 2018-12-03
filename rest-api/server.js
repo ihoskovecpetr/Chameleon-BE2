@@ -11,10 +11,9 @@ const logger = require('./src/logger');
 
 const validateToken = require('./src/validateToken');
 
-const apiRouterUser = require('./src/routers/api-router-user');
-const apiRouterProject = require('./src/routers/api-router-project');
-const apiRouterBooking = require('./src/routers/api-router-booking');
-const apiRouterPusher = require('./src/routers/api-router-pusher');
+const apiRouterChameleon = require('./src/routers/api-router-chameleon');
+const apiRouterAdmin = require('./src/routers/api-router-admin');
+const apiRouterProjects = require('./src/routers/api-router-projects');
 
 // *********************************************************************************************************************
 const PORT = 3000;
@@ -29,12 +28,11 @@ app.use(bodyParser.json());
 app.use(cookieParser());
 
 // api info
-app.get('/api', validateToken, (req, res) => res.status(200).end('Chameleon RESTful API'));
+app.get('/api/v1', validateToken, (req, res) => res.status(200).end('Chameleon RESTful API v.1'));
 // api for single applications
-app.use('/api/users', apiRouterUser);
-app.use('/api/project', apiRouterProject);
-app.use('/api/booking', apiRouterBooking);
-app.use('/api/pusher', apiRouterPusher);
+app.use('/api/v1/chameleon', apiRouterChameleon);
+app.use('/api/v1/admin', apiRouterAdmin);
+app.use('/api/v1/projects', apiRouterProjects);
 
 // *********************************************************************************************************************
 // Error handler
