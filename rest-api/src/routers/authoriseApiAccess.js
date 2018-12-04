@@ -24,7 +24,6 @@ module.exports = access => {
                         next(error);
                     }
                 } catch(error) {
-                    error.statusCode = 500;
                     next(error);
                 }
             }

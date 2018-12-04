@@ -72,6 +72,7 @@ const historyPlugin = (options) => {
     async function postUpdateOne() {
         if(this._original) {
             const current = await this.model.findOne({_id: this._original._id});
+            if(!current) throw new Error('No current document found.');
             current._original = this._original;
             current._method = this._method;
             current.__user = this.__user;
@@ -98,6 +99,7 @@ const historyPlugin = (options) => {
         if(this._originals && this._originals.length > 0) {
             for(const original of this._originals) {
                 const current = await this.model.findOne({_id: original._id});
+                if(!current) throw new Error('No current document found.');
                 current._original = original;
                 current._method = this._method;
                 current.__user = this.__user;

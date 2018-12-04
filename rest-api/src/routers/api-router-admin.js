@@ -21,7 +21,6 @@ router.get('/users', [validateToken, authoriseApiAccess(ADMIN_ACCESS)],  async (
         const users = await db.getUsers();
         res.status(200).json(users);
     } catch(error) {
-        error.statusCode = 500;
         next(error);
     }
 });
@@ -34,7 +33,6 @@ router.get('/resources', [validateToken, authoriseApiAccess(ADMIN_ACCESS)],  asy
         const resources = await db.getResources('OPERATOR');
         res.status(200).json(resources);
     } catch(error) {
-        error.statusCode = 500;
         next(error);
     }
 });
@@ -47,7 +45,6 @@ router.get('/pusher-groups', [validateToken, authoriseApiAccess(ADMIN_ACCESS)], 
         const groups = await db.getPusherPublicGroups();
         res.status(200).json(groups);
     } catch(error) {
-        error.statusCode = 500;
         next(error);
     }
 });
@@ -61,7 +58,6 @@ router.get('/users/ad/:uid', [validateToken, authoriseApiAccess(ADMIN_ACCESS)], 
         const user = await ad.getUser(uid);
         res.status(200).json(user);
     } catch(error) {
-        error.statusCode = 500;
         next(error);
     }
 });
@@ -81,7 +77,6 @@ router.post('/users', [validateToken, authoriseApiAccess(ADMIN_ACCESS)], async (
             res.status(201).end();
         }
     } catch(error) {
-        error.statusCode = 500;
         next(error);
     }
 });
@@ -103,7 +98,6 @@ router.put('/users/:id', [validateToken, authoriseApiAccess(ADMIN_ACCESS)], asyn
             res.status(204).end();
         }
     } catch(error) {
-        error.statusCode = 500;
         next(error);
     }
 });
@@ -123,7 +117,6 @@ router.post('/pusher-groups', [validateToken, authoriseApiAccess(ADMIN_ACCESS)],
             res.status(201).end();
         }
     } catch(error) {
-        error.statusCode = 500;
         next(error);
     }
 });
@@ -145,7 +138,6 @@ router.put('/pusher-groups/:id', [validateToken, authoriseApiAccess(ADMIN_ACCESS
             res.status(204).end();
         }
     } catch(error) {
-        error.statusCode = 500;
         next(error);
     }
 });
@@ -165,7 +157,6 @@ router.delete('/pusher-groups/:id', [validateToken, authoriseApiAccess(ADMIN_ACC
             res.status(204).end();
         }
     } catch(error) {
-        error.statusCode = 500;
         next(error);
     }
 });

@@ -26,7 +26,6 @@ router.get('/users/authenticated', [validateToken],  async (req, res, next) => {
             res.status(200).json(user);
         }
     } catch(error) {
-        error.statusCode = 500;
         next(error);
     }
 });
