@@ -2,16 +2,17 @@
 #stop on error
 set -e
 
+# full list of supported - outputted parts
 app_full_list=( reverse-proxy fluentd web-server rest-api crossbar )
 
 #set list of services from command line or default full list
-if [ "$#" -eq 0 ]; then
+if [[ "$#" -eq 0 ]]; then
   app_list=( "${app_full_list[@]}" chameleon )
 else
   app_list=( "$@" )
 fi
 
-#remove chameleon if exists - to do it at the end
+#remove chameleon if exists - do it at the end
 num_of_apps=${#app_list[@]}
 app_list=(${app_list[@]//chameleon/})
 num_of_apps_minus_chameleon=${#app_list[@]}
@@ -30,9 +31,8 @@ do
     cd ..
 done
 
-
 # Make distribution folder if required
-if [ "$do_dist" -gt 0 ]
+if [[ "$do_dist" -gt 0 ]]
 then
     echo =================================================
     echo Building distribution folder for \"Chameleon\"
