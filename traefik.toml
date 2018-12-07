@@ -2,7 +2,7 @@ debug = false
 logLevel = "WARN" #DEBUG, INFO, WARN, ERROR, FATAL, PANIC
 checkNewVersion = false
 
-defaultEntryPoints = ["http"]
+defaultEntryPoints = ["http", "ws"]
 
 [docker]
   endpoint = "unix:///var/run/docker.sock"
@@ -18,3 +18,5 @@ defaultEntryPoints = ["http"]
 [entryPoints]
   [entryPoints.http]
     address = ":80"
+  [entryPoints.ws]
+    address = ":9000"
