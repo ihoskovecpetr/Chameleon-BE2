@@ -42,9 +42,9 @@ then
     mkdir -p ./dist/docker-images
 
     touch ./dist/docker-images/load-docker-images.sh
-    echo "#!/usr/bin/env bash" > ./dist/docker-images/load-docker-images.sh
     chmod +x  ./dist/docker-images/load-docker-images.sh
-
+    echo "#!/usr/bin/env bash" > ./dist/docker-images/load-docker-images.sh
+    echo docker system prune -a -f --volumes >> ./dist/docker-images/load-docker-images.sh
     for app_image in "${app_full_list[@]}"
     do
         cp ./docker-image-archives/$app_image-latest.tar ./dist/docker-images/$app_image-latest.tar
