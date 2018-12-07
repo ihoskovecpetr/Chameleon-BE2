@@ -1,2 +1,4 @@
 #!/usr/bin/env bash
-docker save --output ../docker-image-archives/crossbar.tar chameleon/crossbar:latest
+version=$(<VERSION)
+docker save --output ../docker-image-archives/crossbar-latest.tar chameleon/crossbar:latest
+cp ../docker-image-archives/crossbar-latest.tar ../docker-image-archives/crossbar-$version.tar
