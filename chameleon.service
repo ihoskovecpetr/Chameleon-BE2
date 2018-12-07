@@ -1,0 +1,30 @@
+# ----------------------------
+# location /etc/systemd/system
+# systemctl reaload-daemon
+# systemctl enable chameleon
+# systemctl start chameleon
+# ----------------------------
+
+[Unit]
+Description=Chameleon - docker-compose
+Requires=docker.service
+After=docker.service
+
+[Service]
+Restart=always
+WorkingDirectory=/opt/chameleon
+User=chameleon
+Group=chameleon
+
+# Remove old containers, images and volumes
+ExecStartPre=/usr/bin/docker-compose down -v
+ExecStartPre=/usr/bin/docker-compose rm -vf
+
+# Compose up
+ExecStart=/usr/bin/docker-compose up
+
+# Compose down, remove containers and volumes
+ExecStop=/usr/bin/docker-compose down -v
+
+[Install]
+WantedBy=multi-user.target
