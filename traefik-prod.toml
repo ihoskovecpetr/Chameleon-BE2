@@ -9,12 +9,6 @@ defaultEntryPoints = ["http", "https", "wss"]
   watch = true
   exposedByDefault = false
 
-[api]
-  entryPoint = "traefik"
-  dashboard = true
-  debug = true
-  address = ":8080"
-
 [entryPoints]
   [entryPoints.http]
     address = ":80"

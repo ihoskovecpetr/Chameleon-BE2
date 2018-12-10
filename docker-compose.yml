@@ -8,18 +8,18 @@ services:
     command: '--docker --docker.domain=${CHAMELEON_HOST}'
     container_name: reverse-proxy
     ports:
-    - '${CHAMELEON_HTTP_PORT}:80'
-    - '${CHAMELEON_HTTPS_PORT}:443'
-    - '${CHAMELEON_WAMP_PORT}:9000'
+      - '${CHAMELEON_HTTP_PORT}:80'
+      - '${CHAMELEON_HTTPS_PORT}:443'
+      - '${CHAMELEON_WAMP_PORT}:9000'
     volumes:
-    - '/var/run/docker.sock:/var/run/docker.sock'
-    - './traefik.toml:/traefik.toml'
-    - './certs:/etc/traefik/certs'
+      - '/var/run/docker.sock:/var/run/docker.sock'
+      - './traefik.toml:/traefik.toml'
+      - './certs:/etc/traefik/certs'
     restart: always
     networks:
-    - net
+      - net
     depends_on:
-    - fluentd
+      - fluentd
     logging:
       driver: fluentd
       options:
@@ -36,7 +36,7 @@ services:
     image: ${FLUENTD_IMAGE}
     container_name: fluentd
     volumes:
-    - './logs:/fluentd/log'
+      - './logs:/fluentd/log'
     restart: always
     environment:
       - LOGGING_MAIL_SERVER
@@ -54,30 +54,30 @@ services:
     image: ${WEB_SERVER_IMAGE}
     container_name: web-server
     volumes:
-    - './logs:/opt/web-server/logs'
-    - './www:/opt/web-server/www'
+      - './logs:/opt/web-server/logs'
+      - './www:/opt/web-server/www'
     labels:
-    - traefik.enable=true
-    - traefik.backend=web-server
-    - 'traefik.frontend.rule=Host:${CHAMELEON_HOST}'
-    - traefik.port=3000
-    - traefik.docker.network=chameleon_net
+      - traefik.enable=true
+      - traefik.backend=web-server
+      - 'traefik.frontend.rule=Host:${CHAMELEON_HOST}'
+      - traefik.port=3000
+      - traefik.docker.network=chameleon_net
     networks:
-    - net
+      - net
     environment:
-    - AUTH_TOKEN_SECRET
-    - AUTH_COOKIE_NAME
-    - AUTH_COOKIE_HTTPS_ONLY
-    - AUTH_AD_HOST
-    - AUTH_AD_SSL
-    - AUTH_AD_BASE_DN
-    - NODE_ENV
-    - LOGGER_LEVEL
-    - FLUENTD_IPV4
-    - AUTH_DEBUG_PASSWORD
+      - AUTH_TOKEN_SECRET
+      - AUTH_COOKIE_NAME
+      - AUTH_COOKIE_HTTPS_ONLY
+      - AUTH_AD_HOST
+      - AUTH_AD_SSL
+      - AUTH_AD_BASE_DN
+      - NODE_ENV
+      - LOGGER_LEVEL
+      - FLUENTD_IPV4
+      - AUTH_DEBUG_PASSWORD
     restart: always
     depends_on:
-    - fluentd
+      - fluentd
 
   ######################################################################################################################
   # REST API - NODE
@@ -86,35 +86,35 @@ services:
     image: ${REST_API_IMAGE}
     container_name: rest-api
     volumes:
-    - './logs:/opt/rest-api/logs'
+      - './logs:/opt/rest-api/logs'
     labels:
-    - traefik.enable=true
-    - traefik.backend=rest-api
-    - 'traefik.frontend.rule=Host:${CHAMELEON_HOST};PathPrefix:/api'
-    - traefik.port=3000
-    - traefik.docker.network=chameleon_net
+      - traefik.enable=true
+      - traefik.backend=rest-api
+      - 'traefik.frontend.rule=Host:${CHAMELEON_HOST};PathPrefix:/api'
+      - traefik.port=3000
+      - traefik.docker.network=chameleon_net
     networks:
       net:
         ipv4_address: ${REST_API_IPV4}
     environment:
-    - MONGO_DB_HOST
-    - MONGO_DB_PORT
-    - MONGO_DB_DATABASE
-    - MONGO_DB_USER
-    - MONGO_DB_PASSWORD
-    - AUTH_TOKEN_SECRET
-    - AUTH_COOKIE_NAME
-    - AUTH_AD_HOST
-    - AUTH_AD_SSL
-    - AUTH_AD_BASE_DN
-    - AD_USER
-    - AD_PASSWORD
-    - NODE_ENV
-    - LOGGER_LEVEL
-    - FLUENTD_IPV4
+      - MONGO_DB_HOST
+      - MONGO_DB_PORT
+      - MONGO_DB_DATABASE
+      - MONGO_DB_USER
+      - MONGO_DB_PASSWORD
+      - AUTH_TOKEN_SECRET
+      - AUTH_COOKIE_NAME
+      - AUTH_AD_HOST
+      - AUTH_AD_SSL
+      - AUTH_AD_BASE_DN
+      - AD_USER
+      - AD_PASSWORD
+      - NODE_ENV
+      - LOGGER_LEVEL
+      - FLUENTD_IPV4
     restart: always
     depends_on:
-    - fluentd
+      - fluentd
 
   ######################################################################################################################
   # CROSSBAR
@@ -123,16 +123,19 @@ services:
     image: ${CROSSBAR_IMAGE}
     container_name: crossbar
     labels:
-    - traefik.enable=true
-    - traefik.backend=wamp-api
-    - 'traefik.frontend.rule=Host:${CHAMELEON_HOST};PathPrefix:/ws' #TODO ws/wss .... /ws ????
-    - traefik.port=9000
-    - traefik.docker.network=chameleon_net
+      - traefik.enable=true
+      - traefik.backend=wamp-api
+      - 'traefik.frontend.rule=Host:${CHAMELEON_HOST};PathPrefix:/ws'
+      - traefik.port=9000
+      - traefik.docker.network=chameleon_net
     networks:
-    - net
+      net:
+        ipv4_address: ${CROSSBAR_IPV4}
     restart: always
     depends_on:
-    - fluentd
+      - fluentd
+    expose:
+      - ${CROSSBAR_PORT}
     logging:
       driver: fluentd
       options:
@@ -142,9 +145,36 @@ services:
         fluentd-max-retries: '30'
         tag: chameleon.{{.Name}}
 
+  ######################################################################################################################
+  # WAMP API (CROSSBAR, NODE)
+  ######################################################################################################################
+  wamp-api:
+    image: ${WAMP_API_IMAGE}
+    container_name: wamp-api
+    volumes:
+      - './logs:/opt/wamp-api/logs'
+    networks:
+      - net
+    environment:
+      - MONGO_DB_HOST
+      - MONGO_DB_PORT
+      - MONGO_DB_DATABASE
+      - MONGO_DB_USER
+      - MONGO_DB_PASSWORD
+      - NODE_ENV
+      - LOGGER_LEVEL
+      - FLUENTD_IPV4
+      - CROSSBAR_IPV4
+      - CROSSBAR_PORT
+      - CROSSBAR_SECRET_CHAMELEON
+    restart: always
+    depends_on:
+      - fluentd
+      - crossbar
+
 networks:
   net:
     driver: bridge
     ipam:
       config:
-      - subnet: ${CHAMELEON_SUBNET}
+        - subnet: ${CHAMELEON_SUBNET}

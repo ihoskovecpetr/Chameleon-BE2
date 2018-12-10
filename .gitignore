@@ -4,7 +4,7 @@
 !.dockerignore
 !.crossbar
 !.env
-!.prod.env
+!.env.production
 npm-debug.log
 node_modules
 /docker-image-archives/*
@@ -12,3 +12,4 @@ logs
 www
 certs
 dist
+/crossbar/crossbar-node/config.json

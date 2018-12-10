@@ -1,0 +1,93 @@
+{
+    "version": 2,
+    "controller": {},
+    "workers": [
+        {
+            "type": "router",
+            "realms": [
+                {
+                    "name": "chameleon",
+                    "roles": [
+                        {
+                            "name": "backend",
+                            "permissions": [
+                                {
+                                    "uri": "",
+                                    "match": "prefix",
+                                    "allow": {
+                                        "call": false,
+                                        "register": true,
+                                        "publish": true,
+                                        "subscribe": true
+                                    },
+                                    "disclose": {
+                                        "caller": true,
+                                        "publisher": true
+                                    },
+                                    "cache": true
+                                }
+                            ]
+                        },
+                        {
+                            "name": "frontend",
+                            "permissions": [
+                                {
+                                    "uri": "",
+                                    "match": "prefix",
+                                    "allow": {
+                                        "call": true,
+                                        "register": false,
+                                        "publish": true,
+                                        "subscribe": true
+                                    },
+                                    "disclose": {
+                                        "caller": true,
+                                        "publisher": true
+                                    },
+                                    "cache": true
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ],
+            "transports": [
+                {
+                    "type": "websocket",
+                    "auth": {
+                        "wampcra": {
+                            "type": "static",
+                            "users": {
+                                "booking": {
+                                    "secret": "",
+                                    "role": "frontend",
+                                    "salt": "",
+                                    "iterations": 100,
+                                    "keylen": 16
+                                },
+                                "pusher": {
+                                    "secret": "",
+                                    "role": "frontend",
+                                    "salt": "",
+                                    "iterations": 100,
+                                    "keylen": 16
+                                },
+                                "chameleon": {
+                                    "secret": "",
+                                    "role": "backend",
+                                    "salt": "",
+                                    "iterations": 100,
+                                    "keylen": 16
+                                }
+                            }
+                        }
+                    },
+                    "endpoint": {
+                        "type": "tcp",
+                        "port": 0
+                    }
+                }
+            ]
+        }
+    ]
+}
