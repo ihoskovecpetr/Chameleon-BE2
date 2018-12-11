@@ -13,3 +13,4 @@ www
 certs
 dist
 /crossbar/crossbar-node/config.json
+!.gitattributes
