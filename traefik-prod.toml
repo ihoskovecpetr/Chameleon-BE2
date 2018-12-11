@@ -2,7 +2,7 @@ debug = false
 logLevel = "WARN" #DEBUG, INFO, WARN, ERROR, FATAL, PANIC
 checkNewVersion = false
 
-defaultEntryPoints = ["http", "https", "wss"]
+defaultEntryPoints = ["http", "https", "ws", "wss"]
 
 [docker]
   endpoint = "unix:///var/run/docker.sock"
@@ -14,6 +14,10 @@ defaultEntryPoints = ["http", "https", "wss"]
     address = ":80"
     [entryPoints.http.redirect]
       entryPoint = "https"
+  [entryPoints.ws]
+      address = ":9000"
+      [entryPoints.ws.redirect]
+        entryPoint = "wss"
   [entryPoints.https]
     address = ":443"
      [entryPoints.https.tls]
@@ -21,7 +25,7 @@ defaultEntryPoints = ["http", "https", "wss"]
        CertFile = "/etc/traefik/certs/upp.cz.crt"
        KeyFile = "/etc/traefik/certs/upp.cz.key"
   [entryPoints.wss]
-    address = ":9001"
+    address = ":9443"
      [entryPoints.wss.tls]
        CertFile = "/etc/traefik/certs/upp.cz.crt"
        KeyFile = "/etc/traefik/certs/upp.cz.key"

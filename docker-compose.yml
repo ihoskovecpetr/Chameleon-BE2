@@ -11,6 +11,7 @@ services:
       - '${CHAMELEON_HTTP_PORT}:80'
       - '${CHAMELEON_HTTPS_PORT}:443'
       - '${CHAMELEON_WAMP_PORT}:9000'
+      - '${CHAMELEON_WAMPS_PORT}:9443'
     volumes:
       - '/var/run/docker.sock:/var/run/docker.sock'
       - './traefik.toml:/traefik.toml'
@@ -55,8 +56,7 @@ services:
     image: ${WEB_SERVER_IMAGE}
     container_name: web-server
     volumes:
-      - './logs:/opt/web-server/logs'
-      - './www:/opt/web-server/www'
+      - './www:/opt/app/www'
     labels:
       - traefik.enable=true
       - traefik.backend=web-server
@@ -86,8 +86,6 @@ services:
   rest-api:
     image: ${REST_API_IMAGE}
     container_name: rest-api
-    volumes:
-      - './logs:/opt/rest-api/logs'
     labels:
       - traefik.enable=true
       - traefik.backend=rest-api
@@ -126,6 +124,7 @@ services:
     labels:
       - traefik.enable=true
       - traefik.backend=wamp-api
+      - traefik.frontend.entryPoints=ws,wss
       - 'traefik.frontend.rule=Host:${CHAMELEON_HOST};PathPrefix:/ws'
       - traefik.port=3000
       - traefik.docker.network=chameleon_net
@@ -150,8 +149,6 @@ services:
   wamp-api:
     image: ${WAMP_API_IMAGE}
     container_name: wamp-api
-    volumes:
-      - './logs:/opt/wamp-api/logs'
     networks:
       - net
     environment:

@@ -16,7 +16,6 @@ fi
 num_of_apps=${#app_list[@]}
 app_list=(${app_list[@]//chameleon/})
 num_of_apps_minus_chameleon=${#app_list[@]}
-echo $((num_of_apps - num_of_apps_minus_chameleon))
 do_dist=$((num_of_apps - num_of_apps_minus_chameleon))
 
 # Build and archive all required docker images
