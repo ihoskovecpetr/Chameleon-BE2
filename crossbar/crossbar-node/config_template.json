@@ -84,7 +84,7 @@
                     },
                     "endpoint": {
                         "type": "tcp",
-                        "port": 0
+                        "port": 3000
                     }
                 }
             ]

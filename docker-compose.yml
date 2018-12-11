@@ -43,6 +43,7 @@ services:
       - LOGGING_MAIL_USER
       - LOGGING_MAIL_PASSWORD
       - LOGGING_MAIL_RECIPIENT
+      - CHAMELEON_HOST
     networks:
       net:
         ipv4_address: ${FLUENTD_IPV4}
@@ -126,7 +127,7 @@ services:
       - traefik.enable=true
       - traefik.backend=wamp-api
       - 'traefik.frontend.rule=Host:${CHAMELEON_HOST};PathPrefix:/ws'
-      - traefik.port=9000
+      - traefik.port=3000
       - traefik.docker.network=chameleon_net
     networks:
       net:
@@ -134,8 +135,6 @@ services:
     restart: always
     depends_on:
       - fluentd
-    expose:
-      - ${CROSSBAR_PORT}
     logging:
       driver: fluentd
       options:
@@ -165,7 +164,6 @@ services:
       - LOGGER_LEVEL
       - FLUENTD_IPV4
       - CROSSBAR_IPV4
-      - CROSSBAR_PORT
       - CROSSBAR_SECRET_CHAMELEON
     restart: always
     depends_on:

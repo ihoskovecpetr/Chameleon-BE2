@@ -2,7 +2,7 @@
 const autobahn = require('autobahn');
 const logger = require('./logger');
 
-const CROSSBAR_URL = `ws://${process.env.CROSSBAR_IPV4}:${process.env.CROSSBAR_PORT}/ws`;
+const CROSSBAR_URL = `ws://${process.env.CROSSBAR_IPV4}:3000/ws`;
 
 let wampWasConnectedBefore = false;
 let reportedLost = false;

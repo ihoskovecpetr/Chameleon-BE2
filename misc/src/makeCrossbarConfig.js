@@ -13,7 +13,6 @@ const CONFIG_DESTINATION = '../../crossbar/crossbar-node/config.json';
             if(worker.type === 'router') {
                 for(const transport of worker.transports) {
                     if(transport.type === 'websocket') {
-                        transport.endpoint.port = parseInt(process.env.CROSSBAR_PORT);
                         const users = transport.auth.wampcra.users;
                         for(const user of Object.keys(users)) {
                             const userData = users[user];
