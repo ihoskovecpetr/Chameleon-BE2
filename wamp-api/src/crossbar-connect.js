@@ -1,6 +1,8 @@
 'use strict';
 const autobahn = require('autobahn');
 const logger = require('./logger');
+const dbBooking = require('./dbData/mongoDb-booking');
+const dbPusher = require('./dbData/mongoDb-pusher');
 
 const CROSSBAR_URL = `ws://${process.env.CROSSBAR_IPV4}:3000/ws`;
 
@@ -23,8 +25,19 @@ module.exports = async () => {
     connection.open();
 
     connection.onopen = session => {
-        //session.register();
-        //session.subscribe();
+        session.register('get_info_booking', dbBooking.getInfo);
+        session.register('get_info_pusher', dbPusher.getInfo);
+
+        session.subscribe('get_info_booking_async', async () => {
+            const data = await dbBooking.getInfo();
+            session.publish('sent_info_booking', [`${data} - async`]);
+        });
+
+        session.subscribe('get_info_pusher_async', async () => {
+            const data = await dbPusher.getInfo();
+            session.publish('sent_info_pusher', [`${data} - async`]);
+        });
+
         reportedLost = false;
         if(!wampWasConnectedBefore) {
             wampWasConnectedBefore = true;
