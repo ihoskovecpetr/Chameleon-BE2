@@ -6,7 +6,8 @@
   "dependencies": {
     "autobahn": "^18.10.2",
     "dotenv": "^6.2.0",
-    "fs-extra": "^7.0.1"
+    "fs-extra": "^7.0.1",
+    "mongoose": "^5.3.16"
   },
   "repository": "~mk",
   "license": "UNLICENSED"

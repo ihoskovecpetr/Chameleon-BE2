@@ -1,7 +1,7 @@
 'use strict';
 
 const connectDb = require('./src/mongodb-connect');
-const connectCrossbar = require('./src/crossbar-connect');
+const wamp = require('./src/wamp');
 const mongoose = require('mongoose');
 
 const version = require('./package.json').version;
@@ -9,7 +9,7 @@ const logger = require('./src/logger');
 
 logger.info(`Chameleon WAMP Api version: ${version}, (${process.env.NODE_ENV === 'production' ? 'production' : 'development'})`);
 
-connectCrossbar();
+wamp.open();
 connectDb();
 
 // *********************************************************************************************************************
@@ -23,6 +23,9 @@ const signals = {
 Object.keys(signals).forEach(signal => {
     process.on(signal, async () => {
         logger.info(`Received Signal ${signal}, shutting down.`);
+        // WAMP
+        await wamp.close();
+        logger.info(`WAMP disconnected.`);
         // Mongo DB
         logger.info('Disconnecting MongoDb...');
         await mongoose.connection.close();
