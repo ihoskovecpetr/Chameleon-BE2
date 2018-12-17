@@ -4,7 +4,7 @@ const db = require('../dbData/mongoDb-booking');
 const logger = require('../logger');
 
 module.exports = {
-    'initData': getInitData,
+    'getData': getData,
     /*'updateEvent': updateEvent,
     'addEvent': addEvent,
     'removeEvent': removeEvent,
@@ -29,10 +29,10 @@ module.exports = {
 // *********************************************************************************************************************
 // GET ALL DATA
 // *********************************************************************************************************************
-async function getInitData(args, kwargs, details) {
+async function getData(args, kwargs, details) {
     try {
         const start = Date.now();
-        logger.debug(`Requested init data. Caller: ${args.length > 0 ? `${args[0]}, ` : ''}${details.caller}`);
+        logger.debug(`Requested data. Caller: ${args.length > 0 ? `${args[0]}, ` : ''}${details.caller}`);
         const [groups, resources, holidays, projects, events, jobs, users] = await Promise.all([
             db.getResourceGroups(),
             db.getResources(),
@@ -45,7 +45,7 @@ async function getInitData(args, kwargs, details) {
         logger.debug(`Init data time: ${Date.now() - start}ms`);
         return {groups, resources, holidays, projects, events, jobs, users, lockedEvents: []}//TODO lockedEvents.map(item => item.id)}
     } catch (error) {
-        logger.error(`getInitData error for user "${args.length > 0 ? `${args[0]}, ` : 'Unknown'}": ${error}`);
+        logger.error(`getData error, user: "${args.length > 0 ? `${args[0]}, ` : 'Unknown'}" :: ${error}`);
         throw error;
     }
 }
