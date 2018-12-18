@@ -35,10 +35,6 @@ const dbOptions = {
 };
 
 module.exports = async () => {
-    const connect = function() {
-        mongoose.connect(dbURI, dbOptions);
-    };
-
     mongoose.connection.on('connected', function () {
         if(disconnectTimer) {
             clearTimeout(disconnectTimer);
@@ -69,5 +65,5 @@ module.exports = async () => {
         mongoWasConnectedBefore = true;
     });
 
-    connect();
+    await mongoose.connect(dbURI, dbOptions);
 };

@@ -1,13 +1,17 @@
 'use strict';
 const autobahn = require('autobahn');
 const logger = require('./logger');
+const mongoose = require('mongoose');
 
 const bookingRPC = require('./RPC/bookingRPC');
 const bookingSubscribes = require('./Subscribes/bookingSubscribes');
 const pusherRPC = require('./RPC/pusherRPC');
 const pusherSubscribes = require('./Subscribes/pusherSubscribes');
 
+let heartBeatTimer = null;
+
 const CROSSBAR_URL = `ws://${process.env.CROSSBAR_IPV4}:3000/ws`;
+const HEARTBEAT_INTERVAL = parseInt(process.env.WAMP_BOOKING_HEARTBEAT_INTERVAL_MS) || 10000;
 
 let session = null;
 
@@ -45,10 +49,16 @@ connection.onopen = s => {
     for(const topic of Object.keys(bookingSubscribes)) session.subscribe(topic, bookingSubscribes[topic]);
     for(const procName of Object.keys(pusherRPC)) session.register(procName, pusherRPC[procName]);
     for(const topic of Object.keys(pusherSubscribes)) session.subscribe(topic, pusherSubscribes[topic]);
+
+    if(!heartBeatTimer) heartBeatTimer = setInterval(() => {
+        session.publish('heart_beat',[],{time: +new Date(), interval: HEARTBEAT_INTERVAL, healthy: mongoose.connection.readyState === 1});
+    }, HEARTBEAT_INTERVAL);
 };
 
 connection.onclose = (reason, details) => {
     session = null;
+    if(heartBeatTimer) clearInterval(heartBeatTimer);
+    heartBeatTimer = null;
     if(!reportedLost && wampWasConnectedBefore) {
         if(reason === 'closed') logger.info('Connection to crossbar closed.');
         else logger.warn('Connection to crossbar closed: ' + reason);
@@ -62,3 +72,4 @@ function onchallenge(session, method, extra) {
         return autobahn.auth_cra.sign(key, extra.challenge);
     }
 }
+

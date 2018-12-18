@@ -162,6 +162,7 @@ services:
       - FLUENTD_IPV4
       - CROSSBAR_IPV4
       - CROSSBAR_SECRET_CHAMELEON
+      - WAMP_BOOKING_HEARTBEAT_INTERVAL_MS
     restart: always
     depends_on:
       - fluentd
