@@ -11,6 +11,6 @@ node_modules
 logs
 www
 certs
-dist
+dist*
 /crossbar/crossbar-node/config.json
 !.gitattributes
