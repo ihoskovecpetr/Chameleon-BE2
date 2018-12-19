@@ -93,5 +93,5 @@ exports.splitEvent = async (id, event, id2, event2) => {
 exports.joinEvents = async (id, event, id2) => {
     await BookingEvent.findOneAndUpdate({_id: id}, {$set: event}); //update first part by joined data
     await BookingEvent.findOneAndRemove({_id: id2}); //remove second part
-    await BookingProject.findOneAndUpdate({_id: event.project}, {$pull: {events: event._id}}); //remove second part from the project
+    await BookingProject.findOneAndUpdate({_id: event.project}, {$pull: {events: id2}}); //remove second part from the project
 };
