@@ -6,7 +6,7 @@
 !.env
 !.env.production
 npm-debug.log
-node_modules
+**/node_modules
 /docker-image-archives/*
 logs
 www
