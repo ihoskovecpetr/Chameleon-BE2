@@ -25,7 +25,7 @@ defaultEntryPoints = ["http", "https", "ws", "wss"]
        CertFile = "/etc/traefik/certs/upp.cz.crt"
        KeyFile = "/etc/traefik/certs/upp.cz.key"
   [entryPoints.wss]
-    address = ":9443"
+    address = ":9001"
      [entryPoints.wss.tls]
      [[entryPoints.wss.tls.certificates]]
        CertFile = "/etc/traefik/certs/upp.cz.crt"

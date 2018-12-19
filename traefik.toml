@@ -17,4 +17,4 @@ defaultEntryPoints = ["http", "https", "ws", "wss"]
   [entryPoints.https]
       address = ":443"
   [entryPoints.wss]
-    address = ":9443"
+    address = ":9001"
