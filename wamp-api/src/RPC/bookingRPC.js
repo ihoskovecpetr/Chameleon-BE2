@@ -3,7 +3,6 @@
 const db = require('../dbData/mongoDb-booking');
 const k2 = require('../dbData/mssqlK2-data');
 const logger = require('../logger');
-//const moment = require('moment');
 const wamp = require('../wamp');
 
 const LOCK_VALID_TIME = 1000;
@@ -25,32 +24,24 @@ module.exports = {
     'updateProject': updateProject,
     'removeProject': removeProject,
     'addProjectAndEvent': addProjectAndEvent,
-
-    // ** Settings - resource
+    // ** Resource
     //'addResource': addResource,
     //'updateResource': updateResource,
     //'removeResource': removeResource,
+    //'reorderResource': reorderResource,
     //'getNumberOfEventsForResource': getNumberOfEventsForResource,
-
-    // ** Settings - group
+    // ** Group
     //'addGroup': addGroup,
     //'updateGroup': updateGroup,
     //'removeGroup': removeGroup,
-
-    // ** Settings - reorders
     //'reorderGroups': reorderGroups,
-    //'reorderResource': reorderResource,
-
     // ** Pin
-    //'changeUserPin': changeUserPin
-
+    'changeUserPin': changeUserPin,
     // ** Event lock
     'lockEvent': lockEvent,
     'releaseEvent': releaseEvent,
-
     // ** K2
     'getK2projects': getK2projects,
-
     // ** Budget
     'getBudgetLabel': getBudgetLabel,
     'getAvailableBudgets': getAvailableBudgets,
@@ -388,4 +379,19 @@ function checkLockedEvents() {
     const length = lockedEvents.length;
     lockedEvents = lockedEvents.filter(item => (timeStamp - item.timestamp) <= LOCK_VALID_TIME);
     if(lockedEvents.length < length) session.publish('lockedEventsChanged', lockedEvents.map(item => item.id));
+}
+
+// *********************************************************************************************************************
+// PRODUCTION LOGIN PIN
+// *********************************************************************************************************************
+async function changeUserPin(args, kwargs, details) {
+    try {
+        logger.debug('changeUserPin');
+        const data = await db.changeUserPin(kwargs.id, kwargs.group, kwargs.pin);
+        const result = {users: data};
+        wamp.publish('updateData', [], result, {exclude: [details.caller]});
+        return result;
+    } catch (error) {
+        logger.error("Change user pin error: " + error);
+    }
 }

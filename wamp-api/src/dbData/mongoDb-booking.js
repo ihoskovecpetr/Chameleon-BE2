@@ -2,6 +2,7 @@
 const mongoose = require('mongoose');
 const dataHelper = require('../lib/dataHelper');
 //const logger = require('../logger');
+const crypto = require('crypto');
 
 //Collections
 const BookingGroup = require('../models/booking-group');
@@ -191,6 +192,25 @@ exports.getAvailableBudgets = async projectId => {
     const linkedBudgets = projects.filter(project => project._id != projectId).map(project => project.budget);
     const budgets = await Budget.find({deleted: null, _id: {$nin: linkedBudgets}}, {label: true, version: true}).lean();
     return budgets.map(budget => ({id: budget._id, label: `${budget.label}${budget.version ? ` - ${budget.version}` : ''}`})).sort(dataHelper.sortByLabel)
+};
+
+// *********************************************************************************************************************
+// PRODUCTION LOGIN PIN
+// *********************************************************************************************************************
+exports.changeUserPin = async (id, group, pin) => {
+    const users = await User.find().lean();
+    const isFree = users.reduce((isFree, user) => {
+        if(!user.isGroup && user.pinGroupId == group) {
+            const hash = crypto.createHash('md5').update(user._id + pin).digest("hex");
+            if(hash == user.pinHash) return false;
+            else return isFree;
+        } else return isFree;
+    }, true);
+    if(isFree) {
+        const hash = crypto.createHash('md5').update(id + pin).digest("hex");
+        await  User.findOneAndUpdate({_id: id},{$set: {pinHash: hash}});
+        return await exports.getUsers();
+    } else throw new Error('Can\'t use this pin');
 };
 
 
