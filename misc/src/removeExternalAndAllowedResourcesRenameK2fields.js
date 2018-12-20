@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const path = require('path');
-const dotEnv = require('dotenv').config({path: path.resolve(__dirname, '../../.env')});
+require('dotenv').config({path: path.resolve(__dirname, '../../.env')});
 
 const config = {
     dbURI: `mongodb://${process.env.MONGO_DB_HOST}:${process.env.MONGO_DB_PORT}/${process.env.MONGO_DB_DATABASE}?authSource=admin`,
@@ -13,6 +13,9 @@ const config = {
 
 mongoose.Promise = global.Promise;
 mongoose.set('debug', true);
+
+//console.log(config);
+//return;
 
 (async () => {
     try {

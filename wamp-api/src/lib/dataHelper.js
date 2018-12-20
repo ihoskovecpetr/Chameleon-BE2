@@ -4,54 +4,33 @@ const dateHelper = require('./dateHelper');
 
 exports = module.exports;
 
-exports.getNormalizedObject = source => {
-    return source.reduce((output, sourceItem) => {
-        const itemKey = sourceItem._id;
-        const item = sourceItem.toJSON ? sourceItem.toJSON() : sourceItem;
-        delete item._id;
-        if(item.startDate) item.startDate = dateHelper.dateString(sourceItem.startDate);
-        ['timing', 'invoice', 'onair'].forEach(key => {
-            if(item[key] && item[key].length > 0) {
-                for(let i = 0; i < item[key].length; i++) {
-                    if(item[key][i].date) item[key][i].date = dateHelper.dateString(item[key][i].date);
-                }
-            }
-        });
-        output[itemKey] = item;
+exports.getObjectOfNormalizedDocs = source => {
+    return source.reduce((output, item) => {
+        output[item._id] = exports.normalizeDocument(item, true);
         return output;
-    },{});
+    }, {});
 };
 
-exports.normalizeProject = project => {
-    return {
-        id: project._id.toString(),
-        project: {
-            label: project.label,
-            onair: project.onair.map(onair => {return {_id: onair._id.toString(), date: (onair.date ? dateHelper.dateString(onair.date) : null), state: onair.state, name: onair.name }}),
-            bookingNotes: project.bookingNotes,
-            timing: project.timing.map(timing => {return {date: dateHelper.dateString(timing.date), type: timing.type, category: timing.category, text: timing.text}}),
-            invoice: project.invoice.map(invoice => {return {date: dateString(invoice.date), name: invoice.name}}),
-            jobs: project.jobs.map(job => {return {job: job.job.toString(), doneDuration: job.doneDuration, plannedDuration: job.plannedDuration}}),
-            events: project.events,
-            offtime: project.offtime,
-            created: project.created,
-            lead2D: project.lead2D,
-            lead3D: project.lead3D,
-            leadMP: project.leadMP,
-            producer: project.producer,
-            supervisor: project.supervisor,
-            manager: project.manager,
-            internal: project.internal,
-            confirmed: project.confirmed,
-            K2name: project.K2name,
-            K2client: project.K2client,
-            K2rid: project.K2rid,
-            budget: project.budget,
-            kickBack: project.kickBack,
-            K2projectId: project.K2projectId
-        }
-    }
+exports.normalizeDocument = (source, removeId) => {
+    const result = source.toJSON ? source.toJSON() : source;
+    if(removeId) delete result._id;
+    delete result.__v;
+    //event specific
+    if(result.startDate) result.startDate = dateHelper.dateString(result.startDate);
+    if(result['days']) result['days'] = result['days'].map(day => ({start: day.start, float: day.float, duration: day.duration}));
+    //project specific
+    if(result['onair']) result['onair'] = result['onair'].map(onair => ({_id: onair._id.toString(), date: (onair.date ? dateHelper.dateString(onair.date) : null), state: onair.state, name: onair.name }));
+    if(result['timing']) result['timing'] = result['timing'].map(timing => ({date: dateHelper.dateString(timing.date), type: timing.type, category: timing.category, text: timing.text}));
+    if(result['invoice']) result['invoice'] = result['invoice'].map(invoice => ({date: dateHelper.dateString(invoice.date), name: invoice.name}));
+    if(result['jobs']) result['jobs'] = result['jobs'].map(job => ({job: job.job, doneDuration: job.doneDuration, plannedDuration: job.plannedDuration}));
+    return result;
 };
+
+exports.sortByLabel = (a, b) => {
+    return a.label.localeCompare(b.label);
+};
+
+//TODO vvvvvvvvvv
 
 exports.mapResources = (resources, users) => {
     return resources.reduce((output, resource) => {

@@ -157,6 +157,11 @@ services:
       - MONGO_DB_DATABASE
       - MONGO_DB_USER
       - MONGO_DB_PASSWORD
+      - K2_DB_HOST
+      - K2_DB_INSTANCE
+      - K2_DB_DATABASE
+      - K2_DB_USER
+      - K2_DB_PASSWORD
       - NODE_ENV
       - LOGGER_LEVEL
       - FLUENTD_IPV4
