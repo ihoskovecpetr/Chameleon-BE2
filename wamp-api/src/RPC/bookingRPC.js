@@ -9,7 +9,7 @@ const LOCK_VALID_TIME = 1000;
 
 let lockedEvents = [];
 
-setInterval(checkLockedEvents, LOCK_VALID_TIME + 500);;
+setInterval(checkLockedEvents, LOCK_VALID_TIME + 500);
 
 module.exports = {
     'getData': getData,
@@ -25,16 +25,16 @@ module.exports = {
     'removeProject': removeProject,
     'addProjectAndEvent': addProjectAndEvent,
     // ** Resource
-    //'addResource': addResource,
-    //'updateResource': updateResource,
-    //'removeResource': removeResource,
-    //'reorderResource': reorderResource,
-    //'getNumberOfEventsForResource': getNumberOfEventsForResource,
+    'addResource': addResource,
+    'updateResource': updateResource,
+    'removeResource': removeResource,
+    'reorderResource': reorderResource,
+    'getNumberOfEventsForResource': getNumberOfEventsForResource,
     // ** Group
-    //'addGroup': addGroup,
-    //'updateGroup': updateGroup,
-    //'removeGroup': removeGroup,
-    //'reorderGroups': reorderGroups,
+    'addGroup': addGroup,
+    'updateGroup': updateGroup,
+    'removeGroup': removeGroup,
+    'reorderGroups': reorderGroups,
     // ** Pin
     'changeUserPin': changeUserPin,
     // ** Event lock
@@ -304,6 +304,169 @@ async function addProjectAndEvent(args, kwargs, details) {
     } catch (error) {
         await db.logOp('addProjectAndEvent', args[0], kwargs, error);
         logger.error("Add Project and Event Rejected: " + error);
+        throw error;
+    }
+}
+
+// *********************************************************************************************************************
+// RESOURCES
+// *********************************************************************************************************************
+async function addResource(args, kwargs, details) {
+    try {
+        logger.debug('addResource');
+        const data = await db.addResource(kwargs.id, kwargs.resource);
+        const result = {groups: data[0], resources: data[1]};
+        wamp.publish('updateData', [], result, {exclude : [details.caller]});
+        await db.logOp('addResource', args[0], kwargs, null);
+        /*
+        updatePusherData({
+            resource: {
+                id: kwargs.id,
+                previous: null,
+                current: kwargs.resource
+            }
+        })
+        */
+        return result;
+    } catch (error) {
+        await db.logOp('addResource', args[0], kwargs, error);
+        logger.error("Add Resource Rejected: " + error);
+        throw error;
+    }
+}
+
+async function updateResource(args, kwargs, details) {
+    try {
+        logger.debug('updateResource');
+        const data = await db.updateResource(kwargs.id, kwargs.resource);
+        const result = data[0] ? {groups: data[0], resources: data[1]} : {resources: data[1]};
+        wamp.publish('updateData', [], result, {exclude : [details.caller]});
+        await db.logOp('updateResource', args[0], kwargs, null);
+        /*
+        updatePusherData({
+            resource: {
+                id: kwargs.id,
+                previous: data[2],
+                current: kwargs.resource
+            }
+        })
+        */
+        return result;
+    } catch (error) {
+        await db.logOp('updateResource', args[0], kwargs, error);
+        logger.error("Update Resource Rejected: " + error);
+        throw error;
+    }
+}
+
+async function removeResource(args, kwargs, details) {
+    try {
+        logger.debug('removeResource');
+        const data = await db.removeResource(kwargs.id);
+        const result = {groups: data[0], resources: data[1]};
+        wamp.publish('updateData', [], result, {exclude : [details.caller]});
+        await db.logOp('removeResource', args[0], kwargs, null);
+        /*
+        updatePusherData({
+            resource: {
+                id: kwargs.id,
+                previous: data[2],
+                current: null
+            }
+        })
+        */
+        return result;
+    } catch (error) {
+        await db.logOp('removeResource', args[0], kwargs, error);
+        logger.error("Remove Resource Rejected: " + error);
+        throw error;
+    }
+}
+
+async function reorderResource(args, kwargs, details) {
+    try {
+        logger.debug('reorderResource');
+        const data = await db.reorderResource(kwargs.id1, kwargs.members1, kwargs.id2, kwargs.members2, kwargs.id3);
+        const result = Array.isArray(data) ? {groups: data[0], resources: data[1]} : {groups: data};
+        wamp.publish('updateData', [], result, {exclude: [details.caller]});
+        await db.logOp('reorderResources', args[0], kwargs, null);
+        return result;
+    } catch (error) {
+        await db.logOp('reorderResources', args[0], kwargs, error);
+        logger.error("Reorder Resources Rejected: " + error);
+        throw error;
+    }
+}
+
+async function getNumberOfEventsForResource(args, kwargs, details) {
+    try {
+        logger.debug('getNumberOfEventsForResource');
+        return await db.getNumberOfEventsForResource(kwargs.id);
+    } catch (error) {
+        logger.error("getNumberOfEventsForResource Rejected: " + error);
+        throw error;
+    }
+}
+
+// *********************************************************************************************************************
+// GROUPS
+// *********************************************************************************************************************
+async function addGroup(args, kwargs, details) {
+    try {
+        logger.debug('addGroup');
+        const groups = await db.addGroup(kwargs.id, kwargs.group);
+        const result = {groups: groups};
+        wamp.publish('updateData', [], result, {exclude : [details.caller]});
+        await db.logOp('addGroup', args[0], kwargs, null);
+        return result;
+    } catch (error) {
+        await db.logOp('addGroup', args[0], kwargs, error);
+        logger.error("Add Group Rejected: " + error);
+        throw error;
+    }
+}
+
+async function updateGroup(args, kwargs, details) {
+    try {
+        logger.debug('updateGroup');
+        const groups = await db.updateGroup(kwargs.id, kwargs.group);
+        const result = {groups: groups};
+        wamp.publish('updateData', [], result, {exclude : [details.caller]});
+        await db.logOp('updateGroup', args[0], kwargs, null);
+        return result;
+    } catch (error) {
+        await db.logOp('updateGroup', args[0], kwargs, error);
+        logger.error("Update Group Rejected: " + error);
+        throw error;
+    }
+}
+
+async function removeGroup(args, kwargs, details) {
+    try {
+        logger.debug('removeGroup');
+        const groups = await db.removeGroup(kwargs.id);
+        const result = {groups: groups};
+        wamp.publish('updateData', [], result, {exclude : [details.caller]});
+        await db.logOp('removeGroup', args[0], kwargs, null);
+        return result;
+    } catch (error) {
+        await db.logOp('removeGroup', args[0], kwargs, error);
+        logger.error("Remove Group Rejected: " + error);
+        throw error;
+    }
+}
+
+async function reorderGroups(args, kwargs, details) {
+    try {
+        logger.debug('reorderGroups');
+        const groups = await db.reorderGroups(kwargs.order);
+        const result = {groups: groups};
+        wamp.publish('updateData', [], result, {exclude: [details.caller]});
+        await db.logOp('reorderGroups', args[0], kwargs, null);
+        return result;
+    } catch (error) {
+        await db.logOp('reorderGroups', args[0], kwargs, error);
+        logger.error("Reorder Groups Rejected: " + error);
         throw error;
     }
 }

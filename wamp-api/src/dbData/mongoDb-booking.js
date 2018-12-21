@@ -123,6 +123,87 @@ exports.removeProject = async id => {
 };
 
 // *******************************************************************************************
+// RESOURCES
+// *******************************************************************************************
+exports.addResource = async (id, resource) => {
+    resource._id = id;
+    await BookingResource.create(resource);
+    await BookingGroup.findOneAndUpdate({_id: resource.group}, {$push : {members: id}});
+    if(resource.pair) await BookingResource.findOneAndUpdate({_id: resource.pair},{$set: {pair: id}});
+    return [await exports.getResourceGroups(), await exports.getResources()];
+};
+
+exports.updateResource = async (id, resource) => {
+    let oldResource = await BookingResource.findOneAndUpdate({_id: id}, {$set: resource});
+    oldResource = dataHelper.normalizeDocument(oldResource);
+    const groupsChanged = resource.group != oldResource.group;
+    if(groupsChanged) {
+        await BookingGroup.findOneAndUpdate({_id: oldResource.group}, {$pull: {members: id}});
+        await BookingGroup.findOneAndUpdate({_id: resource.group}, {$push: {members: id}});
+    }
+    if(resource.pair != oldResource.pair) {
+        if(oldResource.pair !== null) await BookingResource.findOneAndUpdate({_id: oldResource.pair}, {$set: {pair: null}});
+        if(resource.pair !== null) await BookingResource.findOneAndUpdate({_id: resource.pair}, {$set: {pair: id}});
+    }
+    if(groupsChanged) return [await exports.getResourceGroups(), await exports.getResources(), oldResource];
+    else return [null, await exports.getResources(), oldResource];
+};
+
+exports.removeResource = async id => {
+    const numberOfEvents = await exports.getNumberOfEventsForResource(id);
+    const resource = await BookingResource.findOne({_id: id});
+    if(numberOfEvents > 0) {
+        resource.deleted = true;
+        resource.disabled = true;
+        if(resource.pair) await BookingResource.findOneAndUpdate({_id: resource.pair}, {$set: {pair: null}});
+        resource.pair = null;
+        await resource.save();
+    } else {
+        await resource.remove();
+        await BookingGroup.findOneAndUpdate({_id: resource.group}, {$pull: {members: resource._id}});
+        if(resource.pair) await BookingResource.findOneAndUpdate({_id: resource.pair}, {$set: {pair: null}});
+    }
+    return [await exports.getResourceGroups(), await exports.getResources()];
+};
+
+exports.reorderResource = async (id1, members1, id2, members2, id3) => { //from group + members, to group + members, id of moved resource if between groups
+    await BookingGroup.findOneAndUpdate({_id: id1}, {$set:{members: members1}});
+    if(id2) {
+        await BookingGroup.findOneAndUpdate({_id: id2}, {$set:{members: members2}});
+        await BookingResource.findOneAndUpdate({_id: id3}, {$set:{group: id2}});
+        return [await exports.getResourceGroups(), await exports.getResources()];
+    } else return await exports.getResourceGroups();
+};
+
+exports.getNumberOfEventsForResource = async id => {
+    return await BookingEvent.find({$or : [{operator : id}, {facility: id}]}).countDocuments();
+};
+
+// *******************************************************************************************
+// GROUPS
+// *******************************************************************************************
+exports.addGroup = async (id, group) => {
+    group._id = id;
+    await BookingGroup.create(group);
+    return await exports.getResourceGroups();
+};
+
+exports.updateGroup = async (id, group) => {
+    await BookingGroup.findOneAndUpdate({_id: id}, {$set: group});
+    return await exports.getResourceGroups();
+};
+
+exports.removeGroup = async id => {
+    await BookingGroup.findOneAndRemove({_id: id});
+    return await exports.getResourceGroups();
+};
+
+exports.reorderGroups = async order => {
+    await Promise.all(order.map((id, i) => BookingGroup.findOneAndUpdate({_id: id}, {$set:{order:i}})));
+    return await exports.getResourceGroups();
+};
+
+// *******************************************************************************************
 // K2
 // *******************************************************************************************
 exports.getK2linkedProjects = async () => {
