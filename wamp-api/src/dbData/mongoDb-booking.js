@@ -289,7 +289,7 @@ exports.changeUserPin = async (id, group, pin) => {
     }, true);
     if(isFree) {
         const hash = crypto.createHash('md5').update(id + pin).digest("hex");
-        await  User.findOneAndUpdate({_id: id},{$set: {pinHash: hash}});
+        await  User.findOneAndUpdate({_id: id}, {$set: {pinHash: hash}});
         return await exports.getUsers();
     } else throw new Error('Can\'t use this pin');
 };
