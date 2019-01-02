@@ -14,6 +14,7 @@ const validateToken = require('./src/validateToken');
 const apiRouterChameleon = require('./src/routers/api-router-chameleon');
 const apiRouterAdmin = require('./src/routers/api-router-admin');
 const apiRouterProjects = require('./src/routers/api-router-projects');
+const apiRouterBudget = require('./src/routers/api-router-budget');
 
 // *********************************************************************************************************************
 const PORT = 3000;
@@ -33,6 +34,7 @@ app.get('/api/v1', validateToken, (req, res) => res.status(200).end('Chameleon R
 app.use('/api/v1/chameleon', apiRouterChameleon);
 app.use('/api/v1/admin', apiRouterAdmin);
 app.use('/api/v1/projects', apiRouterProjects);
+app.use('/api/budget', apiRouterBudget);
 
 // *********************************************************************************************************************
 // Error handler

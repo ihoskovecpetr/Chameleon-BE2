@@ -19,7 +19,7 @@ router.post('/', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)],  asy
     try {
         if(!req.body) {
             const error = new Error('Projects - create. Missing project data.');
-            error.statusCode = 402;
+            error.statusCode = 400;
             next(error);
         } else {
             const result = await db.createProject(req.body, req.remote_user);

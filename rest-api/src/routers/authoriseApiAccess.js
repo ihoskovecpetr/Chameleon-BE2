@@ -1,5 +1,6 @@
 'use strict';
 const db = require('../dbData/mongoDb-chameleon');
+const logger = require('../logger');
 
 module.exports = access => {
     return async function(req, res, next) {
@@ -17,7 +18,7 @@ module.exports = access => {
                     const userAccess = await db.getUserAppAccess(remoteUser);
                     if(userAccess && userAccess.access && userAccess.access.length > 0) {
                         let hasAccess = false;
-                        for(const a of access) hasAccess = !hasAccess && userAccess.access.indexOf(a) >= 0;
+                        for(const a of access) hasAccess = hasAccess || userAccess.access.indexOf(a) >= 0;
                         if(hasAccess) {
                             next();
                             return;
