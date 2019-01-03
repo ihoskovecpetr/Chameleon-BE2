@@ -66,6 +66,65 @@ exports.getPricelist = async id => {
 };
 
 // *******************************************************************************************
+// update general pricelist
+// *******************************************************************************************
+exports.updateGeneralPricelist = async pricelist => {
+    let order = 0;
+    const groups = pricelist.map(group => ({_id: group.id, label: group.label, color: group.color, order: order++}));
+    order = 0;
+    const items = pricelist.reduce((items, group) => items.concat(group.items.map(item => {return {_id: item.id, group: item.group, label: item.label, unit: item.unitId, price: item.price, job: item.jobId ? item.jobId : null, order: order++ }})), []);
+    for(const group of groups) await PricelistGroup.findOneAndUpdate({_id: group._id}, group, {upsert: true});
+    for(const item of items) await PricelistItem.findOneAndUpdate({_id: item._id}, item, {upsert: true});
+    const newGroups = await PricelistGroup.find({}, {_id:true}).lean();
+    const newItems = await PricelistItem.find({}, {_id:true}).lean();
+
+    const groupIds = groups.map(group => group._id);
+    const itemIds = items.map(item => item._id);
+    const groupsToDelete = newItems.filter(group => groupIds.indexOf(group._id.toString()) < 0);
+    const itemsToDelete = newGroups.filter(item => itemIds.indexOf(item._id.toString()) < 0);
+
+    for(const group of groupsToDelete) await PricelistGroup.findOneAndRemove({_id: group._id});
+    for(const item of itemsToDelete) await PricelistItem.findOneAndRemove({_id: item._id});
+};
+
+// *******************************************************************************************
+// update pricelist
+// *******************************************************************************************
+exports.updatePricelist = async (id, pricelist) => {
+    if(typeof pricelist.client !== 'undefined' && !mongoose.Types.ObjectId.isValid(pricelist.client)) {
+        const newClientId = mongoose.Types.ObjectId();
+        await BudgetClient.create({_id: newClientId, label: pricelist.client, kickBack: 0.0});
+        pricelist.client = newClientId;
+    }
+    await Pricelist.findOneAndUpdate({_id: id}, pricelist);
+};
+
+// *******************************************************************************************
+// create pricelist
+// *******************************************************************************************
+exports.createPricelist = async pricelist => {
+    if(typeof pricelist.client !== 'undefined' && !mongoose.Types.ObjectId.isValid(pricelist.client)) {
+        const newClientId = mongoose.Types.ObjectId();
+        await BudgetClient.create({_id: newClientId, label: pricelist.client, kickBack: 0.0});
+        pricelist.client = newClientId;
+    }
+    await Pricelist.create(pricelist);
+};
+
+// *******************************************************************************************
+// delete pricelist
+// *******************************************************************************************
+exports.createPricelist = async id => {
+      await Pricelist.findByIdAndRemove(id);
+};
+
+
+
+
+
+
+
+// *******************************************************************************************
 // get units
 // *******************************************************************************************
 exports.getUnits = async () => {

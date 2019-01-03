@@ -14,8 +14,10 @@ const BUDGET_ACCESS_READONLY = BUDGET_ACCESS_USER.concat(['budget:readonly']);
 
 module.exports = router;
 
+// +++++  P R I C E L I S T S  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 // *********************************************************************************************************************
-// GET LIST OF ALL NAMED PRICELISTS
+// GET LIST OF ALL PRICELISTS
 // *********************************************************************************************************************
 router.get('/pricelists', [validateToken, authoriseApiAccess(BUDGET_ACCESS_USER)],  async (req, res, next) => {
     try {
@@ -39,7 +41,7 @@ router.get('/pricelists/general', [validateToken, authoriseApiAccess(BUDGET_ACCE
 });
 
 // *********************************************************************************************************************
-// GET PRICELIST BY ID
+// GET PRICELIST
 // *********************************************************************************************************************
 router.get('/pricelists/:id', [validateToken, authoriseApiAccess(BUDGET_ACCESS_USER)],  async (req, res, next) => {
     try {
@@ -56,6 +58,83 @@ router.get('/pricelists/:id', [validateToken, authoriseApiAccess(BUDGET_ACCESS_U
         next(error);
     }
 });
+
+// *********************************************************************************************************************
+// UPDATE GENERAL PRICELIST
+// *********************************************************************************************************************
+router.put('/pricelists/general', [validateToken, authoriseApiAccess(BUDGET_ACCESS_FULL)],  async (req, res, next) => {
+   try {
+       if(!req.body.pricelist) {
+           const error = new Error('Update General Pricelist. Missing pricelist data.');
+           error.statusCode = 400;
+           next(error);
+       } else {
+           await db.updateGeneralPricelist(req.body.pricelist);
+           res.status(200).end();
+       }
+   } catch(error) {
+       next(error);
+   }
+});
+
+// *********************************************************************************************************************
+// UPDATE PRICELIST
+// *********************************************************************************************************************
+router.put('/pricelists/:id', [validateToken, authoriseApiAccess(BUDGET_ACCESS_FULL)],  async (req, res, next) => {
+    try {
+        const id = req.params.id && mongoose.Types.ObjectId.isValid(req.params.id) ? req.params.id : null;
+        if(!id) {
+            const error = new Error('Update Pricelist. Wrong or missing pricelist id.');
+            error.statusCode = 400;
+            next(error);
+        } else {
+            await db.updatePricelist(id, req.body);
+            res.status(200).end();
+        }
+    } catch(error) {
+        next(error);
+    }
+});
+
+// *********************************************************************************************************************
+// CREATE PRICELIST
+// *********************************************************************************************************************
+router.post('/pricelists', [validateToken, authoriseApiAccess(BUDGET_ACCESS_FULL)],  async (req, res, next) => {
+    try {
+        await db.createPricelist(id, req.body);
+        res.status(200).end();
+    } catch(error) {
+        next(error);
+    }
+});
+
+// *********************************************************************************************************************
+// DELETE PRICELIST
+// *********************************************************************************************************************
+router.delete('/pricelists/:id', [validateToken, authoriseApiAccess(BUDGET_ACCESS_FULL)],  async (req, res, next) => {
+    try {
+        const id = req.params.id && mongoose.Types.ObjectId.isValid(req.params.id) ? req.params.id : null;
+        if(!id) {
+            const error = new Error('Delete Pricelist. Wrong or missing pricelist id.');
+            error.statusCode = 400;
+            next(error);
+        } else {
+            await db.deletePricelist(id);
+            res.status(200).end();
+        }
+    } catch(error) {
+        next(error);
+    }
+});
+
+
+
+
+
+
+
+
+
 
 // *********************************************************************************************************************
 // GET PRICELIST UNITS
