@@ -4,9 +4,15 @@ const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
 const db = require('../dbData/mongoDb-budget');
+const moment = require('moment');
+
+const pricelistPdf = require('../pdf/pricelistPdf');
+const budgetPdf = require('../pdf/budgetPdf');
 
 const validateToken = require('../validateToken');
 const authoriseApiAccess = require('./authoriseApiAccess');
+
+const logger = require('../logger');
 
 const BUDGET_ACCESS_FULL = ['budget:full'];
 const BUDGET_ACCESS_USER = BUDGET_ACCESS_FULL.concat(['budget:user']);
@@ -29,24 +35,12 @@ router.get('/pricelists', [validateToken, authoriseApiAccess(BUDGET_ACCESS_USER)
 });
 
 // *********************************************************************************************************************
-// GET GENERAL PRICELIST
-// *********************************************************************************************************************
-router.get('/pricelists/general', [validateToken, authoriseApiAccess(BUDGET_ACCESS_USER)],  async (req, res, next) => {
-    try {
-        const pricelist = await db.getPricelist();
-        res.status(200).json(pricelist);
-    } catch(error) {
-        next(error);
-    }
-});
-
-// *********************************************************************************************************************
-// GET PRICELIST
+// GET PRICELIST (id can be 'general')
 // *********************************************************************************************************************
 router.get('/pricelists/:id', [validateToken, authoriseApiAccess(BUDGET_ACCESS_USER)],  async (req, res, next) => {
     try {
         const id = req.params.id && mongoose.Types.ObjectId.isValid(req.params.id) ? req.params.id : null;
-        if(!id) {
+        if(!id && (!req.params.id || req.params.id !== 'general')) {
             const error = new Error('Get Pricelist. Wrong or missing pricelist id.');
             error.statusCode = 400;
             next(error);
@@ -60,31 +54,17 @@ router.get('/pricelists/:id', [validateToken, authoriseApiAccess(BUDGET_ACCESS_U
 });
 
 // *********************************************************************************************************************
-// UPDATE GENERAL PRICELIST
-// *********************************************************************************************************************
-router.put('/pricelists/general', [validateToken, authoriseApiAccess(BUDGET_ACCESS_FULL)],  async (req, res, next) => {
-   try {
-       if(!req.body.pricelist) {
-           const error = new Error('Update General Pricelist. Missing pricelist data.');
-           error.statusCode = 400;
-           next(error);
-       } else {
-           await db.updateGeneralPricelist(req.body.pricelist);
-           res.status(200).end();
-       }
-   } catch(error) {
-       next(error);
-   }
-});
-
-// *********************************************************************************************************************
-// UPDATE PRICELIST
+// UPDATE PRICELIST (id can be 'general')
 // *********************************************************************************************************************
 router.put('/pricelists/:id', [validateToken, authoriseApiAccess(BUDGET_ACCESS_FULL)],  async (req, res, next) => {
     try {
         const id = req.params.id && mongoose.Types.ObjectId.isValid(req.params.id) ? req.params.id : null;
-        if(!id) {
+        if(!id && (!req.params.id || req.params.id !== 'general')) {
             const error = new Error('Update Pricelist. Wrong or missing pricelist id.');
+            error.statusCode = 400;
+            next(error);
+        } else if(!req.body || !req.body.pricelist) {
+            const error = new Error('Update Pricelist. Missing pricelist data.');
             error.statusCode = 400;
             next(error);
         } else {
@@ -101,7 +81,7 @@ router.put('/pricelists/:id', [validateToken, authoriseApiAccess(BUDGET_ACCESS_F
 // *********************************************************************************************************************
 router.post('/pricelists', [validateToken, authoriseApiAccess(BUDGET_ACCESS_FULL)],  async (req, res, next) => {
     try {
-        await db.createPricelist(id, req.body);
+        await db.createPricelist(req.body);
         res.status(200).end();
     } catch(error) {
         next(error);
@@ -127,14 +107,30 @@ router.delete('/pricelists/:id', [validateToken, authoriseApiAccess(BUDGET_ACCES
     }
 });
 
-
-
-
-
-
-
-
-
+// *********************************************************************************************************************
+// GET PDF OF PRICELIST
+// *********************************************************************************************************************
+router.get('/pricelists/pdf/:id', [validateToken, authoriseApiAccess(BUDGET_ACCESS_FULL)],  async (req, res, next) => {
+    try {
+        const id = req.params.id && mongoose.Types.ObjectId.isValid(req.params.id) ? req.params.id : null;
+        if(!id && (!req.params.id || req.params.id !== 'general')) {
+            const error = new Error('Get PDF of Pricelist. Wrong or missing pricelist id.');
+            error.statusCode = 400;
+            next(error);
+        } else {
+            const pricelist = await db.getPricelist(id);
+            const filename = `Pricelist_${pricelist.label}_${moment().format('YYMMDD')}`;
+            const filenameEncoded = encodeURIComponent(filename);
+            res.setHeader('Content-Disposition', 'attachment; filename="' + filenameEncoded + '.pdf"');
+            res.setHeader('Content-Type', 'application/pdf');
+            const pdfDoc = pricelistPdf(pricelist, filename);
+            pdfDoc.pipe(res);
+            pdfDoc.end();
+        }
+    } catch(error) {
+        next(error);
+    }
+});
 
 // *********************************************************************************************************************
 // GET PRICELIST UNITS
@@ -149,16 +145,104 @@ router.get('/units', [validateToken, authoriseApiAccess(BUDGET_ACCESS_READONLY)]
 });
 
 // *********************************************************************************************************************
-// GET JOBS (WORK TYPES)
+// UPDATE PRICELIST UNITS
 // *********************************************************************************************************************
-router.get('/jobs', [validateToken, authoriseApiAccess(BUDGET_ACCESS_READONLY)],  async (req, res, next) => {
+router.put('/units', [validateToken, authoriseApiAccess(BUDGET_ACCESS_FULL)],  async (req, res, next) => {
     try {
-        const workTypes = await db.getWorkTypes();
-        res.status(200).json(workTypes);
+        let order = 0;
+        const units = req.body.map(unit => ({_id: unit._id, label: unit.label, order: order++, timeRatio: unit.timeRatio ? unit.timeRatio : 0, default: unit.default }));
+        await db.updateUnits(units);
+        res.status(200).end();
     } catch(error) {
         next(error);
     }
 });
+
+// +++++  T E M P L A T E S  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+// *********************************************************************************************************************
+// GET TEMPLATES
+// *********************************************************************************************************************
+router.get('/templates', [validateToken, authoriseApiAccess(BUDGET_ACCESS_USER)],  async (req, res, next) => {
+    try {
+        const templates = await db.getTemplates();
+        res.status(200).json(templates);
+    } catch(error) {
+        next(error);
+    }
+});
+
+// *********************************************************************************************************************
+// GET TEMPLATE BY ID
+// *********************************************************************************************************************
+router.get('/templates/:id', [validateToken, authoriseApiAccess(BUDGET_ACCESS_USER)],  async (req, res, next) => {
+    try {
+        const id = ((req.params.id && mongoose.Types.ObjectId.isValid(req.params.id)) || (req.params.id == 'new')) ? req.params.id : null;
+        if(!id) {
+            const error = new Error('Get Template. Wrong or missing template id.');
+            error.statusCode = 400;
+            next(error);
+        } else {
+            const idsOnly = req.query['itemIdsOnly'] && req.query['itemIdsOnly'] === 'true';
+            const template = await db.getTemplate(id, idsOnly);
+            res.status(200).json(template);
+        }
+    } catch(error) {
+        next(error);
+    }
+});
+
+// *********************************************************************************************************************
+// CREATE TEMPLATE
+// *********************************************************************************************************************
+router.post('/templates', [validateToken, authoriseApiAccess(BUDGET_ACCESS_FULL)],  async (req, res, next) => {
+    try {
+        const template = await db.createTemplate(req.body);
+        res.status(200).json({id: template._id});
+    } catch(error) {
+        next(error);
+    }
+});
+
+// *********************************************************************************************************************
+// UPDATE TEMPLATE
+// *********************************************************************************************************************
+router.put('/templates/:id', [validateToken, authoriseApiAccess(BUDGET_ACCESS_FULL)],  async (req, res, next) => {
+    try {
+        const id = req.params.id && mongoose.Types.ObjectId.isValid(req.params.id) ? req.params.id : null;
+        if(!id) {
+            const error = new Error('Update Template. Wrong or missing template id.');
+            error.statusCode = 400;
+            next(error);
+        } else {
+            await db.updateTemplate(id, req.body);
+            res.status(200).end();
+        }
+    } catch(error) {
+        next(error);
+    }
+});
+
+// *********************************************************************************************************************
+// REMOVE TEMPLATE
+// *********************************************************************************************************************
+router.delete('/templates/:id', [validateToken, authoriseApiAccess(BUDGET_ACCESS_FULL)],  async (req, res, next) => {
+    try {
+        const id = req.params.id && mongoose.Types.ObjectId.isValid(req.params.id) ? req.params.id : null;
+        if(!id) {
+            const error = new Error('Remove Template. Wrong or missing template id.');
+            error.statusCode = 400;
+            next(error);
+        } else {
+            await db.removeTemplate(id);
+            res.status(200).end();
+        }
+    } catch(error) {
+        next(error);
+    }
+});
+
+// +++++  B U D G E T S  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 // *********************************************************************************************************************
 // GET LIST OF ALL BUDGETS
@@ -192,24 +276,50 @@ router.get('/budgets/:id', [validateToken, authoriseApiAccess(BUDGET_ACCESS_READ
 });
 
 // *********************************************************************************************************************
-// GET LIST OF ALL CLIENTS
+// CREATE BUDGET
 // *********************************************************************************************************************
-router.get('/clients', [validateToken, authoriseApiAccess(BUDGET_ACCESS_READONLY)],  async (req, res, next) => {
+router.post('/budgets', [validateToken, authoriseApiAccess(BUDGET_ACCESS_USER)],  async (req, res, next) => {
     try {
-        const clients = await db.getClients();
-        res.status(200).json(clients);
+        if(!req.body.label) {
+            const error = new Error('Create Budget. Label of Budget missing.');
+            error.statusCode = 400;
+            next(error);
+        } else {
+            const budget = await db.createBudget(req.body);
+            if (req.body.project) {
+                const project = await db.updateProjectsBudget(budget.project, budget._id);
+                const normalized = db.getNormalizedProject(project);
+                logger.debug(normalized);
+                //TODO wamp.notifyAboutUpdatedProject(getNormalizedProject(project));
+            }
+            res.status(200).json({id: budget._id});
+        }
+    } catch(error) {
+        next(error);
+    }
+});
+
+// +++++  O T H E R S  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+// *********************************************************************************************************************
+// GET JOBS (WORK TYPES)
+// *********************************************************************************************************************
+router.get('/jobs', [validateToken, authoriseApiAccess(BUDGET_ACCESS_READONLY)],  async (req, res, next) => {
+    try {
+        const workTypes = await db.getWorkTypes();
+        res.status(200).json(workTypes);
     } catch(error) {
         next(error);
     }
 });
 
 // *********************************************************************************************************************
-// GET TEMPLATES
+// GET LIST OF ALL CLIENTS
 // *********************************************************************************************************************
-router.get('/templates', [validateToken, authoriseApiAccess(BUDGET_ACCESS_USER)],  async (req, res, next) => {
+router.get('/clients', [validateToken, authoriseApiAccess(BUDGET_ACCESS_READONLY)],  async (req, res, next) => {
     try {
-        const templates = await db.getTemplates();
-        res.status(200).json(templates);
+        const clients = await db.getClients();
+        res.status(200).json(clients);
     } catch(error) {
         next(error);
     }
@@ -227,5 +337,41 @@ router.get('/projects', [validateToken, authoriseApiAccess(BUDGET_ACCESS_USER)],
         next(error);
     }
 });
+
+// *********************************************************************************************************************
+// GET BOOKING PROJECT (For create new from booking)
+// *********************************************************************************************************************
+router.get('/projects/:id', [validateToken, authoriseApiAccess(BUDGET_ACCESS_USER)],  async (req, res, next) => {
+    try {
+        const id = req.params.id && mongoose.Types.ObjectId.isValid(req.params.id) ? req.params.id : null;
+        if(!id) {
+            const error = new Error('Get Booking Project. Wrong or missing budget id.');
+            error.statusCode = 400;
+            next(error);
+        } else {
+            const project = await db.getProject(id);
+            if(project) res.status(200).json(project);
+            else res.status(404).end(); //TODO go through next()? to report to log?
+        }
+    } catch(error) {
+        next(error);
+    }
+});
+
+// *********************************************************************************************************************
+// GET LIST OF CONDITIONS
+// *********************************************************************************************************************
+router.get('/conditions', [validateToken, authoriseApiAccess(BUDGET_ACCESS_USER)],  async (req, res, next) => {
+    try {
+        const conditions = db.getConditions();
+        res.status(200).json(conditions);
+    } catch(error) {
+        next(error);
+    }
+});
+
+
+
+
 
 
