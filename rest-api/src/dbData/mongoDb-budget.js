@@ -127,7 +127,7 @@ exports.createSnapshot = async options => { // options = {pricelistId} OR {langu
     let label = 'General Pricelist';
     let client = '';
     if(pricelistId || (currency && language)) {
-        const pricelist = await getPricelist(pricelistId);
+        const pricelist = await exports.getPricelist(pricelistId);
         if(pricelistId) {
             currency = pricelist.currency;
             language = pricelist.language;
