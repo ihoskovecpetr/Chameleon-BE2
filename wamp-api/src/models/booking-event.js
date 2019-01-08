@@ -20,7 +20,8 @@ const BookingEventSchema = new Schema({
     isShooting : {type: Boolean, default: false},
     notes: {type: String, default: ''},
     virtualOperator: {type: String, default: null},
-    avbEvent: {type: Schema.Types.ObjectId, default: null}
+    avbEvent: {type: Schema.Types.ObjectId, default: null},
+    archived: {type: Boolean, default: false}
 });
 
 module.exports = mongoose.model('booking-event', BookingEventSchema);

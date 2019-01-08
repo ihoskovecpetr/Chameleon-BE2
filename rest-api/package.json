@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "activedirectory": "^0.7.2",
+    "autobahn": "^18.10.2",
     "body-parser": "^1.18.3",
     "cookie-parser": "^1.4.3",
     "express": "^4.16.4",

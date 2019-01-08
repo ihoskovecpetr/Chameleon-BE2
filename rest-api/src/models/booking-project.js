@@ -43,7 +43,8 @@ const BookingProjectSchema = new Schema({
     }],
     budget: {type: Schema.Types.ObjectId, ref: 'budget', default: null},
     kickBack: {type: Boolean, default: false},
-    checked: {type: Date, default: null}
+    checked: {type: Date, default: null},
+    archived: {type: Boolean, default: false}
 });
 
 module.exports = mongoose.model('booking-project', BookingProjectSchema);

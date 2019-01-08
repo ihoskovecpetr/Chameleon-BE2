@@ -8,6 +8,7 @@ const mongoose = require('mongoose');
 
 const version = require('./package.json').version;
 const logger = require('./src/logger');
+const wamp = require('./src/wamp');
 
 const validateToken = require('./src/validateToken');
 
@@ -56,6 +57,7 @@ const server = app.listen(PORT, HOST, (err) => {
         process.exit(1);
     } else {
         logger.info(`Server listening on port: ${PORT}`);
+        wamp.open();
         connectDb();
     }
 });
@@ -71,6 +73,9 @@ const signals = {
 Object.keys(signals).forEach(signal => {
     process.on(signal, async () => {
         logger.info(`Received Signal ${signal}, shutting down.`);
+        // WAMP
+        await wamp.close();
+        logger.info(`WAMP disconnected.`);
         // Mongo DB
         logger.info('Disconnecting MongoDb...');
         await mongoose.connection.close();

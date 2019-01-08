@@ -4,6 +4,7 @@ const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
 const db = require('../dbData/mongoDb-budget');
+const wamp = require('../wamp');
 const moment = require('moment');
 
 const pricelistPdf = require('../pdf/pricelistPdf');
@@ -285,14 +286,76 @@ router.post('/budgets', [validateToken, authoriseApiAccess(BUDGET_ACCESS_USER)],
             error.statusCode = 400;
             next(error);
         } else {
-            const budget = await db.createBudget(req.body);
-            if (req.body.project) {
-                const project = await db.updateProjectsBudget(budget.project, budget._id);
-                const normalized = db.getNormalizedProject(project);
-                logger.debug(normalized);
-                //TODO wamp.notifyAboutUpdatedProject(getNormalizedProject(project));
-            }
+            const result = await db.createBudget(req.body);
+            if (result.project) wamp.notifyAboutUpdatedProject(result.project);
+            res.status(200).json({id: result.budget});
+        }
+    } catch(error) {
+        next(error);
+    }
+});
+
+// *********************************************************************************************************************
+// CREATE BUDGET - saveAs - id is old budget Id - unify - set id to new???
+// *********************************************************************************************************************
+router.post('/budgets/:id', [validateToken, authoriseApiAccess(BUDGET_ACCESS_USER)],  async (req, res, next) => {
+    try {
+        const id = req.params.id && mongoose.Types.ObjectId.isValid(req.params.id) ? req.params.id : null;
+        if(!id) {
+            const error = new Error('Create Budget - Copy. Wrong or missing source template id.');
+            error.statusCode = 400;
+            next(error);
+        } else {
+            const budget = db.createBudgetAsCopy(id, req.body);
+            //TODO wamp notifications
             res.status(200).json({id: budget._id});
+        }
+    } catch(error) {
+        next(error);
+    }
+});
+
+// *********************************************************************************************************************
+// UPDATE BUDGET
+// *********************************************************************************************************************
+router.put('/budgets/:id', [validateToken, authoriseApiAccess(BUDGET_ACCESS_USER)],  async (req, res, next) => {
+    try {
+        const id = req.params.id && mongoose.Types.ObjectId.isValid(req.params.id) ? req.params.id : null;
+        if(!id) {
+            const error = new Error('Update Budget. Wrong or missing template id.');
+            error.statusCode = 400;
+            next(error);
+        } else {
+            const result = await db.updateBudget(id, req.body);
+            if(result.oldProject) wamp.notifyAboutUpdatedProject(result.oldProject);
+            if(result.newProject) wamp.notifyAboutUpdatedProject(result.newProject);
+            if(result.project) wamp.notifyAboutUpdatedProject(result.project);
+
+            if(result.oldPrice || result.newPrice) {
+                //TODO wamp.projectBudgetOfferChanged({project:  projects[0] ? {id: projects[0]._id.toString(), label: projects[0].label} : {id: null}, budget: {id: budgetId.toString(), price: oldPrices}}, {project:  projects[1] ? {id: projects[1]._id.toString(), label: projects[1].label} : {id: null}, budget: {id: budgetId.toString(), price: newPrices}}))
+            }
+            res.status(200).end();
+        }
+    } catch(error) {
+        next(error);
+    }
+});
+
+// *********************************************************************************************************************
+// REMOVE BUDGET
+// *********************************************************************************************************************
+router.delete('/budgets/:id', [validateToken, authoriseApiAccess(BUDGET_ACCESS_USER)],  async (req, res, next) => {
+    try {
+        const id = req.params.id && mongoose.Types.ObjectId.isValid(req.params.id) ? req.params.id : null;
+        if(!id) {
+            const error = new Error('Remove Budget. Wrong or missing template id.');
+            error.statusCode = 400;
+            next(error);
+        } else {
+            const result = await db.removeBudget(id);
+            //TODO if project affected - wamp.notifyAboutUpdatedProject(getNormalizedProject(project));
+            //TODO wamp.projectBudgetOfferChanged({project:  project ? {id: project._id.toString(), label: project.label} : {id: null}, budget: {id: budgetId.toString(), price: null}}, {project:  project ? {id: project._id.toString(), label: project.label} : {id: null}, budget: {id: null}}))
+            res.status(200).end();
         }
     } catch(error) {
         next(error);
@@ -339,19 +402,23 @@ router.get('/projects', [validateToken, authoriseApiAccess(BUDGET_ACCESS_USER)],
 });
 
 // *********************************************************************************************************************
-// GET BOOKING PROJECT (For create new from booking)
+// GET BOOKING PROJECT (For create new from booking, id='new' => new for not saved project yet)
 // *********************************************************************************************************************
 router.get('/projects/:id', [validateToken, authoriseApiAccess(BUDGET_ACCESS_USER)],  async (req, res, next) => {
     try {
-        const id = req.params.id && mongoose.Types.ObjectId.isValid(req.params.id) ? req.params.id : null;
+        const id = req.params.id && (mongoose.Types.ObjectId.isValid(req.params.id) || req.params.id === 'new') ? req.params.id : null;
         if(!id) {
             const error = new Error('Get Booking Project. Wrong or missing budget id.');
             error.statusCode = 400;
             next(error);
         } else {
-            const project = await db.getProject(id);
+            const project = id !== 'new' ? await db.getProject(id) : {label: 'Not yet created!', _id: null};
             if(project) res.status(200).json(project);
-            else res.status(404).end(); //TODO go through next()? to report to log?
+            else {
+                const error = new Error(`Get Booking Project. Can't find project id: '${id}'.`);
+                error.statusCode = 404;
+                next(error);
+            }
         }
     } catch(error) {
         next(error);

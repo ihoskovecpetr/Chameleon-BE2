@@ -109,6 +109,8 @@ services:
       - AD_USER
       - AD_PASSWORD
       - NODE_ENV
+      - CROSSBAR_IPV4
+      - CROSSBAR_SECRET_CHAMELEON
       - LOGGER_LEVEL
       - FLUENTD_IPV4
     restart: always

@@ -1,5 +1,7 @@
 'use strict';
 const mongoose = require('mongoose');
+const moment = require('moment');
+const logger = require('../logger');
 
 //Collections
 const Budget = require('../models/budget');
@@ -14,6 +16,8 @@ const PricelistItem = require('../models/pricelist-item');
 const BudgetCondition = require('../models/budget-condition');
 const BudgetItem = require('../models/budget-item');
 const PricelistSnapshot = require('../models/pricelist-snapshot');
+
+const BookingOplog = require('../models/booking-oplog');
 
 // +++++  P R I C E L I S T S  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -66,6 +70,17 @@ exports.getPricelist = async id => {
     if(clientPricelist && pricelistClient) result.client = pricelistClient;
     return result;
 };
+// *********************************************************************************************************************
+// create pricelist
+// *********************************************************************************************************************
+exports.createPricelist = async pricelist => {
+    if(typeof pricelist.client !== 'undefined' && !mongoose.Types.ObjectId.isValid(pricelist.client)) {
+        const newClientId = mongoose.Types.ObjectId();
+        await BudgetClient.create({_id: newClientId, label: pricelist.client, kickBack: 0.0});
+        pricelist.client = newClientId;
+    }
+    await Pricelist.create(pricelist);
+};
 
 // *********************************************************************************************************************
 // update pricelist, no id => return general
@@ -96,18 +111,6 @@ exports.updatePricelist = async (id, pricelist) => {
         }
         await Pricelist.findOneAndUpdate({_id: id}, pricelist);
     }
-};
-
-// *********************************************************************************************************************
-// create pricelist
-// *********************************************************************************************************************
-exports.createPricelist = async pricelist => {
-    if(typeof pricelist.client !== 'undefined' && !mongoose.Types.ObjectId.isValid(pricelist.client)) {
-        const newClientId = mongoose.Types.ObjectId();
-        await BudgetClient.create({_id: newClientId, label: pricelist.client, kickBack: 0.0});
-        pricelist.client = newClientId;
-    }
-    await Pricelist.create(pricelist);
 };
 
 // *********************************************************************************************************************
@@ -180,7 +183,7 @@ exports.getTemplates = async () => {
 };
 
 // *********************************************************************************************************************
-// get template by ID
+// get template
 // *********************************************************************************************************************
 exports.getTemplate = async (id, idsOnly) => {
     if(idsOnly) {
@@ -237,84 +240,12 @@ exports.getBudgets = async () => {
 };
 
 // *********************************************************************************************************************
-// create budgets
-// *********************************************************************************************************************
-exports.createBudget = async options => { // budget = {label, pricelistId, language, currency, template, project}
-    const snapshot = await exports.createSnapshot(options);
-    const template = [];
-    const language = snapshot.language;
-    const currency = snapshot.currency;
-    const conditions = BudgetCondition.findOne({language: language}).lean();
-
-    if(options.template) {
-        const units = (await PricelistUnit.find({}, {timeRatio: true}).lean()).reduce((units, unit) => {units[unit._id] = unit; return units}, {});
-        const groupMap = snapshot.pricelist.reduce((map, group) => {
-            map[group.id] = group;
-            return map
-        }, {});
-        const itemMap = snapshot.pricelist.reduce((map, group) => {
-            group.items.forEach(item => {
-                map[item.id] = item;
-            });
-            return map;
-        }, {});
-        const templateData = await Template.findOne({_id: options.template}).lean();
-
-        templateData.items.forEach(item => {
-            if(groupMap[item]) {
-                template.push({
-                    isGroup: true,
-                    label: groupMap[item].label[language],
-                    id: groupMap[item].id
-                });
-            } else if(itemMap[item]) {
-                template.push({
-                    label: itemMap[item].label[language],
-                    price: itemMap[item].price[currency],
-                    fixed: !!itemMap[item].price[currency],
-                    clientPrice: itemMap[item].clientPrice[currency],
-                    unit: itemMap[item].unit[language],
-                    unitId: itemMap[item].unitId,
-                    job: itemMap[item].jobId,
-                    unitDuration: units[itemMap[item].unitId] ? units[itemMap[item].unitId].timeRatio : 0,
-                    id: itemMap[item].id,
-                    subtotal: false,
-                    color: ''
-                })
-            }
-        });
-    }
-
-    const part = await BudgetItem.create({
-        active: true,
-        output: true,
-        budget: null,
-        label: '',
-        items: template
-    });
-
-    return await Budget.create({
-        label: options.label,
-        language: language,
-        currency: currency,
-        pricelist: snapshot._id,
-        parts: [part._id],
-        conditions: conditions ? conditions.conditions : '',
-        contact: options.contact,
-        colorOutput: false,
-        singleOutput: false,
-        multiTotal: false,
-        client: snapshot.client
-    });
-};
-
-// *********************************************************************************************************************
-// get budget by id
+// get budget
 // *********************************************************************************************************************
 exports.getBudget = async id => {
     const budget = await Budget.findOne({_id: id}).populate('pricelist parts').lean();
     const colors = (await PricelistGroup.find({}, {color: true}).lean()).reduce((colors, group) => {colors[group._id.toString()] = group.color; return colors}, {});
-    const project = BookingProject.findOne({budget: id, deleted: null, offtime: false}, {label: true, manager: true}).lean();
+    const project = await BookingProject.findOne({budget: id, deleted: null, offtime: false}, {label: true, manager: true}).lean();
     const v2 = !!budget.pricelist.v2;
     return {
         id: budget._id,
@@ -366,6 +297,139 @@ exports.getBudget = async id => {
         multiTotal: budget.multiTotal,
         v2: v2
     }
+};
+
+// *********************************************************************************************************************
+// create budget
+// *********************************************************************************************************************
+exports.createBudget = async options => { // budget = {label, pricelistId, language, currency, template}
+    const snapshot = await exports.createSnapshot(options);
+    const template = [];
+    const language = snapshot.language;
+    const currency = snapshot.currency;
+    const conditions = await BudgetCondition.findOne({language: language}).lean();
+
+    if(options.template) {
+        const units = (await PricelistUnit.find({}, {timeRatio: true}).lean()).reduce((units, unit) => {units[unit._id] = unit; return units}, {});
+        const groupMap = snapshot.pricelist.reduce((map, group) => {
+            map[group.id] = group;
+            return map
+        }, {});
+        const itemMap = snapshot.pricelist.reduce((map, group) => {
+            group.items.forEach(item => {
+                map[item.id] = item;
+            });
+            return map;
+        }, {});
+        const templateData = await Template.findOne({_id: options.template}).lean();
+
+        templateData.items.forEach(item => {
+            if(groupMap[item]) {
+                template.push({
+                    isGroup: true,
+                    label: groupMap[item].label[language],
+                    id: groupMap[item].id
+                });
+            } else if(itemMap[item]) {
+                template.push({
+                    label: itemMap[item].label[language],
+                    price: itemMap[item].price[currency],
+                    fixed: !!itemMap[item].price[currency],
+                    clientPrice: itemMap[item].clientPrice[currency],
+                    unit: itemMap[item].unit[language],
+                    unitId: itemMap[item].unitId,
+                    job: itemMap[item].jobId,
+                    unitDuration: units[itemMap[item].unitId] ? units[itemMap[item].unitId].timeRatio : 0,
+                    id: itemMap[item].id,
+                    subtotal: false,
+                    color: ''
+                })
+            }
+        });
+    }
+    const part = await BudgetItem.create({
+        active: true,
+        output: true,
+        budget: null,
+        label: '',
+        items: template
+    });
+    const budget =  await Budget.create({
+        label: options.label,
+        language: language,
+        currency: currency,
+        pricelist: snapshot._id,
+        parts: [part._id],
+        conditions: conditions ? conditions.conditions : '',
+        contact: options.contact,
+        colorOutput: false,
+        singleOutput: false,
+        multiTotal: false,
+        client: snapshot.client
+    });
+    const project = options.project ? await exports.updateProjectsBudget(options.project, budget._id) : null;
+    return {budget: budget._id, project: project};
+};
+
+// *********************************************************************************************************************
+// create as copy budget //TODO return data for wamp notification //update project(s) respectively
+// *********************************************************************************************************************
+exports.createBudgetAsCopy = async (id, newBudget) => {
+    const newId =  mongoose.Types.ObjectId();
+    const oldBudget = await Budget.findOne({_id: id});
+    oldBudget._id = newId;
+    oldBudget.isNew = true;
+    oldBudget.parts = [];
+    await oldBudget.save();
+    const budget = await Budget.findOneAndUpdate({_id: newId}, newBudget);
+    for(const part of newBudget.parts) await BudgetItem.create(part, {setDefaultsOnInsert: true});
+    return budget;
+};
+
+// *********************************************************************************************************************
+// update budget //TODO return data for wamp notification //update project respectively
+// *********************************************************************************************************************
+exports.updateBudget = async (id, budget) => {
+    const newPrice = getBudgetPrices(budget);
+    const oldPrice = getBudgetPrices(await Budget.findOne({_id: id}).populate('parts'));
+    const projects = {};
+    const parts = [...budget.parts];
+    budget.parts = budget.parts.map(part => part._id);
+    const oldBudget = await Budget.findOneAndUpdate({_id: id}, budget);
+    for(const part of parts) await BudgetItem.update({_id: part._id}, part, {upsert: true, setDefaultsOnInsert: true});
+
+    const partIds = parts.map(part => part._id);
+    const toDelete = oldBudget.parts.filter(partId => partIds.indexOf(partId.toString()) < 0);
+    for(const partId of toDelete) await BudgetItem.findByIdAndRemove(partId);
+
+    const oldProject = await BookingProject.findOne({budget: id});
+    const newProject = await BookingProject.findOne({_id: budget.project});
+    const oldProjectID = oldProject ? oldProject._id.toString() : null;
+    const newProjectID = newProject ? newProject._id.toString() : null;
+
+    if(oldProjectID !== newProjectID) { //project has been changed => set, reset or changed
+        //new exists set minutes
+        if(newProjectID) projects.newProject = await exports.updateProjectsBudget(newProjectID, id, true); //projectID, budgetID, minutes (true => set)
+        //old exists => reset minutes
+        if(oldProjectID) projects.oldProject = await exports.updateProjectsBudget(oldProjectID, null, true); //projectID, budgetID, minutes (true => set - no budgetId => reset)
+    //not changed but exists - update budgetMinutes on project if changed
+    } else if(newProjectID) projects.project = await exports.updateProjectsBudget(newProjectID, id, true);
+    return {projects: projects, newPrice: newPrice, oldPrice: oldPrice};
+};
+
+// *********************************************************************************************************************
+// remove budget //TODO return data for wamp notification //update project respectively
+// *********************************************************************************************************************
+exports.removeBudget = async id => {
+    const budget = await Budget.findOneAndUpdate({_id: id}, {deleted: moment()});
+    const project = await BookingProject.findOne({budget: id});
+    if(project) {
+        project.budget = null;
+        project.kickBack = false;
+        resetPlannedMinutes(project);
+        await project.save();
+    }
+    return {project: project, budget: budget}
 };
 
 // +++++  O T H E R S  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -424,8 +488,32 @@ exports.getProject = async id => {
 // *********************************************************************************************************************
 // update booking project - set budget id for new created budget already linked to project
 // *********************************************************************************************************************
-exports.updateProjectsBudget = async (projectId, budgetId) => {
-    return await BookingProject.findOneAndUpdate({_id: projectId}, {budget: budgetId}, {new: true});
+exports.updateProjectsBudget = async (projectId, budgetId, updateMinutes) => {
+    logger.debug(projectId);
+    logger.debug(budgetId);
+    let changed = false;
+    const project = await BookingProject.findOne({_id: projectId});
+    if(project) {
+        if(project.budget != budgetId) {
+            project.budget = budgetId;
+            changed = true;
+        }
+        if(updateMinutes) {
+            if(budgetId) {
+                const budgetMinutes = await getBudgetMinutes(budgetId);
+                logger.debug(budgetMinutes); //TODO check result of budgetMinutes !!!!!!!
+                changed = updatePlannedMinutes(budgetMinutes, project) || changed;
+            } else {
+                changed = resetPlannedMinutes(project) || changed;
+            }
+        }
+        if(changed) {
+            const updatedProject = await project.save();
+            const normalizedProject = exports.getNormalizedProject(updatedProject);
+            await exports.logOp('updateProjectBudget', '777777777777777777777777', normalizedProject, null);
+            return normalizedProject;
+        }
+    }
 };
 
 // *********************************************************************************************************************
@@ -442,9 +530,10 @@ exports.getConditions = async () => {
 // *********************************************************************************************************************
 // get normalized project for wamp (booking)
 // *********************************************************************************************************************
-exports.getNormalizedProject = project => {
+exports.getNormalizedProject = source => {
+    const project = source.toJSON ? source.toJSON() : source;
     return {
-        id: project._id,
+        id: project._id.toString(),
         project: {
             label: project.label,
             K2rid: project.K2rid,
@@ -477,3 +566,106 @@ exports.getNormalizedProject = project => {
         }
     }
 };
+
+// *********************************************************************************************************************
+// logging ops to db (booking)
+// *********************************************************************************************************************
+exports.logOp = async (type, user, data, err) => {
+    await BookingOplog.create({type: type, user: user, data: data, success: !err, reason: err});
+};
+
+// *********************************************************************************************************************
+// helpers
+// *********************************************************************************************************************
+function resetPlannedMinutes(project) {
+    if(project) {
+        let changed = false;
+        project.jobs.forEach((job, index) => {
+            if(job.plannedDuration !== 0) {
+                project.jobs[index].plannedDuration = 0;
+                changed = true;
+            }
+        });
+        project.jobs = project.jobs.filter(job => job.plannedDuration > 0 || job.doneDuration > 0); // remove 0-0 job
+        if(project.kickBack) {
+            project.kickBack = false;
+            changed = true;
+        }
+        return changed;
+    } else return false;
+}
+
+function updatePlannedMinutes(budgetMinutes, project) {
+    if(budgetMinutes && project) {
+        let changed = false;
+        project.jobs.forEach((job, index) => {
+            if(budgetMinutes.jobs[job.job]) {
+                if(job.plannedDuration !== budgetMinutes.jobs[job.job]) {
+                    project.jobs[index].plannedDuration = budgetMinutes.jobs[job.job];
+                    changed = true;
+                }
+                budgetMinutes.jobs[job.job] = -1;
+            } else if(job.plannedDuration !== 0) {
+                project.jobs[index].plannedDuration = 0;
+                changed = true;
+            }
+        });
+        project.jobs = project.jobs.filter(job => job.plannedDuration > 0 || job.doneDuration > 0); // remove 0-0 job
+        Object.keys(budgetMinutes.jobs).filter(jobId => budgetMinutes.jobs[jobId] >= 0).forEach(jobId => {
+            changed = true;
+            project.jobs.push({doneDuration: 0, job: jobId, plannedDuration: budgetMinutes.jobs[jobId]})
+        });
+        if(project.kickBack !== budgetMinutes.kickBack) {
+            project.kickBack = budgetMinutes.kickBack;
+            changed = true;
+        }
+        return changed;
+    } else return false;
+}
+
+function getBudgetPrices(budget) {
+    const parts =  budget.parts.map(part => {
+        return {
+            offer: part.offer,
+            price: part.items.reduce((price, item) => price + ((item.numberOfUnits ? item.numberOfUnits : 0) * (item.price ? item.price : 0)), 0),
+            currency: budget.currency,
+            active: part.active
+        }
+    }).filter(item => item.active);
+    const hasOffer = parts.some(part => part.offer);
+    const result = parts.reduce((total, item) => {
+        total.offer = hasOffer ? item.offer ? total.offer + item.offer : total.offer + item.price : null;
+        total.price += item.price;
+        total.currency = item.currency;
+        return total;
+    }, {offer: 0, price: 0, currency: '', percent: null});
+    result.percent = result.price > 0 && result.offer ? Math.round(1000 * (result.price - result.offer) / result.price) / 10 : 0;
+    if(result.offer === 0) result.offer = null;
+    return result;
+}
+
+async function getBudgetMinutes(budgetId) {
+    let result = {kickBack: false, jobs: {}};
+    const budget = await Budget.findOne({_id: budgetId}, {parts: true, client: true}).populate('parts').lean();
+    if(budget) {
+        budget.parts.filter(part => part.active).forEach(part => {
+            part.items.forEach(item => {
+                if(!item.isGroup && item.job && item.numberOfUnits > 0 && item.unitDuration > 0) {
+                    if (!result.jobs[item.job]) result.jobs[item.job] = 0;
+                    result.jobs[item.job] += item.numberOfUnits * item.unitDuration;
+                }
+            })
+        });
+        if(budget.client && mongoose.Types.ObjectId.isValid(budget.client)) {
+            const client = await BudgetClient.findOne({_id: budget.client}, {kickBack: true}).lean();
+            result.kickBack = client && client.kickBack;
+            if(client && client.kickBack) {
+                Object.keys(result.jobs).forEach(jobKey => {
+                    result.jobs[jobKey] = Math.round(result.jobs[jobKey] * (1 - client.kickBack)); //TODO double check
+                })
+            }
+        }
+    }
+    return result;
+}
+

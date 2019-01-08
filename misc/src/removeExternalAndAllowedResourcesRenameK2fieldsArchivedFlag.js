@@ -43,6 +43,12 @@ mongoose.set('debug', true);
         const result6 = await Users.updateMany({},  {$unset: {allowedResources: 1}}, {multi: true});
         console.log(`Remove AllowedResources from Users: ${JSON.stringify(result6.result)}`);
 
+        const result7 = await Projects.updateMany({},  {$set: {archived: false}}, {multi: true});
+        console.log(`Set Archived Project to false: ${JSON.stringify(result7.result)}`);
+
+        const result8 = await Events.updateMany({},  {$set: {archived: false}}, {multi: true});
+        console.log(`Set Archived Event to false: ${JSON.stringify(result8.result)}`);
+
     } catch(e) {
         console.error(e);
     } finally {

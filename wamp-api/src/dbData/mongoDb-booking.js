@@ -45,14 +45,14 @@ exports.getHolidays = async () => {
 };
 
 exports.getProjects = async () => {
-    const projects = await BookingProject.find({deleted: null},{__v: false, 'jobs.__v': false, 'jobs._id': false, 'timing.__v': false, 'timing._id': false, 'invoice.__v': false, 'invoice._id': false, 'onair.__v': false, deleted: false }).lean();
+    const projects = await BookingProject.find({deleted: null, archived: false},{__v: false, 'jobs.__v': false, 'jobs._id': false, 'timing.__v': false, 'timing._id': false, 'invoice.__v': false, 'invoice._id': false, 'onair.__v': false, deleted: false, archived: false }).lean();
     return dataHelper.getObjectOfNormalizedDocs(projects);
 };
 
 exports.getEvents = async () => {
-    const projects = await BookingProject.find({deleted: null}, {_id: true}).lean();
+    const projects = await BookingProject.find({deleted: null, archived: false}, {_id: true}).lean();
     const projectIds = projects.map(project => project._id);
-    const events = await BookingEvent.find({project: {$in: projectIds}},{__v: false, 'days.__v': false, 'days._id': false}).lean();
+    const events = await BookingEvent.find({project: {$in: projectIds}, archived: false},{__v: false, 'days.__v': false, 'days._id': false, archived: false}).lean();
     return dataHelper.getObjectOfNormalizedDocs(events);
 };
 
