@@ -372,27 +372,33 @@ exports.createBudget = async options => { // budget = {label, pricelistId, langu
 };
 
 // *********************************************************************************************************************
-// create as copy budget //TODO return data for wamp notification //update project(s) respectively
+// create as copy budget
 // *********************************************************************************************************************
-exports.createBudgetAsCopy = async (id, newBudget) => {
+exports.createBudgetAsCopy = async (id, budget) => {
+    const newPrice = getBudgetPrices(budget);
+    const oldBudget = await Budget.findOne({_id: id}).populate('parts');
+    const oldPrice = getBudgetPrices(oldBudget);
     const newId =  mongoose.Types.ObjectId();
-    const oldBudget = await Budget.findOne({_id: id});
     oldBudget._id = newId;
     oldBudget.isNew = true;
     oldBudget.parts = [];
     await oldBudget.save();
-    const budget = await Budget.findOneAndUpdate({_id: newId}, newBudget);
-    for(const part of newBudget.parts) await BudgetItem.create(part, {setDefaultsOnInsert: true});
-    return budget;
+    const parts = [...budget.parts];
+    budget.parts = budget.parts.map(part => part._id);
+    await Budget.findOneAndUpdate({_id: newId}, budget);
+    for(const part of parts) await BudgetItem.create(part, {setDefaultsOnInsert: true});
+    const newProject = await BookingProject.findOne({_id: budget.project});
+    const newProjectID = newProject ? newProject._id.toString() : null;
+    const project = newProjectID ? await exports.updateProjectsBudget(newProjectID, newId, true) : null;
+    return {project: project, newPrice: newPrice, oldPrice: oldPrice, budget: newId};
 };
 
 // *********************************************************************************************************************
-// update budget //TODO return data for wamp notification //update project respectively
+// update budget
 // *********************************************************************************************************************
 exports.updateBudget = async (id, budget) => {
     const newPrice = getBudgetPrices(budget);
     const oldPrice = getBudgetPrices(await Budget.findOne({_id: id}).populate('parts'));
-    const projects = {};
     const parts = [...budget.parts];
     budget.parts = budget.parts.map(part => part._id);
     const oldBudget = await Budget.findOneAndUpdate({_id: id}, budget);
@@ -407,29 +413,22 @@ exports.updateBudget = async (id, budget) => {
     const oldProjectID = oldProject ? oldProject._id.toString() : null;
     const newProjectID = newProject ? newProject._id.toString() : null;
 
-    if(oldProjectID !== newProjectID) { //project has been changed => set, reset or changed
-        //new exists set minutes
-        if(newProjectID) projects.newProject = await exports.updateProjectsBudget(newProjectID, id, true); //projectID, budgetID, minutes (true => set)
-        //old exists => reset minutes
-        if(oldProjectID) projects.oldProject = await exports.updateProjectsBudget(oldProjectID, null, true); //projectID, budgetID, minutes (true => set - no budgetId => reset)
-    //not changed but exists - update budgetMinutes on project if changed
+    const projects = {};
+    if(oldProjectID !== newProjectID) {
+        if(newProjectID) projects.newProject = await exports.updateProjectsBudget(newProjectID, id, true);
+        if(oldProjectID) projects.oldProject = await exports.updateProjectsBudget(oldProjectID, null, true);
     } else if(newProjectID) projects.project = await exports.updateProjectsBudget(newProjectID, id, true);
     return {projects: projects, newPrice: newPrice, oldPrice: oldPrice};
 };
 
 // *********************************************************************************************************************
-// remove budget //TODO return data for wamp notification //update project respectively
+// remove budget
 // *********************************************************************************************************************
 exports.removeBudget = async id => {
     const budget = await Budget.findOneAndUpdate({_id: id}, {deleted: moment()});
-    const project = await BookingProject.findOne({budget: id});
-    if(project) {
-        project.budget = null;
-        project.kickBack = false;
-        resetPlannedMinutes(project);
-        await project.save();
-    }
-    return {project: project, budget: budget}
+    let project = await BookingProject.findOne({budget: id}, {_id: true}).lean();
+    if(project) project =  await exports.updateProjectsBudget(project._id, id, true);
+    return {project: project, oldPrice: getBudgetPrices(budget), newPrice: null}
 };
 
 // +++++  O T H E R S  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -489,8 +488,6 @@ exports.getProject = async id => {
 // update booking project - set budget id for new created budget already linked to project
 // *********************************************************************************************************************
 exports.updateProjectsBudget = async (projectId, budgetId, updateMinutes) => {
-    logger.debug(projectId);
-    logger.debug(budgetId);
     let changed = false;
     const project = await BookingProject.findOne({_id: projectId});
     if(project) {
@@ -501,7 +498,6 @@ exports.updateProjectsBudget = async (projectId, budgetId, updateMinutes) => {
         if(updateMinutes) {
             if(budgetId) {
                 const budgetMinutes = await getBudgetMinutes(budgetId);
-                logger.debug(budgetMinutes); //TODO check result of budgetMinutes !!!!!!!
                 changed = updatePlannedMinutes(budgetMinutes, project) || changed;
             } else {
                 changed = resetPlannedMinutes(project) || changed;

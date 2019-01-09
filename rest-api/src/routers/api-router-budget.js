@@ -296,7 +296,7 @@ router.post('/budgets', [validateToken, authoriseApiAccess(BUDGET_ACCESS_USER)],
 });
 
 // *********************************************************************************************************************
-// CREATE BUDGET - saveAs - id is old budget Id - unify - set id to new???
+// CREATE BUDGET - saveAs => create new budget as copy of budget (id)
 // *********************************************************************************************************************
 router.post('/budgets/:id', [validateToken, authoriseApiAccess(BUDGET_ACCESS_USER)],  async (req, res, next) => {
     try {
@@ -306,9 +306,12 @@ router.post('/budgets/:id', [validateToken, authoriseApiAccess(BUDGET_ACCESS_USE
             error.statusCode = 400;
             next(error);
         } else {
-            const budget = db.createBudgetAsCopy(id, req.body);
-            //TODO wamp notifications
-            res.status(200).json({id: budget._id});
+            const result = db.createBudgetAsCopy(id, req.body);
+            if(result.project) wamp.notifyAboutUpdatedProject(result.project);
+            if(result.oldPrice || result.newPrice) {
+                //TODO wamp.projectBudgetOfferChanged({project:  projects[0] ? {id: projects[0]._id.toString(), label: projects[0].label} : {id: null}, budget: {id: budgetId.toString(), price: oldPrices}}, {project:  projects[1] ? {id: projects[1]._id.toString(), label: projects[1].label} : {id: null}, budget: {id: budgetId.toString(), price: newPrices}}))
+            }
+            res.status(200).json({id: result.budget}); //newId of budget
         }
     } catch(error) {
         next(error);
@@ -327,9 +330,9 @@ router.put('/budgets/:id', [validateToken, authoriseApiAccess(BUDGET_ACCESS_USER
             next(error);
         } else {
             const result = await db.updateBudget(id, req.body);
-            if(result.oldProject) wamp.notifyAboutUpdatedProject(result.oldProject);
-            if(result.newProject) wamp.notifyAboutUpdatedProject(result.newProject);
-            if(result.project) wamp.notifyAboutUpdatedProject(result.project);
+            if(result.projects.oldProject) wamp.notifyAboutUpdatedProject(result.projects.oldProject);
+            if(result.projects.newProject) wamp.notifyAboutUpdatedProject(result.projects.newProject);
+            if(result.projects.project) wamp.notifyAboutUpdatedProject(result.projects.project);
 
             if(result.oldPrice || result.newPrice) {
                 //TODO wamp.projectBudgetOfferChanged({project:  projects[0] ? {id: projects[0]._id.toString(), label: projects[0].label} : {id: null}, budget: {id: budgetId.toString(), price: oldPrices}}, {project:  projects[1] ? {id: projects[1]._id.toString(), label: projects[1].label} : {id: null}, budget: {id: budgetId.toString(), price: newPrices}}))
@@ -353,9 +356,44 @@ router.delete('/budgets/:id', [validateToken, authoriseApiAccess(BUDGET_ACCESS_U
             next(error);
         } else {
             const result = await db.removeBudget(id);
-            //TODO if project affected - wamp.notifyAboutUpdatedProject(getNormalizedProject(project));
-            //TODO wamp.projectBudgetOfferChanged({project:  project ? {id: project._id.toString(), label: project.label} : {id: null}, budget: {id: budgetId.toString(), price: null}}, {project:  project ? {id: project._id.toString(), label: project.label} : {id: null}, budget: {id: null}}))
+            if(result.project) wamp.notifyAboutUpdatedProject(result.project);
+            if(result.oldPrice || result.newPrice) {
+                //TODO wamp.projectBudgetOfferChanged({project:  project ? {id: project._id.toString(), label: project.label} : {id: null}, budget: {id: budgetId.toString(), price: null}}, {project:  project ? {id: project._id.toString(), label: project.label} : {id: null}, budget: {id: null}}))
+            }
             res.status(200).end();
+        }
+    } catch(error) {
+        next(error);
+    }
+});
+
+// *********************************************************************************************************************
+// GET PDF OF BUDGET
+// *********************************************************************************************************************
+router.get('/budgets/pdf/:id', [validateToken, authoriseApiAccess(BUDGET_ACCESS_READONLY)],  async (req, res, next) => {
+    try {
+        const id = req.params.id && mongoose.Types.ObjectId.isValid(req.params.id) ? req.params.id : null;
+        const partIndex = req.query.part;
+        if(!id && (!req.params.id || req.params.id !== 'general')) {
+            const error = new Error('Get PDF of Budget. Wrong or missing pricelist id.');
+            error.statusCode = 400;
+            next(error);
+        } else {
+            const budget = await db.getBudget(id);
+            const clients = (await db.getClients()).reduce((out, client) => {out[client._id] = client.label; return out}, {});
+            budget.part = partIndex;
+            if(clients[budget.client]) budget.client = clients[budget.client];
+            const project = budget.label ? budget.label : budget.language === 'cz' ? 'Rozpočet' : 'Budget';
+            const client = budget.client ? budget.client.replace(/s\. *r\. *o/i,'').replace(/a\. *s/i,'') : '';
+            const version = budget.version ? budget.version : '';
+            const date = budget.date ? moment(budget.date).format('YYMMDD') : moment().format('YYMMDD');
+            const filename = `${project}_${client}_${version}_${date}`.replace(/[ .,]/g,'_').replace(/_+/g,'_').replace(/^_|_$/g,'');
+            const filenameEncoded = encodeURIComponent(filename);
+            res.setHeader('Content-Disposition', `attachment; filename="${filenameEncoded}.pdf"`);
+            res.setHeader('Content-Type', 'application/pdf');
+            const pdfDoc = budgetPdf(budget, filename);
+            pdfDoc.pipe(res);
+            pdfDoc.end();
         }
     } catch(error) {
         next(error);
