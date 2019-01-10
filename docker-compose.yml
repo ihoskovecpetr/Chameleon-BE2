@@ -118,6 +118,30 @@ services:
       - fluentd
 
   ######################################################################################################################
+  # SCHEDULER - NODE
+  ######################################################################################################################
+  scheduler:
+    image: ${SCHEDULER_IMAGE}
+    container_name: scheduler
+    networks:
+      - net
+    environment:
+      - MONGO_DB_HOST
+      - MONGO_DB_PORT
+      - MONGO_DB_DATABASE
+      - MONGO_DB_USER
+      - MONGO_DB_PASSWORD
+      - NODE_ENV
+      - CROSSBAR_IPV4
+      - CROSSBAR_SECRET_CHAMELEON
+      - LOGGER_LEVEL
+      - FLUENTD_IPV4
+    restart: always
+    depends_on:
+      - fluentd
+      - crossbar
+
+  ######################################################################################################################
   # CROSSBAR
   ######################################################################################################################
   crossbar:

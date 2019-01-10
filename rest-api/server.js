@@ -35,7 +35,7 @@ app.get('/api/v1', validateToken, (req, res) => res.status(200).end('Chameleon R
 app.use('/api/v1/chameleon', apiRouterChameleon);
 app.use('/api/v1/admin', apiRouterAdmin);
 app.use('/api/v1/projects', apiRouterProjects);
-app.use('/api/budget', apiRouterBudget);
+app.use('/api/v1/budget', apiRouterBudget);
 
 // *********************************************************************************************************************
 // Error handler

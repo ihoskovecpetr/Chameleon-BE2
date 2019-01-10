@@ -10,7 +10,5 @@ RUN apk --no-cache --virtual build-dependencies add \
     && npm install --production \
     && apk del build-dependencies \
     && chown -R chameleon: /opt/app
-#RUN  npm install --production && chown -R chameleon: /opt/app
 USER chameleon
-EXPOSE 3000
 CMD ["node", "server.js"]

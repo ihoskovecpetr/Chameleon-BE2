@@ -3,7 +3,7 @@
 set -e
 
 # full list of supported - outputted parts
-app_full_list=( reverse-proxy fluentd web-server rest-api crossbar wamp-api )
+app_full_list=( reverse-proxy fluentd web-server rest-api scheduler crossbar wamp-api )
 
 #set list of services from command line or default full list
 if [[ "$#" -eq 0 ]]; then

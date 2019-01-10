@@ -1,5 +1,5 @@
 if [[ "$#" -gt 0 ]]; then
-  ./build.sh rest-api $@
+  ./build.sh $@
 fi
 docker-compose down
 docker-compose up -d

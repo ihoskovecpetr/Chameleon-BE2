@@ -306,7 +306,7 @@ router.post('/budgets/:id', [validateToken, authoriseApiAccess(BUDGET_ACCESS_USE
             error.statusCode = 400;
             next(error);
         } else {
-            const result = db.createBudgetAsCopy(id, req.body);
+            const result = await db.createBudgetAsCopy(id, req.body);
             if(result.project) wamp.notifyAboutUpdatedProject(result.project);
             if(result.oldPrice || result.newPrice) {
                 //TODO wamp.projectBudgetOfferChanged({project:  projects[0] ? {id: projects[0]._id.toString(), label: projects[0].label} : {id: null}, budget: {id: budgetId.toString(), price: oldPrices}}, {project:  projects[1] ? {id: projects[1]._id.toString(), label: projects[1].label} : {id: null}, budget: {id: budgetId.toString(), price: newPrices}}))
@@ -468,7 +468,7 @@ router.get('/projects/:id', [validateToken, authoriseApiAccess(BUDGET_ACCESS_USE
 // *********************************************************************************************************************
 router.get('/conditions', [validateToken, authoriseApiAccess(BUDGET_ACCESS_USER)],  async (req, res, next) => {
     try {
-        const conditions = db.getConditions();
+        const conditions = await db.getConditions();
         res.status(200).json(conditions);
     } catch(error) {
         next(error);
