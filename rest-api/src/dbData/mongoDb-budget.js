@@ -2,6 +2,7 @@
 const mongoose = require('mongoose');
 const moment = require('moment');
 const logger = require('../logger');
+const dataHelper = require('../lib/dataHelper');
 
 //Collections
 const Budget = require('../models/budget');
@@ -527,8 +528,11 @@ exports.getConditions = async () => {
 // get normalized project for wamp (booking)
 // *********************************************************************************************************************
 exports.getNormalizedProject = source => {
-    const project = source.toJSON ? source.toJSON() : source;
-    return {
+    const project = dataHelper.normalizeDocument(source);
+    const id = project._id.toString();
+    delete project._id;
+    return {id: id, project: project};
+    /*return {
         id: project._id.toString(),
         project: {
             label: project.label,
@@ -561,6 +565,7 @@ exports.getNormalizedProject = source => {
             kickBack: project.kickBack
         }
     }
+    */
 };
 
 // *********************************************************************************************************************

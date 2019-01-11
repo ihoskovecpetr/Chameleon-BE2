@@ -31,7 +31,7 @@ let wampWasConnectedBefore = false;
 let reportedLost = false;
 
 module.exports.open = () => connection.open();
-module.exports.getSession = () => session;
+module.exports.getSesdataHelpersion = () => session;
 module.exports.publish = (topic, args, kwargs, option) => {if(session) session.publish(topic, args, kwargs, option)};
 module.exports.close = (reason, message) => connection.close(reason, message);
 
