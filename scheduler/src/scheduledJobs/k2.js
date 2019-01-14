@@ -19,6 +19,7 @@ module.exports = async projectId => {
             const workTypes = await db.getWorkTypeMap();
             for(const project of projects) {
                 let projectUpdated = false;
+                const workLogPusher = [];
                 const efficiency = await db.getProjectOperatorsEfficiency(project.events);
                 const K2project = await k2.getK2project(project.K2rid);
                 if(K2project.length > 0) {
@@ -58,10 +59,10 @@ module.exports = async projectId => {
                     // *****************************************************************************
                     // DATA FOR PUSHER
                     // *****************************************************************************
-                    /*
+
                     const MAX_AGE_OF_LOGS = 10; //days
                     if(logAge <= MAX_AGE_OF_LOGS) {
-                        const workLogPusher = {
+                        workLogPusher.push({
                             _id: log['ProdejRID'].trim(),
                             project: project._id,
                             operatorSurname: log['Prij'].trim(),
@@ -72,11 +73,9 @@ module.exports = async projectId => {
                             operatorJob: operator ? operator.job : null,
                             hours: Math.round(duration / 6) / 10,
                             description: log['EX_Popis'].trim()
-                        };
-                        db.addOrUpdateWorklog(workLogPusher)
-                            .then(data => {}, err => logger.warn('Update / Insert worklog error: ' + err));
+                        });
                     }
-                    */
+
                     // *****************************************************************************
                     if(logAge <= 0) return null; //use only logs from yesterday and more (add hours after midnight)
                     //if not bookable or multiBookable job return null !!!!
@@ -133,17 +132,26 @@ module.exports = async projectId => {
                     const result = exports.getNormalizedProject(project);
                     try {
                         await db.updateProject(project._id, project);
-                        logger.debug(`update project ${result.id} by K2 data`);
                         wamp.publish('updateProject', [], result);
+                        logger.debug(`Project ${result.label} [${result.id}] updated by K2 data.`);
                         await db.logOp('updateProjectK2', '888888888888888888888888', result, null);
                     } catch(error) {
                         await db.logOp('updateProjectK2', '888888888888888888888888', result, error);
-                        logger.warn(`Update Project by K2 Rejected: ${error}`);
+                        logger.warn(`Update Project ${result.label} [${result.id}] by K2 data error: ${error}`);
+                    }
+                }
+                // DATA FOR PUSHER
+                for(const worklog of workLogPusher) {
+                    try {
+                        const oldLog = await db.addOrUpdateWorklog(worklog);
+                        if(!oldLog)  logger.debug(`Inserted new worklog: ${workLog._id}`);
+                    } catch(error) {
+                        logger.warn(`Update / Insert worklog error: ${error}`);
                     }
                 }
             }
         } catch (error) {
-            logger.warn(`K2 job error: ${error}`);
+            logger.warn(`K2 Job error: ${error}`);
         }
     }
 };

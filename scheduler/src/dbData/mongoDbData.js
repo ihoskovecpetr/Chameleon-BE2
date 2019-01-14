@@ -2,7 +2,7 @@
 
 const mongoose = require('mongoose');
 const dataHelper = require('../lib/dataHelper');
-const logger = require('../logger');
+//const logger = require('../logger');
 
 //Collections
 const BookingProject = require('../models/booking-project');
@@ -11,6 +11,7 @@ const BookingWorkType = require('../models/booking-work-type');
 const User = require('../models/user');
 const BookingEvent = require('../models/booking-event');
 const BookingOplog = require('../models/booking-oplog');
+const PusherWorklog = require('../models/pusher-worklog');
 
 exports = module.exports;
 // *********************************************************************************************************************
@@ -58,6 +59,12 @@ exports.getProjectOperatorsEfficiency = async eventIds => {
 // Update booking project
 // *********************************************************************************************************************
 exports.updateProject = async (id, project) => {
-    logger.debug(`Updating project: ${id}`);
     await BookingProject.findOneAndUpdate({_id: id}, {$set: project});
+};
+
+// *********************************************************************************************************************
+// Add or Update work log record in db
+// *********************************************************************************************************************
+exports.addOrUpdateWorklog = async worklog => {
+    return await PusherWorklog.findOneAndUpdate({_id: worklog._id}, {$set: worklog}, {upsert: true, setDefaultsOnInsert: true});
 };
