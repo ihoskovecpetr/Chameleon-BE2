@@ -133,7 +133,7 @@ module.exports = async projectId => {
                     try {
                         await db.updateProject(project._id, project);
                         wamp.publish('updateProject', [], result);
-                        logger.debug(`Project ${result.label} [${result.id}] updated by K2 data.`);
+                        logger.debug(`Project ${result.project.label} [${result.id}] updated by K2 data.`);
                         await db.logOp('updateProjectK2', '888888888888888888888888', result, null);
                     } catch(error) {
                         await db.logOp('updateProjectK2', '888888888888888888888888', result, error);
@@ -144,7 +144,7 @@ module.exports = async projectId => {
                 for(const worklog of workLogPusher) {
                     try {
                         const oldLog = await db.addOrUpdateWorklog(worklog);
-                        if(!oldLog)  logger.debug(`Inserted new worklog: ${workLog._id}`);
+                        if(!oldLog)  logger.debug(`Inserted new worklog: ${worklog._id}`);
                     } catch(error) {
                         logger.warn(`Update / Insert worklog error: ${error}`);
                     }

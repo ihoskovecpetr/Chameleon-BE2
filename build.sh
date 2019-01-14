@@ -48,6 +48,7 @@ then
     touch ./dist/docker-images/load-docker-images.sh
     chmod +x  ./dist/docker-images/load-docker-images.sh
     echo "#!/usr/bin/env bash" > ./dist/docker-images/load-docker-images.sh
+    #prune all current docker images etc...
     echo docker system prune -a -f --volumes >> ./dist/docker-images/load-docker-images.sh
     for app_image in "${app_full_list[@]}"
     do
