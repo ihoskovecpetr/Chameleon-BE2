@@ -137,3 +137,68 @@ router.get('/profit', [validateToken, authoriseApiAccess(ANALYTICS_ACCESS_FULL)]
         next(error);
     }
 });
+
+// ******* SETUP PARAMETERS ********************************************************************************************
+
+// *********************************************************************************************************************
+// GET / POST OVERHEAD
+// *********************************************************************************************************************
+router.get('/overhead', [validateToken, authoriseApiAccess(ANALYTICS_ACCESS_FULL)],  async (req, res, next) => {
+    try {
+        const overhead = await db.getAnalyticsOverhead();
+        res.status(200).json(overhead);
+    } catch(error) {
+        next(error);
+    }
+});
+
+router.post('/overhead', [validateToken, authoriseApiAccess(ANALYTICS_ACCESS_FULL)],  async (req, res, next) => {
+    try {
+        await db.updateAnalyticsOverhead(req.body);
+        res.status(200).end();
+    } catch(error) {
+        next(error);
+    }
+});
+
+// *********************************************************************************************************************
+// GET / POST WORK TARIFF
+// *********************************************************************************************************************
+router.get('/work-tariff', [validateToken, authoriseApiAccess(ANALYTICS_ACCESS_FULL)],  async (req, res, next) => {
+    try {
+        const tariff = await db.getWorkTariffs();
+        res.status(200).json(tariff);
+    } catch(error) {
+        next(error);
+    }
+});
+
+router.post('/work-tariff', [validateToken, authoriseApiAccess(ANALYTICS_ACCESS_FULL)],  async (req, res, next) => {
+    try {
+        await db.updateWorkTariffs(req.body);
+        res.status(200).end();
+    } catch(error) {
+        next(error);
+    }
+});
+
+// *********************************************************************************************************************
+// GET / POST OPERATOR TARIFF
+// *********************************************************************************************************************
+router.get('/operator-tariff', [validateToken, authoriseApiAccess(ANALYTICS_ACCESS_FULL)],  async (req, res, next) => {
+    try {
+        const tariff = await db.getOperatorTariffs();
+        res.status(200).json(tariff);
+    } catch(error) {
+        next(error);
+    }
+});
+
+router.post('/operator-tariff', [validateToken, authoriseApiAccess(ANALYTICS_ACCESS_FULL)],  async (req, res, next) => {
+    try {
+        await db.updateOperatorTariffs(req.body);
+        res.status(200).end();
+    } catch(error) {
+        next(error);
+    }
+});

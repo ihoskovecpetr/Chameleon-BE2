@@ -2,7 +2,7 @@
 
 const sql = require('mssql');
 const logger = require('./logger');
-//const moment = require('moment');
+const moment = require('moment');
 
 let reportedError = null;
 let connection = null;
@@ -21,6 +21,12 @@ exports = module.exports;
 exports.getInvoices = async projectIds => {
     if(!Array.isArray(projectIds)) projectIds = [projectIds];
     const sqlQuery = `SELECT RID, Mena, Cena, DPH, Zap, Kurz, Kurz2, Dvyst, Dspla FROM Dbo.K2ReklamaFaktvyda WHERE RID IN (${projectIds})`;
+    return K2dataRequest(sqlQuery);
+};
+
+exports.getK2workLogs = async (from, to, projectIds) => {
+    if(!Array.isArray(projectIds)) projectIds = [projectIds];
+    const sqlQuery = `SELECT ReservationDate, Mnoz, Prij, Jmno, Abbr FROM Dbo.K2WorkAll WHERE RID IN (${projectIds}) AND ( Abbr = 'hod' OR Abbr = 'min' ) AND ( Kod = 'OV' OR Kod = 'SV' OR Kod = '2D' OR Kod = '3D' OR Kod = 'MP' OR Kod = 'BL' OR Kod = 'FL' OR Kod = 'IT') AND (ReservationDate BETWEEN '${moment(from).format('YYYY-MM-DD')}' AND '${moment(to).format('YYYY-MM-DD')}')`;
     return K2dataRequest(sqlQuery);
 };
 

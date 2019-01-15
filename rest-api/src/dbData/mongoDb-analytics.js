@@ -2,13 +2,18 @@
 const mongoose = require('mongoose');
 const moment = require('moment');
 const k2 = require('../k2-mssql');
-const logger = require('../logger');
+//const logger = require('../logger');
+const crypto = require('crypto');
+const ALGORITHM = 'aes128';
+//const SALT = 'ana1yt1c5_tariff_s41t';
 
 //Collections
 const User = require('../models/user');
 const BookingProject = require('../models/booking-project');
 const BookingWorkType = require('../models/booking-work-type');
 const BudgetItem = require('../models/budget-item');
+const AnalyticsOverhead = require('../models/analytics-overhead');
+const BookingResource = require('../models/booking-resource');
 require('../models/booking-event');
 require('../models/budget');
 
@@ -394,13 +399,181 @@ exports.checkProjectFinal = async projectId => {
 // *********************************************************************************************************************
 exports.getProfit = async (from, to) => {
     const today = moment().startOf('day');
+    const jobs = await BookingWorkType.find().lean();
+    const overhead = await AnalyticsOverhead.findOne({},{fix:true, percent:true, _id:false}).lean();
+    const projects = await BookingProject.find({deleted: null, internal: {$ne: true}, offtime: {$ne: true}, confirmed: true}, {events: true, jobs: true, K2rid:true, _id: false}).populate('events').lean();
+    const operatorTariffs = (await BookingResource.find({type: 'OPERATOR', tariff :{$ne: null}}, {tariff:true, K2id: true }).lean()).map(operator => {return {id: operator._id, K2id: operator.K2id, tariff: getTariffNumber(operator.tariff, operator._id.toString())}});
+    const jobTariffs= jobs.reduce((o, job) => {o[job._id] = job.tariff; return o;}, {});
+    const operatorTariffsById = operatorTariffs.reduce((o, operator) => {o[operator.id] = operator.tariff; return o;}, {});
+    const operatorTariffsByK2Id = operatorTariffs.reduce((o, operator) => {o[operator.K2id] = operator.tariff; return o;}, {});
+    const averageOperatorTariff = operatorTariffs.filter(operator => operator.tariff > 0).reduce((o, operator, i, arr) => {
+        if(i >= arr.length -1) o = Math.round((o + operator.tariff) / arr.length);
+        else o += operator.tariff;
+        return o;
+    },0);
 
-    return {data: [], error: '', notCountedOperators: [], strangeWorkLogs: [], averageTariff: 100};
+    const K2projectIds = projects.reduce((o, project) => {if(project.K2rid) o.push(project.K2rid); return o;},[]);
+
+    const monthsPrepared = {};
+    for (let m = from.clone(); m.isBefore(to); m.add(1, 'month')) {
+        monthsPrepared[m.format('YYYYMM')] = {
+            revenue: jobs.reduce((o, job) => {o[job._id] = 0; return o;}, {}),
+            costs: 0
+        };
+    }
+
+    const resultByMonths = projects.reduce((out, project) => {
+        const projectTotals = jobs.reduce((o, job) => {o[job._id] = 0; return o;}, {});
+        const projectTotalsInRange = jobs.reduce((o, job) => {o[job._id] = {}; return o;}, {});
+        const remains = {};
+
+        let projectInRange = false;
+        let projectStartDay = null;
+        let projectEndDay = null;
+
+        project.events.forEach(event => {
+            const eventStart = moment(event.startDate).startOf('day');
+            const eventEnd = eventStart.clone().add(event.days.length,'days');
+            if(!projectStartDay || eventStart.isBefore(projectStartDay)) projectStartDay = eventStart.clone().startOf('day');
+            if(!projectEndDay || eventEnd.isAfter(projectEndDay)) projectEndDay = eventEnd.clone().startOf('day');
+            for(let dayIndex = 0; dayIndex < event.days.length; dayIndex++) {
+                const day = eventStart.clone().add(dayIndex, 'days');
+                if(!day.isBefore(from) && !day.isAfter(to)) {
+                    projectInRange = true;
+                    if(event.job !== null && (event.confirmedAsProject || event.confirmed)) {
+                        const monthString = day.format('YYYYMM');
+                        if (projectTotalsInRange[event.job][monthString]) projectTotalsInRange[event.job][monthString] += event.days[dayIndex].duration;
+                        else projectTotalsInRange[event.job][monthString] = event.days[dayIndex].duration;
+                        if(event.operator && day.isAfter(today)) {
+                            if(!remains[event.operator]) remains[event.operator] = {};
+                            if(remains[event.operator][monthString]) remains[event.operator][monthString] += event.days[dayIndex].duration;
+                            else remains[event.operator][monthString] = event.days[dayIndex].duration;
+                        }
+                    }
+                }
+                if(event.job !== null) projectTotals[event.job] += event.days[dayIndex].duration;
+            }
+        });
+
+        if(projectInRange) {
+            const projectBudgets = project.jobs.reduce((o, job) => {o[job.job] = job.plannedDuration; return o;},{});
+            for(let jobId in projectTotals) {
+                if(projectTotals.hasOwnProperty(jobId)) {
+                    const total = projectTotals[jobId];
+                    if(total > 0) {
+                        for (let monthId in projectTotalsInRange[jobId]) {
+                            if (projectTotalsInRange[jobId].hasOwnProperty(monthId)) {
+                                if (out[monthId] && projectBudgets[jobId]) {
+                                    out[monthId].revenue[jobId] += projectBudgets[jobId] * ( projectTotalsInRange[jobId][monthId] / total);
+                                }
+                            }
+                        }
+                    } else if(projectBudgets[jobId] > 0) {
+                        const projectLength = projectEndDay.diff(projectStartDay,'days');
+                        for(let monthId2 in out) {
+                            if(out.hasOwnProperty(monthId2)) {
+                                let startOffset = projectStartDay.diff(moment(monthId2,'YYYYMM'),'days');
+                                let endOffset = moment(monthId2,'YYYYMM').add(1,'month').startOf('month').diff(projectEndDay,'days');
+                                if(startOffset < 1) startOffset = 0;
+                                if(endOffset < 1) endOffset = 0;
+                                const monthLength = moment(monthId2,'YYYYMM').add(1,'month').startOf('month').diff(moment(monthId2,'YYYYMM').startOf('month'),'days');
+                                if(monthLength - startOffset - endOffset > 0) {
+                                    out[monthId2].revenue[jobId] += projectBudgets[jobId] * ((monthLength - startOffset - endOffset) / projectLength);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            for(let operatorId in remains) {
+                if(remains.hasOwnProperty(operatorId)) {
+                    for(let monthId3 in remains[operatorId]) {
+                        if(remains[operatorId].hasOwnProperty(monthId3)) {
+                            if(out[monthId3] && operatorTariffsById[operatorId]) {
+                                out[monthId3].costs += operatorTariffsById[operatorId] * remains[operatorId][monthId3] / 60;
+                            }
+                        }
+                    }
+                }
+            }
+
+        }
+        return out;
+    }, monthsPrepared);
+
+    const K2costs = await getCosts(from, to, K2projectIds, operatorTariffsByK2Id, averageOperatorTariff);
+    const result = [];
+    for(let monthId in resultByMonths) {
+        if(resultByMonths.hasOwnProperty(monthId)) {
+            let revenue = 0;
+            for(let jobId in resultByMonths[monthId].revenue) {
+                if(resultByMonths[monthId].revenue.hasOwnProperty(jobId)) {
+                    revenue += resultByMonths[monthId].revenue[jobId] * jobTariffs[jobId] / 60;
+                }
+            }
+            const costs = resultByMonths[monthId].costs + (K2costs[monthId] ? K2costs[monthId] : 0);
+            result.push({
+                month: monthId,
+                revenue: Math.round(revenue),
+                costs: Math.round(overhead.fix + (costs * (1 + overhead.percent / 100 )))
+            });
+        }
+    }
+    return {data: result, error: K2costs.error, notCountedOperators: K2costs.notCountedOperators, strangeWorkLogs: K2costs.strangeWorkLogs, averageTariff: averageOperatorTariff};
+};
+// *********************************************************************************************************************
+// GET / UPDATE ANALYTICS OVERHEAD
+// *********************************************************************************************************************
+exports.getAnalyticsOverhead = async () => {
+    return await AnalyticsOverhead.findOne({}, {__v: false, _id: false}).lean();
+};
+
+exports.updateAnalyticsOverhead = async data => {
+    const overhead = await AnalyticsOverhead.findOne();
+    if(typeof data.percent !== 'undefined') overhead.percent = data.percent;
+    if(typeof data.fix !== 'undefined') overhead.fix = data.fix;
+    await overhead.save();
 };
 
 // *********************************************************************************************************************
-// HELPERS
+// GET / UPDATE WORK TARIFFS
 // *********************************************************************************************************************
+exports.getWorkTariffs = async () => {
+    const workTypes = await BookingWorkType.find({},{__v: false, K2ids: false}).lean();
+    return workTypes.map(workType => ({id: workType._id, label: workType.label, tariff: workType.tariff}));
+};
+
+exports.updateWorkTariffs = async data => {
+    for(const workType of data) await BookingWorkType.findOneAndUpdate({_id: workType.id}, {tariff: workType.tariff});
+};
+
+// *********************************************************************************************************************
+// GET / UPdATE OPERATOR TARIFFS
+// *********************************************************************************************************************
+exports.getOperatorTariffs = async () => {
+    const operators = await BookingResource.find({type: 'OPERATOR', disabled: {$ne: true}, deleted: {$ne: true}, virtual: {$ne: true}, freelancer: {$ne: true}}, {guarantee: true, tariff:true, label: true, job: true }).populate('job').lean();
+    return operators.map(operator => ({
+        id: operator._id,
+        label: operator.label,
+        guarantee: operator.guarantee ? operator.guarantee : 0,
+        tariff: operator.tariff ? getTariffNumber(operator.tariff, operator._id.toString()) : 0,
+        job: operator.job ? operator.job.label : ""
+    }));
+};
+
+exports.updateOperatorTariffs = async data => {
+    for(const operator of data) await BookingResource.findOneAndUpdate({_id: operator.id}, {
+        tariff: operator.tariff ? setTariffString(operator.tariff, operator.id) : operator.tariff,
+        guarantee: operator.guarantee
+    });
+};
+
+// *********************************************************************************************************************
+
+// +----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+-
+// HELPERS
+// +----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+-
 function onAirSet(onairs) {
     let result = {set: true, empty: false};
     const activeOnair = onairs.filter(onair => onair.state != 'deleted');
@@ -409,4 +582,55 @@ function onAirSet(onairs) {
         if(result.set && (!onair.date || (!onair.name && activeOnair.length > 1))) result.set = false;
     });
     return result;
+}
+
+async function getCosts(from, to, K2projectIds, operatorsTariffs, averageTariff) {
+    const data = await k2.getK2workLogs(from, to, K2projectIds);
+    const notCountedOperators = {};
+    const strangeWorkLogs = [];
+    const result = data.reduce((o, workLog) => {
+        const monthId = moment(workLog.ReservationDate).format('YYYYMM');
+        const operatorId = workLog.Jmno.trim().toLowerCase() + "." + workLog.Prij.trim().toLowerCase();
+        const tariff = operatorsTariffs[operatorId];
+        const hours = workLog.Abbr.trim() == 'hod' ? (Math.round(10 * workLog.Mnoz) / 10) : workLog.Abbr.trim() == 'min' ? (Math.round(workLog.Mnoz / 6) / 10) : 0;
+        if(hours > 24) strangeWorkLogs.push({firstName: workLog.Jmno, lastName: workLog.Prij, hours: hours, date: workLog.ReservationDate});
+        if(tariff) {
+            if (o[monthId]) o[monthId] += tariff * hours;
+            else o[monthId] = tariff * hours;
+        } else {
+            if (o[monthId]) o[monthId] += averageTariff * hours;
+            else o[monthId] = averageTariff * hours;
+            if(!notCountedOperators[operatorId]) notCountedOperators[operatorId] = {firstName: workLog.Jmno, lastName: workLog.Prij, hours: hours};
+            else notCountedOperators[operatorId].hours += hours;
+        }
+        return o;
+    }, {});
+
+    if(Object.keys(notCountedOperators).length > 0) result.notCountedOperators = notCountedOperators;
+    if(strangeWorkLogs.length > 0) result.strangeWorkLogs = strangeWorkLogs;
+
+    return result;
+}
+
+function getTariffNumber(value, id) {
+    if(!value) return 0;
+    let tariff = 0;
+    try {
+        const decipher = crypto.createDecipher(ALGORITHM, id);
+        //const key = crypto.scryptSync(id, SALT, 16);
+        //const iv = Buffer.alloc(16, 0);
+        //const decipher = crypto.createDecipheriv(ALGORITHM, id, iv);
+        tariff = parseInt(decipher.update(value, 'hex', 'utf8') + decipher.final('utf8'));
+    } catch(e) {}
+    return tariff;
+}
+
+function setTariffString(value, id) {
+    if(typeof value === 'undefined' || value === null) return null;
+    let valueString = null;
+    try {
+        const cipher = crypto.createCipher(ALGORITHM, id);
+        valueString = cipher.update(String(value), 'utf8', 'hex') + cipher.final('hex');
+    } catch(e) {}
+    return valueString;
 }
