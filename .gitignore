@@ -3,6 +3,7 @@
 !.babelrc
 !.dockerignore
 !.crossbar
+!.gitattributes
 !.env
 !.prod.env
 npm-debug.log
@@ -12,5 +13,5 @@ logs
 www
 certs
 dist
-!.gitattributes
+
 
