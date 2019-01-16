@@ -2,19 +2,19 @@ debug = false
 logLevel = "WARN" #DEBUG, INFO, WARN, ERROR, FATAL, PANIC
 checkNewVersion = false
 
-defaultEntryPoints = ["http"]
+defaultEntryPoints = ["http", "https", "ws", "wss"]
 
 [docker]
   endpoint = "unix:///var/run/docker.sock"
   watch = true
   exposedByDefault = false
 
-[api]
-  entryPoint = "traefik"
-  dashboard = true
-  debug = true
-  address = ":8080"
-
 [entryPoints]
   [entryPoints.http]
     address = ":80"
+  [entryPoints.ws]
+    address = ":9000"
+  [entryPoints.https]
+      address = ":443"
+  [entryPoints.wss]
+    address = ":9001"

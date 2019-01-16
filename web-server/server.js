@@ -24,7 +24,10 @@ const APPLICATIONS = [
     {path: '/', file: '/www/html/hub.html', authenticate: false, clearCookie: false},
     {path: '/hub', file: '/www/html/hub.html', authenticate: false, clearCookie: false},
     {path: '/projects', file: '/www/html/projects.html', authenticate: true, clearCookie: false},
-    {path: '/admin', file: '/www/html/admin.html', authenticate: true, clearCookie: false}
+    {path: '/admin', file: '/www/html/admin.html', authenticate: true, clearCookie: false},
+    {path: '/booking', file: '/www/html/booking.html', authenticate: true, clearCookie: false},
+    {path: '/budget', file: '/www/html/budget.html', authenticate: true, clearCookie: false},
+    {path: '/analytics', file: '/www/html/analytics.html', authenticate: true, clearCookie: false}
 ];
 // *********************************************************************************************************************
 
