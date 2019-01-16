@@ -7,10 +7,11 @@
 !.env.production
 npm-debug.log
 **/node_modules
-/docker-image-archives/*
+docker-image-archives
 logs
 www
 certs
 dist*
+dist*/*
 /crossbar/crossbar-node/config.json
 !.gitattributes
