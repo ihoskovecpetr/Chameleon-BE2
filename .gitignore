@@ -5,6 +5,7 @@
 !.crossbar
 !.gitattributes
 !.env
+!.env.production
 !.prod.env
 npm-debug.log
 node_modules
