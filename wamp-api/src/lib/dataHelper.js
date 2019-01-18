@@ -1,6 +1,7 @@
 'use strict';
 
 const dateHelper = require('./dateHelper');
+const moment = require('moment');
 
 exports = module.exports;
 
@@ -75,3 +76,6 @@ exports.timingReduce = timings => {
     }, {});
     return Object.keys(projects).map(p => {return {project:p, timings: projects[p]}});
 };
+
+
+
