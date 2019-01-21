@@ -13,91 +13,84 @@ module.exports = {
 };
 
 // normalize - map task data to form of accepted by Pusher
-function normalizeTask(taskData, users) {
-    return new Promise((resolve, reject) => {
-        Promise.resolve()
-            .then(() => {
-                let task = {
-                    id: taskData._id,
-                    project: taskData.project ? taskData.project.label : '',
-                    dueTo: moment(taskData.deadline).add(taskData.postpone,'days').startOf('day').format('YYYY-MM-DD'),
-                    type: taskData.type,
-                    target: taskData.target && users[taskData.target] ? users[taskData.target].ssoId : null,
-                    valid: taskData.conditionsMet,
-                    timestamp: taskData.timestamp
+async function normalizeTask(taskData, users) {
+    let task = {
+        id: taskData._id,
+        project: taskData.project ? taskData.project.label : '',
+        dueTo: moment(taskData.deadline).add(taskData.postpone,'days').startOf('day').format('YYYY-MM-DD'),
+        type: taskData.type,
+        target: taskData.target && users[taskData.target] ? users[taskData.target].ssoId : null,
+        valid: taskData.conditionsMet,
+        timestamp: taskData.timestamp
+    };
+    // add data if exists for the task
+    if(taskData.dataOrigin) {
+        task.data = taskData.dataOrigin;
+        if(task.data.who && task.data.who.toString() !== 'supervisor' && task.data.who.toString() !== 'producer' && task.data.who.toString() !== 'manager') {
+            const who = users[task.data.who.toString()];
+            task.data.who = who ? who.name : null;
+        }
+    }
+    // add special to data depending on task type
+    switch(taskData.type) {
+        case 'VFX_ARCHIVE_MANAGER':
+        case 'MAKING_OF_MANAGER':
+        case 'ARCHIVE_MANAGER_CLEAN_VERSION':
+            // Add lead2D as default operator if exists
+            if(taskData.project.lead2D) {
+                if (!task.data) task.data = {};
+                task.data.operator2D = {
+                    id: taskData.project.lead2D,
+                    label: users[taskData.project.lead2D].name
                 };
-                // add data if exists for the task
-                if(taskData.dataOrigin) {
-                    task.data = taskData.dataOrigin;
-                    if(task.data.who && task.data.who.toString() !== 'supervisor' && task.data.who.toString() !== 'producer' && task.data.who.toString() !== 'manager') {
-                        const who = users[task.data.who.toString()];
-                        task.data.who = who ? who.name : null;
-                    }
-                }
-                // add special to data depending on task type
-                switch(taskData.type) {
-                    case 'VFX_ARCHIVE_MANAGER':
-                    case 'MAKING_OF_MANAGER':
-                    case 'ARCHIVE_MANAGER_CLEAN_VERSION':
-                        // Add lead2D as default operator if exists
-                        if(taskData.project.lead2D) {
-                            if (!task.data) task.data = {};
-                            task.data.operator2D = {
-                                id: taskData.project.lead2D,
-                                label: users[taskData.project.lead2D].name
-                            };
-                        }
-                        break;
-                    case 'ARCHIVE_MANAGER_PREPARE':
-                        // Add lead2D, lead3D and leadMP as default operators if they exists
-                        if(taskData.project.lead2D) {
-                            if (!task.data) task.data = {};
-                            task.data.operator2D = {
-                                id: taskData.project.lead2D,
-                                label: users[taskData.project.lead2D].name
-                            };
-                        }
-                        if(taskData.project.lead3D) {
-                            if (!task.data) task.data = {};
-                            task.data.operator3D = {
-                                id: taskData.project.lead3D,
-                                label: users[taskData.project.lead3D].name
-                            };
-                        }
-                        if(taskData.project.leadMP) {
-                            if (!task.data) task.data = {};
-                            task.data.operatorMP = {
-                                id: taskData.project.leadMP,
-                                label: users[taskData.project.leadMP].name
-                            };
-                        }
-                        break;
-                    case 'ARCHIVE_MANAGER':
-                        if(taskData.dataOrigin && (taskData.dataOrigin.operator2D || taskData.dataOrigin.operator3D || taskData.dataOrigin.operatorMP)) {
-                            if (!task.data) task.data = {};
-                            if(taskData.dataOrigin.operator2D) task.data.operator2D = users[taskData.dataOrigin.operator2D].name;
-                            if(taskData.dataOrigin.operator3D) task.data.operator3D = users[taskData.dataOrigin.operator3D].name;
-                            if(taskData.dataOrigin.operatorMP) task.data.operatorMP = users[taskData.dataOrigin.operatorMP].name;
-                        }
-                        break;
-                    case 'ARCHIVE_2D_BIG':
-                    case 'ARCHIVE_3D_BIG':
-                    case 'ARCHIVE_MP_BIG':
-                        if(taskData.origin) {
-                            if (!task.data) task.data = {};
-                            task.data.operator = users[taskData.origin].name;
-                        }
-                        break;
-                }
-                task = addCurrentTarget(taskData, task, users);
-                task = addArchiveCheckList(taskData, task);
-                const archiveTasks = ['ARCHIVE_2D_LEAD', 'ARCHIVE_2D_OPERATOR', 'ARCHIVE_2D_BIG', 'ARCHIVE_3D_LEAD', 'ARCHIVE_3D_BIG', 'ARCHIVE_MP_LEAD', 'ARCHIVE_MP_OPERATOR', 'ARCHIVE_MP_BIG'];
-                if(archiveTasks.indexOf(taskData.type) >= 0) return addArchiveMembersAndBigStatus(taskData, task, users);
-                else return task;
-            })
-            .then(resolve)
-            .catch(reject);
-    });
+            }
+            break;
+        case 'ARCHIVE_MANAGER_PREPARE':
+            // Add lead2D, lead3D and leadMP as default operators if they exists
+            if(taskData.project.lead2D) {
+                if (!task.data) task.data = {};
+                task.data.operator2D = {
+                    id: taskData.project.lead2D,
+                    label: users[taskData.project.lead2D].name
+                };
+            }
+            if(taskData.project.lead3D) {
+                if (!task.data) task.data = {};
+                task.data.operator3D = {
+                    id: taskData.project.lead3D,
+                    label: users[taskData.project.lead3D].name
+                };
+            }
+            if(taskData.project.leadMP) {
+                if (!task.data) task.data = {};
+                task.data.operatorMP = {
+                    id: taskData.project.leadMP,
+                    label: users[taskData.project.leadMP].name
+                };
+            }
+            break;
+        case 'ARCHIVE_MANAGER':
+            if(taskData.dataOrigin && (taskData.dataOrigin.operator2D || taskData.dataOrigin.operator3D || taskData.dataOrigin.operatorMP)) {
+                if (!task.data) task.data = {};
+                if(taskData.dataOrigin.operator2D) task.data.operator2D = users[taskData.dataOrigin.operator2D].name;
+                if(taskData.dataOrigin.operator3D) task.data.operator3D = users[taskData.dataOrigin.operator3D].name;
+                if(taskData.dataOrigin.operatorMP) task.data.operatorMP = users[taskData.dataOrigin.operatorMP].name;
+            }
+            break;
+        case 'ARCHIVE_2D_BIG':
+        case 'ARCHIVE_3D_BIG':
+        case 'ARCHIVE_MP_BIG':
+            if(taskData.origin) {
+                if (!task.data) task.data = {};
+                task.data.operator = users[taskData.origin].name;
+            }
+            break;
+    }
+    task = addCurrentTarget(taskData, task, users);
+    task = addArchiveCheckList(taskData, task);
+    const archiveTasks = ['ARCHIVE_2D_LEAD', 'ARCHIVE_2D_OPERATOR', 'ARCHIVE_2D_BIG', 'ARCHIVE_3D_LEAD', 'ARCHIVE_3D_BIG', 'ARCHIVE_MP_LEAD', 'ARCHIVE_MP_OPERATOR', 'ARCHIVE_MP_BIG'];
+    if(archiveTasks.indexOf(taskData.type) >= 0) task = await addArchiveMembersAndBigStatus(taskData, task, users);
+    return task;
 }
 
 function addArchiveCheckList(taskData, task) {
@@ -133,11 +126,9 @@ function addCurrentTarget(taskData, task, users) {
         case 'ARCHIVE_MANAGER':
         case 'ARCHIVE_ADV_MANAGER_UPLOAD':
         case 'MAKING_OF_MANAGER':
-        case 'PUBLISH_CINEMA': //TODO deprecated
         case 'ONAIR_CONFIRM':
         case 'PUBLISH_MANAGER_TEXT_CREATE':
         case 'PUBLISH_MANAGER_TEXT':
-        case 'PUBLISH_MANAGER_TEXT_VERIFY': //TODO deprecated
         case 'BUDGET_LINK':
         case 'FEEDBACK_FILL_MANAGER':
             if(taskData.project.manager && taskData.project.manager.toString() !== taskData.target.toString()) {
@@ -153,7 +144,6 @@ function addCurrentTarget(taskData, task, users) {
         case 'TEAM_FEEDBACK_SUPERVISOR':
         case 'ARCHIVE_ADV_SUPERVISOR_TAGS':
         case 'PUBLISH_SUPERVISOR_TEXT_CREATE':
-        case 'PUBLISH_SUPERVISOR_TEXT_VERIFY': //TODO deprecated
             if(taskData.project.supervisor && taskData.project.supervisor.toString() !== taskData.target.toString()) {
                 task.currentTarget = {name: users[taskData.project.supervisor].name, ssoId: users[taskData.project.supervisor].ssoId, id: taskData.project.supervisor};
             } else if(!taskData.project.supervisor && taskData.project.manager && taskData.project.manager.toString() !== taskData.target.toString()) {
@@ -164,72 +154,56 @@ function addCurrentTarget(taskData, task, users) {
     return task;
 }
 
-function addArchiveMembersAndBigStatus(taskData, task, users) {
-    if(!taskData.target) return Promise.resolve(task);
-    else return new Promise((resolve, reject) => {
-        let bigTasks = {};
-        let operatorSubTasks = {};
-        const jobType = task.type.substr(8, 2);
-        Promise.all([PusherTask.find({project: taskData.project._id, type: `ARCHIVE_${jobType}_OPERATOR`}).lean(), PusherTask.find({project: taskData.project._id, type: `ARCHIVE_${jobType}_BIG`}).lean()])
-            .then(tasksData => {
-                if(tasksData[0]) {
-                    operatorSubTasks = tasksData[0].reduce((tasks, task) => {
-                        tasks[task.target] = task;
-                        return tasks;
-                    }, {});
-                }
-                if(tasksData[1]) {
-                    bigTasks = tasksData[1].reduce((tasks, task) => {
-                        tasks[task.origin] = task;
-                        return tasks;
-                    }, {});
-                }
-            })
-            .then(() => {
-                if(!task.data) task.data = {};
-                if(taskData.project.manager && users[taskData.project.manager]) task.data.manager = users[taskData.project.manager].name;
-                if(taskData.project.supervisor && users[taskData.project.supervisor]) task.data.supervisor = users[taskData.project.supervisor].name;
-                if(task.type === 'ARCHIVE_2D_LEAD' || task.type === 'ARCHIVE_MP_LEAD') return getProjectOperators(jobType, taskData, operatorSubTasks, bigTasks);
-                else if((task.type === 'ARCHIVE_2D_OPERATOR' || task.type === 'ARCHIVE_MP_OPERATOR') && taskData.origin && users[taskData.origin]) task.data.sender = users[taskData.origin].name;
-            })
-            .then(operators => {
-                if(operators) operators = operators.filter(user => !user.id || !users[user.id] || users[user.id].ssoId !== task.target); //filter out target user
-                if(operators && operators.length > 0) task.data.operators = operators;
-                //add big task status
-                task.data.big = bigTasks[taskData.target] ? !!bigTasks[taskData.target].resolved : null;
-                resolve(task);
-            })
-            .catch(reject)
-    });
+async function addArchiveMembersAndBigStatus(taskData, task, users) {
+    if(!taskData.target) return task;
+    const jobType = task.type.substr(8, 2);
+    let operatorSubTasks = await PusherTask.find({project: taskData.project._id, type: `ARCHIVE_${jobType}_OPERATOR`}).lean();
+    operatorSubTasks = operatorSubTasks.reduce((tasks, task) => {
+        tasks[task.target] = task;
+        return tasks;
+    }, {});
+    let bigTasks = await PusherTask.find({project: taskData.project._id, type: `ARCHIVE_${jobType}_BIG`}).lean();
+    bigTasks = bigTasks.reduce((tasks, task) => {
+        tasks[task.origin] = task;
+        return tasks;
+    }, {});
+
+    let operators;
+    if(!task.data) task.data = {};
+    if(taskData.project.manager && users[taskData.project.manager]) task.data.manager = users[taskData.project.manager].name;
+    if(taskData.project.supervisor && users[taskData.project.supervisor]) task.data.supervisor = users[taskData.project.supervisor].name;
+    if(task.type === 'ARCHIVE_2D_LEAD' || task.type === 'ARCHIVE_MP_LEAD') operators = await getProjectOperators(jobType, taskData, operatorSubTasks, bigTasks);
+    else if((task.type === 'ARCHIVE_2D_OPERATOR' || task.type === 'ARCHIVE_MP_OPERATOR') && taskData.origin && users[taskData.origin]) task.data.sender = users[taskData.origin].name;
+    if(operators) {
+        operators = operators.filter(user => !user.id || !users[user.id] || users[user.id].ssoId !== task.target); //filter out target user
+        if(operators.length > 0) task.data.operators = operators;
+    }
+    //add big task status
+    task.data.big = bigTasks[taskData.target] ? !!bigTasks[taskData.target].resolved : null;
+    return task;
 }
 
-function getProjectOperators(jobType, taskData, operatorSubTasks, bigTasks) {
-    return new Promise((resolve, reject) => {
-        let operators;
-        PusherWorklog.find({project: taskData.project._id}, {operatorName: true, operatorSurname: true, operator: true, job: true}).populate('operator job').lean()
-            .then(logs => {
-                operators = logs.filter(log => log.job && log.job.type === jobType).map(log => {return {
-                    id: log.operator ? log.operator._id.toString() : getPseudoId(`${log.operatorName} ${log.operatorSurname}`),
-                    pseudoId: !log.operator,
-                    pusher: log.operator && log.operator.access.indexOf('pusher:app') >= 0,
-                    label: log.operator ? log.operator.name : `${log.operatorName} ${log.operatorSurname}`,
-                }}).filter((log1, index, self) => {
-                   const firstIndex = self.findIndex(log2 => log1.id === log2.id && log1.name === log2.name);
-                   return firstIndex === index;
-                });
-                if(operators.length > 0) {
-                    operators = operators.map(operator => {
-                        //operator.status = tasks[operator.id] ? tasks[operator.id].resolved ? tasks[operator.id].dataTarget && tasks[operator.id].dataTarget.bigArchive ? 3 : 2 : 1 : 0;
-                        const subTask =  operatorSubTasks[operator.id] ? !!operatorSubTasks[operator.id].resolved : null;
-                        const big = bigTasks[operator.id] ? !!bigTasks[operator.id].resolved : null;
-                        operator.status = {done: subTask, big: big};
-                        return operator;
-                    });
-                }
-                resolve(operators)
-            })
-            .catch(reject)
+async function getProjectOperators(jobType, taskData, operatorSubTasks, bigTasks) {
+    const logs = await PusherWorklog.find({project: taskData.project._id}, {operatorName: true, operatorSurname: true, operator: true, job: true}).populate('operator job').lean();
+    let operators = logs.filter(log => log.job && log.job.type === jobType).map(log => {return {
+        id: log.operator ? log.operator._id.toString() : getPseudoId(`${log.operatorName} ${log.operatorSurname}`),
+        pseudoId: !log.operator,
+        pusher: log.operator && log.operator.access.indexOf('pusher:app') >= 0,
+        label: log.operator ? log.operator.name : `${log.operatorName} ${log.operatorSurname}`,
+    }}).filter((log1, index, self) => {
+        const firstIndex = self.findIndex(log2 => log1.id === log2.id && log1.name === log2.name);
+        return firstIndex === index;
     });
+    if(operators.length > 0) {
+        operators = operators.map(operator => {
+            //operator.status = tasks[operator.id] ? tasks[operator.id].resolved ? tasks[operator.id].dataTarget && tasks[operator.id].dataTarget.bigArchive ? 3 : 2 : 1 : 0;
+            const subTask =  operatorSubTasks[operator.id] ? !!operatorSubTasks[operator.id].resolved : null;
+            const big = bigTasks[operator.id] ? !!bigTasks[operator.id].resolved : null;
+            operator.status = {done: subTask, big: big};
+            return operator;
+        });
+    }
+    return operators;
 }
 
 function getPseudoId(str) {
@@ -237,42 +211,40 @@ function getPseudoId(str) {
     return hash.update(str).digest('hex').substr(0,24);
 }
 
-function normalizeMessage(message, users, userId) {
-    return new Promise((resolve, reject) => {
-        if(userId) {
-            const targetIndex = message.target.reduce((targetIndex, target, index) => target.toString() == userId ? index : targetIndex, -1);
-            const targetPostpone = message.postpone[targetIndex];
-            resolve ({
+async function normalizeMessage(message, users, userId) {
+    if(userId) {
+        const targetIndex = message.target.reduce((targetIndex, target, index) => target.toString() == userId ? index : targetIndex, -1);
+        const targetPostpone = message.postpone[targetIndex];
+        return{
+            id: message._id,
+            dueTo: moment(message.deadline).add(targetPostpone,'days').startOf('day').format('YYYY-MM-DD'),
+            type: message.type,
+            target: users[userId] && users[userId].access && users[userId].access.indexOf('pusher:app') >= 0 && users[userId].ssoId ? users[userId].ssoId : '',
+            label: message.label,
+            timestamp: message.timestamp,
+            message: message.message ? message.message : undefined,
+            details: message.details ? message.details : undefined,
+            confirm: message.confirm,
+            email: users[userId] && users[userId].access && users[userId].access.indexOf('pusher:email') >= 0 && users[userId].email ? `${users[userId].name} <${users[userId].email}>` : undefined,
+            origin: message.origin && users[message.origin] && users[message.origin].access.indexOf('pusher:app') >= 0 ? message.origin : null
+        };
+    } else {
+        return message.target.map((target, index) => {
+            return {
                 id: message._id,
-                dueTo: moment(message.deadline).add(targetPostpone,'days').startOf('day').format('YYYY-MM-DD'),
+                dueTo: moment(message.deadline).add(message.postpone[index],'days').startOf('day').format('YYYY-MM-DD'),
                 type: message.type,
-                target: users[userId] && users[userId].access && users[userId].access.indexOf('pusher:app') >= 0 && users[userId].ssoId ? users[userId].ssoId : '',
+                target: users[target] && users[target].access && users[target].access.indexOf('pusher:app') >= 0 && users[target].ssoId ? users[target].ssoId : '',
                 label: message.label,
                 timestamp: message.timestamp,
                 message: message.message ? message.message : undefined,
                 details: message.details ? message.details : undefined,
                 confirm: message.confirm,
-                email: users[userId] && users[userId].access && users[userId].access.indexOf('pusher:email') >= 0 && users[userId].email ? `${users[userId].name} <${users[userId].email}>` : undefined,
+                email: users[target] && users[target].access && users[target].access.indexOf('pusher:email') >= 0 && users[target].email ? `${users[target].name} <${users[target].email}>` : undefined,
                 origin: message.origin && users[message.origin] && users[message.origin].access.indexOf('pusher:app') >= 0 ? message.origin : null
-            });
-        } else {
-            resolve(message.target.map((target, index) => {
-                return {
-                    id: message._id,
-                    dueTo: moment(message.deadline).add(message.postpone[index],'days').startOf('day').format('YYYY-MM-DD'),
-                    type: message.type,
-                    target: users[target] && users[target].access && users[target].access.indexOf('pusher:app') >= 0 && users[target].ssoId ? users[target].ssoId : '',
-                    label: message.label,
-                    timestamp: message.timestamp,
-                    message: message.message ? message.message : undefined,
-                    details: message.details ? message.details : undefined,
-                    confirm: message.confirm,
-                    email: users[target] && users[target].access && users[target].access.indexOf('pusher:email') >= 0 && users[target].email ? `${users[target].name} <${users[target].email}>` : undefined,
-                    origin: message.origin && users[message.origin] && users[message.origin].access.indexOf('pusher:app') >= 0 ? message.origin : null
-                }
-            }));
-        }
-    });
+            }
+        });
+    }
 }
 
 function evaluateTaskConditions(task, projectId, onairId, allTasks) {

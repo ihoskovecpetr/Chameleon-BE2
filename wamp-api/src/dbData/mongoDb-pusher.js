@@ -1,5 +1,6 @@
 'use strict';
-const mongoose = require('mongoose');
+
+require('mongoose');
 const moment = require('moment');
 const logger = require('../logger');
 const dataHelper = require('../lib/dataHelper');
@@ -15,55 +16,127 @@ const PusherTask = require('../models/pusher-task');
 const PusherMessage = require('../models/pusher-message');
 const BookingProject = require('../models/booking-project');
 const BookingEvent = require('../models/booking-event');
+const PusherGroup = require('../models/pusher-group');
 require('../models/booking-project');
 require('../models/booking-work-type');
 
 const PUSHER_BOOKING_TIME_SPAN = 7; //number of days, where the pusher is looking for next day items to show real next active day, otherwise shows tomorrow (empty)
 
+// ---------------------------------------------------------------------------------------------------------------------
+//    T A S K S
+// ---------------------------------------------------------------------------------------------------------------------
 // *********************************************************************************************************************
-// GET USER BY SSO-ID
+// GET TASKS FOR USER
 // *********************************************************************************************************************
-exports.getUserBySsoId = async (ssoId, nullIfNotFound) => {
-    const user = await User.findOne({ssoId: ssoId}).lean();
-    if(!user) {
-        if(nullIfNotFound) return null;
-        else throw new Error(`No user for ssoId: ${ssoId}`);
-    }
-    const resource = await BookingResource.findOne({_id: user.resource}, {K2id: true}).lean();
-    return {id: user._id.toString(), resource: resource ? resource._id.toString() : null, K2id: resource ? resource.K2id : null, name: user.name, email: user.email ? user.email : null, role: user.role, access: user.access};
+exports.getTasksForUser = async user => {
+    const userData = await User.findOne({ssoId: user}, {_id: true}).lean();
+    if(userData) {
+        const users = await getUsers(); //for normalization
+        const allTasks = await PusherTask.find({},{dataOrigin: true, dataTarget: true, project: true, resolved: true, type: true, timestamp:true}).lean(); //for conditions
+        const userTasks = await PusherTask.find({target: userData._id, resolved: null},{__v: false, resolved: false, dataTarget: false}).populate('project');
+        for(const task of userTasks) { //update conditionsMet
+            const currentConditionsMet = taskHelper.evaluateTaskConditions(task, task.project ? task.project._id : null, (task.dataOrigin && task.dataOrigin.onAir && task.dataOrigin.onAir._id ? task.dataOrigin.onAir._id : null), allTasks);
+            if(task.conditionsMet !== currentConditionsMet) {
+                task.conditionsMet = currentConditionsMet;
+                await task.save();
+            }
+        }
+        const activeTasks =  userTasks.filter(task => task.conditionsMet);
+        return await Promise.all(activeTasks.map(task => taskHelper.normalizeTask(task, users)));
+    } else throw new Error(`Can't find user ${user}`);
+};
+// *********************************************************************************************************************
+// GET USERS BY ROLE
+// *********************************************************************************************************************
+exports.getUsersByRole = async role => {
+    if(!role) throw new Error('GetUsersByRole - No role is specified!');
+    const query = Array.isArray(role) ? {$or : role.map(r => {return {role: r}})} : {role: role};
+    const users = await User.find(query).lean();
+    return users.map(user => {return {id: user._id.toString(), label: user.name}}).sort((a,b) => a.label < b.label ? -1 : a.label > b.label ? 1 : 0);
+};
+// *********************************************************************************************************************
+// POSTPONE TASK
+// *********************************************************************************************************************
+exports.postponeTask = async (id, days) => {
+    return await PusherTask.findOneAndUpdate({_id: id}, {$inc: {postpone: days}}, {new : true});
 };
 
+// ---------------------------------------------------------------------------------------------------------------------
+//    M E S S A G E S  +  C R E A T E
+// ---------------------------------------------------------------------------------------------------------------------
 // *********************************************************************************************************************
-// GET ALL USERS (with workclock and requests by user)
+// GET MESSAGES FOR USER
 // *********************************************************************************************************************
-exports.getAllUsers = async forUser => {
-    const forUserId = await User.findOne({ssoId: forUser}, {_id: true}).lean();
-    const _users = await User.find({},{name: true, ssoId: true, role: true, access: true, tlf: true, email: true, resource: true}).lean();
-    const users = _users.filter(user => user.access.indexOf('pusher:app') >= 0).map(user => ({
-        id: user._id.toString(),
-        ssoId: user.ssoId,
-        name: user.name,
-        role: user.role.filter(role => role.indexOf('booking:') === 0),
-        email: user.email,
-        tlf: user.tlf,
-        resource: user.resource
-    }));
-    for(const user of users) {
-        user.clock = await exports.getWorkClock(user.id);
-        user.requested = await getWorkClockRequestedByUser(user.id, forUserId ? forUserId._id.toString() : null);
-    }
-    return users.reduce((out, user) => {
-        out[user.id] = user;
-        return out;
+exports.getMessagesForUser = async user => {
+    const userData = await User.findOne({ssoId: user}, {_id: true}).lean();
+    if(userData) {
+        const users = await getUsers(); //for normalization
+        const userMessages = await PusherMessage.find({target: userData._id}, {__v: false}).lean();
+        const activeMessages = userMessages.filter(message => {
+            const targetIndex = message.target.reduce((targetIndex, target, index) => target.toString() == userData._id.toString() ? index : targetIndex, -1);
+            return targetIndex >= 0 && message.confirmed[targetIndex] === null;
+        });
+        return await Promise.all(activeMessages.map(message => taskHelper.normalizeMessage(message, users, userData._id)));
+    } else throw new Error(`Can't find user ${user}`);
+};
+// *********************************************************************************************************************
+// GET GROUPS AND USERS FOR CREATE MESSAGE
+// *********************************************************************************************************************
+exports.getUsersAndGroupsForCreate = async user => {
+    const allUsers = await User.find({$or: [{access: 'pusher:app'},{access: 'pusher:email'}]}).lean();
+    const owner = allUsers.find(u => u.ssoId === user);
+    const query = owner ? {$or: [{owner: null}, {owner: owner}]} : {owner: null};
+    const sets = await PusherGroup.find(query).lean();
+    const users = allUsers.map(user => {return {id: user._id.toString(), label: user.name, hasPusher: user.access.indexOf('pusher:app') >= 0}}).sort(sortByLabel);
+    const usersMap = users.reduce((map, user) => {
+        map[user.id] = user.label;
+        return map;
     }, {});
+    const globalGroups =   sets.filter(set => set.owner === null).map(set => {return {label: set.label, id: set._id, members: set.members.map(member => member.toString()).filter(member => !!usersMap[member]).sort((a, b) => sortMembersByLabel(a, b, usersMap))}}).sort(sortByLabel);
+    const personalGroups = sets.filter(set => set.owner !== null).map(set => {return {label: set.label, id: set._id, members: set.members.map(member => member.toString()).filter(member => !!usersMap[member]).sort((a, b) => sortMembersByLabel(a, b, usersMap))}}).sort(sortByLabel);
+    globalGroups.unshift({
+        label: 'All users',
+        id: null,
+        members: users.map(u => u.id)
+    });
+    return {
+        users: users,
+        globalGroups: globalGroups.filter(group => group.members.length > 0),
+        personalGroups: personalGroups.filter(group => group.members.length > 0)
+    }
+};
+// *********************************************************************************************************************
+// CREATE GROUPS AND USERS FOR CREATE MESSAGE
+// *********************************************************************************************************************
+exports.createUserGroupForCreate = async (id, label, members, owner) => {
+    const user = await User.findOne({ssoId: owner}, {_id: true}).lean();
+    await PusherGroup.create({_id: id, owner: user._id, label: label, members: members});
+};
+// *********************************************************************************************************************
+// UPDATE GROUPS AND USERS FOR CREATE MESSAGE
+// *********************************************************************************************************************
+exports.updateUserGroupForCreate = async (id, members) => {
+    await PusherGroup.findOneAndUpdate({_id: id}, {$set: {members: members}});
+};
+// *********************************************************************************************************************
+// REMOVE GROUPS AND USERS FOR CREATE MESSAGE
+// *********************************************************************************************************************
+exports.removeUserGroupForCreate = async id => {
+    await PusherGroup.findOneAndRemove({_id: id});
+};
+// *********************************************************************************************************************
+// TODO ADD MESSAGE
+// *********************************************************************************************************************
+exports.addMessage = async message => {
+    if(!message) return [];
+    logger.debug('addMessage');
+    logger.debug(JSON.stringify(message));
+    return [];
 };
 
-async function getWorkClockRequestedByUser(subject, user) { //get requests for subject by user
-    if(!user || !subject) return false;
-    const requests = await PusherWorkclockNotify.find({user: user, subject: subject, notified: null, canceled: null}, {_id: true}).lean();
-    return requests.length > 0;
-}
-
+// ---------------------------------------------------------------------------------------------------------------------
+//    W O R K  -  C L O C K
+// ---------------------------------------------------------------------------------------------------------------------
 // *********************************************************************************************************************
 // GET WORK-CLOCK FOR USER
 // *********************************************************************************************************************
@@ -96,6 +169,9 @@ exports.setWorkClock = async (ssoId, state) => {
     }
 };
 
+// ---------------------------------------------------------------------------------------------------------------------
+//    W O R K  -  L O G
+// ---------------------------------------------------------------------------------------------------------------------
 // *********************************************************************************************************************
 // GET WORK-LOGS FOR USER
 // *********************************************************************************************************************
@@ -188,37 +264,42 @@ exports.getWorklogsForUser = async (user, full) => {
     return result.sort((a, b) => {return (a.label < b.label) ? -1 : (a.label > b.label) ? 1 : 0});
 };
 
-exports.getTasksForUser = async user => {
-    const userData = await User.findOne({ssoId: user}, {_id: true}).lean();
-    if(userData) {
-        const users = await getUsers(); //for normalization
-        const allTasks = await PusherTask.find({},{dataOrigin: true, dataTarget: true, project: true, resolved: true, type: true, timestamp:true}).lean(); //for conditions
-        const userTasks = await PusherTask.find({target: userData._id, resolved: null},{__v: false, resolved: false, dataTarget: false}).populate('project');
-        for(const task of userTasks) { //update conditionsMet
-            const currentConditionsMet = taskHelper.evaluateTaskConditions(task, task.project ? task.project._id : null, (task.dataOrigin && task.dataOrigin.onAir && task.dataOrigin.onAir._id ? task.dataOrigin.onAir._id : null), allTasks);
-            if(task.conditionsMet !== currentConditionsMet) {
-                task.conditionsMet = currentConditionsMet;
-                await task.save();
-            }
-        }
-        const activeTasks =  userTasks.filter(task => task.conditionsMet);
-        return await Promise.all(activeTasks.map(task => taskHelper.normalizeTask(task, users)));
-    } else throw new Error(`Can't find user ${user}`);
+// ---------------------------------------------------------------------------------------------------------------------
+//    G E T  O T H E R  D A T A
+// ---------------------------------------------------------------------------------------------------------------------
+// *********************************************************************************************************************
+// GET ALL USERS (with workclock and requests by user)
+// *********************************************************************************************************************
+exports.getAllUsers = async forUser => {
+    const forUserId = await User.findOne({ssoId: forUser}, {_id: true}).lean();
+    const _users = await User.find({},{name: true, ssoId: true, role: true, access: true, tlf: true, email: true, resource: true}).lean();
+    const users = _users.filter(user => user.access.indexOf('pusher:app') >= 0).map(user => ({
+        id: user._id.toString(),
+        ssoId: user.ssoId,
+        name: user.name,
+        role: user.role.filter(role => role.indexOf('booking:') === 0),
+        email: user.email,
+        tlf: user.tlf,
+        resource: user.resource
+    }));
+    for(const user of users) {
+        user.clock = await exports.getWorkClock(user.id);
+        user.requested = await getWorkClockRequestedByUser(user.id, forUserId ? forUserId._id.toString() : null);
+    }
+    return users.reduce((out, user) => {
+        out[user.id] = user;
+        return out;
+    }, {});
 };
 
-exports.getMessagesForUser = async user => {
-    const userData = await User.findOne({ssoId: user}, {_id: true}).lean();
-    if(userData) {
-        const users = await getUsers(); //for normalization
-        const userMessages = await PusherMessage.find({target: userData._id}, {__v: false}).lean();
-        const activeMessages = userMessages.filter(message => {
-            const targetIndex = message.target.reduce((targetIndex, target, index) => target.toString() == userData._id.toString() ? index : targetIndex, -1);
-            return targetIndex >= 0 && message.confirmed[targetIndex] === null;
-        });
-        return await Promise.all(activeMessages.map(message => taskHelper.normalizeMessage(message, users, userData._id)));
-    } else throw new Error(`Can't find user ${user}`);
-};
-
+async function getWorkClockRequestedByUser(subject, user) { //get requests for subject by user
+    if(!user || !subject) return false;
+    const requests = await PusherWorkclockNotify.find({user: user, subject: subject, notified: null, canceled: null}, {_id: true}).lean();
+    return requests.length > 0;
+}
+// *********************************************************************************************************************
+// GET PROJECT TEAM FOR USER
+// *********************************************************************************************************************
 exports.getProjectTeamForUser = async user => {
     const today = moment().startOf('day');
     const days = []; //array for every day in time span of {date, timings [], projects []}
@@ -349,7 +430,9 @@ exports.getProjectTeamForUser = async user => {
     if(nextDay) nextDay.date = nextDay.date.format('YYYY-MM-DD');
     return {myDay, nextDay};
 };
-
+// *********************************************************************************************************************
+// GET FREELANCERS
+// *********************************************************************************************************************
 exports.getFreelancers = async userSsoId => {
     const user = userSsoId ? await User.findOne({ssoId: userSsoId}, {_id: true, role: true}).lean() : null;
     const isHR = user && (user.role.indexOf('booking:hr-manager') >= 0 || user.role.indexOf('booking:main-manager') >= 0);
@@ -459,32 +542,39 @@ exports.getFreelancers = async userSsoId => {
         }).filter(obj => obj.dates.length > 0)
     };
 };
-
-// ---------------------------------------------------------------------------------------------------------------------
-//    M E S S A G E S
-// ---------------------------------------------------------------------------------------------------------------------
-
 // *********************************************************************************************************************
-// ADD MESSAGE
+// GET USER BY SSO-ID
 // *********************************************************************************************************************
-exports.addMessage = async message => { //TODO ******************************
-    if(!message) return [];
-    logger.debug('addMessage');
-    logger.debug(JSON.stringify(message));
-    return [];
+exports.getUserBySsoId = async (ssoId, nullIfNotFound) => {
+    const user = await User.findOne({ssoId: ssoId}).lean();
+    if(!user) {
+        if(nullIfNotFound) return null;
+        else throw new Error(`No user for ssoId: ${ssoId}`);
+    }
+    const resource = await BookingResource.findOne({_id: user.resource}, {K2id: true}).lean();
+    return {id: user._id.toString(), resource: resource ? resource._id.toString() : null, K2id: resource ? resource.K2id : null, name: user.name, email: user.email ? user.email : null, role: user.role, access: user.access};
+};
+// *********************************************************************************************************************
+// GET SSO-ID(s) for UID(s)
+// *********************************************************************************************************************
+exports.getSsoIdsForUsers = async uid => {
+    if(!uid) return null;
+    if(Array.isArray(uid)) {
+        const users = await Promise.all(uid.map(id => User.findOne({_id: id}).lean()));
+        return users.map(u => u && u.ssoId ? u.ssoId : null);
+    } else {
+        const user =  User.findOne({_id: uid}).lean();
+        return user && user.ssoId ? user.ssoId : null;
+    }
 };
 
 // ---------------------------------------------------------------------------------------------------------------------
 //    H E L P E R S
 // ---------------------------------------------------------------------------------------------------------------------
-
-// --------------------------------------------------
-// current status of log for all relevant approvers
-// --------------------------------------------------
-// 0 = not approved, 1,2,3 = approved ok, maybe, wired, 4 = own log, 5 = approve is not required
+// *********************************************************************************************************************
+// current status of log for all relevant approvers 0 = not approved, 1,2,3 = approved ok, maybe, wired, 4 = own log, 5 = approve is not required
 function getLogStatus(log) {
     const logOperator = log.operator ? log.operator.toString() : null; //user ID
-
     // if project role exists => set log status otherwise 5
     const logStatus = {
         manager: log.project.manager ? log.confirmManager : 5,
@@ -493,14 +583,12 @@ function getLogStatus(log) {
         lead3D: log.project.lead3D ? log.confirm3D : 5,
         leadMP: log.project.leadMP ? log.confirmMP : 5
     };
-
     // if it is own log - set 4
     if(log.project.manager  && log.project.manager == logOperator) logStatus.manager = 4;
     if(log.project.supervisor  && log.project.supervisor == logOperator) logStatus.supervisor = 4;
     if(log.project.lead2D  && log.project.lead2D == logOperator) logStatus.lead2D = 4;
     if(log.project.lead3D  && log.project.lead3D == logOperator) logStatus.lead3D = 4;
     if(log.project.leadMP  && log.project.leadMP == logOperator) logStatus.leadMP = 4;
-
     // set 5 if log.job.type is not required to be approved by the role
     switch(log.job.type) {
         case 'GR': // grading only manager
@@ -538,30 +626,26 @@ function getLogStatus(log) {
     logStatus.producer = log.project.supervisor && log.project.supervisor == logOperator ? log.confirmProducer : 5;
     return logStatus;
 }
-// --------------------------------------------------
+// *********************************************************************************************************************
 // user role for log
-// --------------------------------------------------
 function getLogRole(log, userIds) {
     const logOperator = log.operator ? log.operator.toString() : null; //user ID
     const logUserRole = [];
-
     //TODO solve DEV and SUP mapped to 2D, 3D, leads....
     if(log.project.manager == userIds.id    &&    ['2D','3D','MP','GR','OV','TW','SV'].indexOf(log.job.type) >= 0) logUserRole.push('manager');
     if(log.project.supervisor == userIds.id &&    ['2D','3D','MP',     'OV','TW','SV'].indexOf(log.job.type) >= 0) logUserRole.push('supervisor');
     if(log.project.lead2D == userIds.id     &&   (['2D','MP'].indexOf(log.job.type) >= 0 || ((log.job.type === 'OV' || log.job.type === 'TW') && log.operatorJob && (log.operatorJob.type === '2D' || log.operatorJob.type === 'GR')))) logUserRole.push('lead2D');
     if(log.project.lead3D == userIds.id     &&   (['3D','MP'].indexOf(log.job.type) >= 0 || ((log.job.type === 'OV' || log.job.type === 'TW') && log.operatorJob && log.operatorJob.type === '3D'))) logUserRole.push('lead3D');
     if(log.project.leadMP == userIds.id     &&   (['MP'].indexOf(log.job.type) >= 0      || ((log.job.type === 'OV' || log.job.type === 'TW') && log.operatorJob && log.operatorJob.type === 'MP'))) logUserRole.push('leadMP');
-
     if(logOperator != userIds.id && userIds.role.indexOf('booking:main-producer') >= 0 && log.project.supervisor && log.project.supervisor == logOperator) logUserRole.push('producer');
-
     return logUserRole;
 }
-
+// *********************************************************************************************************************
 async function getUsers() {
     const users = await User.find({},{__v: false}).lean();
     return dataHelper.getObjectOfNormalizedDocs(users);
 }
-
+// *********************************************************************************************************************
 function isFreelancerConfirmed(confirmations, day) {
     if(!day || !confirmations) return false;
     for(const confirmation of confirmations) {
@@ -571,7 +655,7 @@ function isFreelancerConfirmed(confirmations, day) {
     }
     return false;
 }
-
+// *********************************************************************************************************************
 function compactDates(dateArray) {
     const dates = [];
     let from = null;
@@ -596,6 +680,18 @@ function compactDates(dateArray) {
         if (from === to) dates.push(from);
         else dates.push([from, to]);
     }
-
     return dates;
 }
+// *********************************************************************************************************************
+function sortByLabel(a, b) {
+    return a.label.localeCompare(b.label);
+}
+// *********************************************************************************************************************
+function sortMembersByLabel(a, b, usersMap) {
+    const aa = usersMap[a];
+    const bb = usersMap[b];
+    if(aa && bb) {
+        return aa.localeCompare(bb);
+    } else return 0;
+}
+// *********************************************************************************************************************

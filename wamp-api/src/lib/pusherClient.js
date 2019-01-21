@@ -7,7 +7,8 @@ const pusherClient = {};
 
 module.exports = {
     clientPing: clientPing,
-    getClients: getClients
+    getClients: getClients,
+    numOfClientsForUser: numOfClientsForUser
 };
 
 setInterval(() => {
@@ -47,4 +48,12 @@ function clientPing(id, data) {
 
 function getClients() {
     return pusherClient;
+}
+
+function numOfClientsForUser(user) {
+    let num = 0;
+    Object.keys(pusherClient).forEach(client => {
+        if(pusherClient[client].user === user) num++;
+    });
+    return num;
 }
