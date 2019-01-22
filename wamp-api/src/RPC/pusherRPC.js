@@ -90,11 +90,30 @@ async function postponeTask(args, kwargs, details) {
     }
 }
 // *********************************************************************************************************************
-// TODO Complete task
+// Complete task
 // *********************************************************************************************************************
-async function completeTask(args, kwargs) {
+async function completeTask(args, kwargs, details) {
     try {
-        logger.debug('completeTask ' + kwargs.user);
+        logger.debug('completeTask ' + kwargs.id);
+        const tasks = await db.completeTask(kwargs.id, kwargs.data);
+        //tasks - index 0 - original normalized task to remove on other clients of the user, index > 0 - updated tasks affected by original one. (PUBLISH, ARCHIVE, ...)
+        for(const [i, task] of tasks.entries()) {
+            if(task.target) {
+                if(i === 0 && pusherClient.numOfClientsForUser(task.target) > 1) wamp.publish(`${task.target}.task`, [task.id], {}, {exclude: [details.caller]}); //remove on other clients
+                else wamp.publish(`${task.target}.task`, [task.id], task); //send affected tasks
+            }
+        }
+        const data = await db.followTaskCompleted(kwargs.id);
+        for(const task of data.tasks) {
+            if(task.target) wamp.publish(`${task.target}.task`, [], task);
+            //TODO if any new task - pusherCheck(session, true) !!!!!!!!!!!!!!!!!!!!
+        }
+        for(const message of data.messages) {
+            if(message.target) wamp.publish(`${message.target}.message`, [], message);
+        }
+        for(const project of data.updateProjects) {
+            wamp.publish('updateProject', [], project);
+        }
     } catch(error) {
         logger.warn("completeTask error: " + error);
         throw error;

@@ -1,6 +1,6 @@
 'use strict';
 
-require('mongoose');
+const mongoose = require('mongoose');
 const moment = require('moment');
 const logger = require('../logger');
 const dataHelper = require('../lib/dataHelper');
@@ -60,7 +60,94 @@ exports.getUsersByRole = async role => {
 exports.postponeTask = async (id, days) => {
     return await PusherTask.findOneAndUpdate({_id: id}, {$inc: {postpone: days}}, {new : true});
 };
-
+// *********************************************************************************************************************
+// COMPLETE TASK
+// *********************************************************************************************************************
+exports.completeTask = async (id, data) => {
+    const task = await PusherTask.findOne({_id: id});
+    if(data) task.dataTarget = data;
+    task.resolved = Date.now();
+    let tasks = [task];
+    await task.save();
+    if(task.type === 'ONAIR_CONFIRM' && data && data.confirmed) {
+        const publishTasks = await PusherTask.find({project: task.project, resolved: null, type: {$in: ['PUBLISH_FACEBOOK', 'PUBLISH_WEB']}, "dataOrigin.onAir._id": mongoose.Types.ObjectId(task.dataOrigin.onAir._id)}).populate('project');
+        tasks = publishTasks.map(task => {task.dataOrigin.onAirConfirmed = true; return task});
+        for(const t of tasks) {
+            t.markModified('dataOrigin.onAirConfirmed');
+            await t.save();
+        }
+    }
+    if(task.type === 'ARCHIVE_2D_BIG' || task.type === 'ARCHIVE_3D_BIG' || task.type === 'ARCHIVE_MP_BIG') {
+        const work = task.type.substr(8, 2);
+        const archive1Tasks = await  PusherTask.find({project: task.project, resolved: null, type: {$in: [`ARCHIVE_${work}_OPERATOR`, `ARCHIVE_${work}_LEAD`]}, target: task.origin}).populate('project').lean();
+        tasks = tasks.concat(archive1Tasks);
+    }
+    if(task.type === 'ARCHIVE_2D_OPERATOR' || task.type === 'ARCHIVE_MP_OPERATOR') {
+        const work = task.type.substr(8, 2);
+        const archive2Tasks = await PusherTask.find({project: task.project, resolved: null, type: `ARCHIVE_${work}_LEAD`, target: task.origin}).populate('project').lean();
+        tasks = tasks.concat(archive2Tasks);
+    }
+    const users = await getUsers();
+    return await Promise.all(tasks.map(task => taskHelper.normalizeTask(task, users)));
+};
+// *********************************************************************************************************************
+// FOLLOW TASK COMPLETED
+// *********************************************************************************************************************
+exports.followTaskCompleted = async id => {
+    const result = {tasks: [], messages: []};
+    const task = await PusherTask.findOne({_id: id}).populate('project target');
+    task.followed = [];
+    const followers = taskHelper.followTask(task);
+    if(followers.tasks) {
+        for(const followedTask of followers.tasks) {
+            const newTask = await exports.addTask(followedTask);
+            task.followed.push(newTask.id);
+            result.tasks.push(newTask);
+        }
+    }
+    if(followers.messages) {
+        for(const [i, followedMessage] of followers.messages.entries()) {
+            const newMessage = await exports.addMessage(followedMessage);
+            if(i === 0) task.followed.push('000000000000000000000001');
+            result.messages.push(newMessage);
+        }
+        result.messages = result.messages.flat(3);
+    }
+    if(followers.commands) {
+        for(const followedCommand of followers.commands) {
+            if(followedCommand.command === 'updateOnairState') {
+                const project = await updateProjectOnairState(followedCommand.project, followedCommand.onair, followedCommand.state);
+                if(project) result.updateProjects = project;
+            } else if(followedCommand.command === 'deleteOnair') {
+                const project = await deleteOnair(followedCommand.project, followedCommand.onair);
+                if(project) result.updateProjects = project;
+            }
+        }
+    }
+    if(task.followed.length === 0) task.followed = ['000000000000000000000000'];
+    await task.save();
+    return result;
+};
+// *********************************************************************************************************************
+// ADD TASK
+// *********************************************************************************************************************
+exports.addTask = async task => {
+    const allTasks = await PusherTask.find({},{dataOrigin: true, dataTarget: true, project: true, resolved: true, type: true, timestamp:true}).lean(); //for conditions and onair status
+    task.conditionsMet = taskHelper.evaluateTaskConditions(task, task.project, (task.dataOrigin && task.dataOrigin.onAir && task.dataOrigin.onAir._id ? task.dataOrigin.onAir._id : null), allTasks);
+    if(task.type === 'PUBLISH_FACEBOOK' || task.type === 'PUBLISH_WEB') {
+        const onairConfirmed = task.getOnairConfirmedStatus(task.project, task.dataOrigin.onAir._id, allTasks);
+        if(onairConfirmed !== null) task.dataOrigin.onAirConfirmed = onairConfirmed;
+    }
+    if(task && task.target && task.target.role) { // Target by role
+        const users = await exports.getUsersByRole(task.target.role);
+        if(users.length > 0) {
+            task.target = users[0].id; // get first user by role if more of them
+        } else throw new Error("Add task. Can\'t find any user for the role: " + task.target.role)
+    }
+    task = await PusherTask.create(task);
+    task.project = await BookingProject.findOne({_id: task.project});
+    return taskHelper.normalizeTask(task, await getUsers());
+};
 // ---------------------------------------------------------------------------------------------------------------------
 //    M E S S A G E S  +  C R E A T E
 // ---------------------------------------------------------------------------------------------------------------------
@@ -125,13 +212,31 @@ exports.removeUserGroupForCreate = async id => {
     await PusherGroup.findOneAndRemove({_id: id});
 };
 // *********************************************************************************************************************
-// TODO ADD MESSAGE
+// ADD MESSAGE
 // *********************************************************************************************************************
 exports.addMessage = async message => {
     if(!message) return [];
-    logger.debug('addMessage');
-    logger.debug(JSON.stringify(message));
-    return [];
+    const users = await getUsers();
+    const targetByRole = message && message.target && message.target.role ? await exports.getUsersByRole(message.target.role) : null;
+    let target = targetByRole ? targetByRole.map(target => target.id) : Array.isArray(message.target) ? message.target : [message.target];
+    if(message.origin) target = target.filter(t => t != message.origin);
+    if(target.length === 0) return [];
+    const newMessage = await PusherMessage.create({
+        type: message.type,
+        confirm: !!message.confirm,
+        origin: message.origin ? message.origin : null,
+        label: message.label,
+        message: message.message,
+        details: message.details ? message.details : '',
+        target: target,
+        deadline: message.deadline,
+        postpone: target.map(t => 0),
+        answer: target.map(t => null),
+        confirmed: target.map(t => users[t] && users[t].access && users[t].access.indexOf('pusher:app') >= 0 ? null : moment()) //don't wait for answer from not pusher users (email only)
+    });
+    const normalizedMessages = await taskHelper.normalizeMessage(newMessage, users);
+    if(normalizedMessages) return normalizedMessages;
+    else return [];
 };
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -567,7 +672,37 @@ exports.getSsoIdsForUsers = async uid => {
         return user && user.ssoId ? user.ssoId : null;
     }
 };
-
+// *********************************************************************************************************************
+// UPDATE PROJECT'S ONAIR STATE
+// *********************************************************************************************************************
+async function updateProjectOnairState(projectId, onairId, state) {
+    const project = BookingProject.findOne({_id: projectId});
+    if(project) {
+        const newOnair = [];
+        project.onair.forEach(onair => {
+            if(onair._id.toString() === onairId.toString() && onair.state !== 'deleted') onair.state = state;
+            newOnair.push(onair);
+        });
+        project.onair = newOnair;
+        await project.save();
+        return dataHelper.normalizeDocument(project);
+    } else {
+        throw new Error('updateProjectOnairState - can\'t find project ID: ' + projectId);
+    }
+}
+// *********************************************************************************************************************
+// DELETE ONAIR
+// *********************************************************************************************************************
+async function deleteOnair(projectId, onairId) {
+    const project = BookingProject.findOne({_id: projectId});
+    if(project) {
+        project.onair = project.onair.filter(onair => onair._id.toString() != onairId.toString() || onair.state != 'deleted');
+        await project.save();
+        return dataHelper.normalizeDocument(project);
+    } else {
+        throw new Error('deleteOnair: - can\'t find project ID: ' + projectId);
+    }
+}
 // ---------------------------------------------------------------------------------------------------------------------
 //    H E L P E R S
 // ---------------------------------------------------------------------------------------------------------------------
@@ -642,7 +777,7 @@ function getLogRole(log, userIds) {
 }
 // *********************************************************************************************************************
 async function getUsers() {
-    const users = await User.find({},{__v: false}).lean();
+    const users = await User.find({}, {__v: false}).lean();
     return dataHelper.getObjectOfNormalizedDocs(users);
 }
 // *********************************************************************************************************************
