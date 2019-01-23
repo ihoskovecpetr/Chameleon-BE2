@@ -2,7 +2,9 @@
 const pusherClient = require('../lib/pusherClient');
 const db = require('../dbData/mongoDb-pusher');
 const wamp = require('../wamp');
+const email = require('../lib/email');
 const logger = require('../logger');
+const moment = require('moment');
 
 module.exports = {
     // - - - tasks - - -
@@ -120,55 +122,74 @@ async function completeTask(args, kwargs, details) {
     }
 }
 // *********************************************************************************************************************
-// TODO Forward task
+// Forward task
 // *********************************************************************************************************************
-async function forwardTask(args, kwargs) {
+async function forwardTask(args, kwargs, details) {
     try {
-        logger.debug('forwardTask ' + kwargs.user);
+        logger.debug(`forwardTask ${kwargs.id} from user ${kwargs.user} to user ${kwargs.target.id} [${kwargs.target.name}]`);
+        const task = await db.forwardTask(kwargs.id, kwargs.target.id);
+        wamp.publish(`${task.target}.task`, [], task); //send task to new target
+        wamp.publish(`${kwargs.user}.task`, [task.id], {}, {exclude: [details.caller]}); //remove on other original clients
     } catch(error) {
         logger.warn("forwardTask error: " + error);
         throw error;
     }
 }
 // *********************************************************************************************************************
-// TODO Create sub-task
+// Create sub-task
 // *********************************************************************************************************************
-async function createSubTask(args, kwargs) {
+async function createSubTask(args, kwargs, details) {
     try {
-        logger.debug('createSubTask ' + kwargs.user);
+        logger.debug(`createSubTask of ${kwargs.task}`);
+        const task = await db.createOrModifySubTask(kwargs);
+        if(task) {
+            if(kwargs.kind === 'done' && !kwargs.status) {wamp.publish(`${task.target}.task`, [task.id], {});} //remove
+            else if(kwargs.kind === 'archive') {wamp.publish(`${task.target}.task`, [], task);} //add new
+            if(pusherClient.numOfClientsForUser(kwargs.origin)) {
+                const originalTask = await db.getTaskById(kwargs.task);
+                if(originalTask) wamp.publish(`${originalTask.target}.task`, [originalTask.id], originalTask, {exclude: [details.caller]});
+            }
+        }
     } catch(error) {
         logger.warn("createSubTask error: " + error);
         throw error;
     }
 }
 // *********************************************************************************************************************
-// TODO Create big archive task
+// Create big archive task
 // *********************************************************************************************************************
 async function createBigArchiveTask(args, kwargs) {
     try {
-        logger.debug('createBigArchiveTask ' + kwargs.user);
+        logger.debug(`createBigArchiveTask of ${kwargs.task} for work ${kwargs.work}`);
+        const data = await db.createBigArchiveTask(kwargs.task, kwargs.work);
+        if(data.bigTask && data.bigTask.target && pusherClient.numOfClientsForUser(data.bigTask.target)) wamp.publish(`${data.bigTask.target}.task`, [], data.bigTask); //add
+        if(data.parentTask && data.parentTask.target && pusherClient.numOfClientsForUser(data.parentTask.target)) wamp.publish(`${data.parentTask.target}.task`, [data.parentTask.id], data.parentTask); //update
     } catch(error) {
         logger.warn("createBigArchiveTask error: " + error);
         throw error;
     }
 }
 // *********************************************************************************************************************
-// TODO Create freelancer task
+// Create freelancer task
 // *********************************************************************************************************************
 async function createFreelancerTask(args, kwargs) {
     try {
-        logger.debug('createFreelancerTask ' + kwargs.user);
+        logger.debug(`createFreelancerTask, freelancer ${kwargs.freelancer}, project ${kwargs.project}`);
+        const task = await db.createFreelancerTask(kwargs);
+        if(task && task.target && pusherClient.numOfClientsForUser(task.target)) wamp.publish(`${task.target}.task`, [], task);
     } catch(error) {
         logger.warn("createFreelancerTask error: " + error);
         throw error;
     }
 }
 // *********************************************************************************************************************
-// TODO Set archive check list item status
+// Set archive check list item status
 // *********************************************************************************************************************
-async function setArchiveCheckItemStatus(args, kwargs) {
+async function setArchiveCheckItemStatus(args, kwargs, details) {
     try {
-        logger.debug('setArchiveCheckItemStatus ' + kwargs.user);
+        logger.debug(`setArchiveCheckItemStatus, task ${data.task}`);
+        const task = await db.setArchiveCheckItemStatus(kwargs);
+        if(task && task.target && pusherClient.numOfClientsForUser(task.target)) wamp.publish(`${task.target}.task`, [task.id], task, {exclude: [details.caller]});
     } catch(error) {
         logger.warn("setArchiveCheckItemStatus error: " + error);
         throw error;
@@ -191,22 +212,47 @@ async function getMessagesForUser(args, kwargs) {
     }
 }
 // *********************************************************************************************************************
-// TODO Send Message
+// Send Message
 // *********************************************************************************************************************
 async function sendMessage(args, kwargs) {
     try {
-        logger.debug('sendMessage ' + kwargs.user);
+        logger.debug(`sendMessage by ${kwargs.origin}`);
+        const origin = await db.getUserBySsoId(kwargs.origin);
+        const deadline = kwargs.type === 'NOW' ? moment() : kwargs.type === 'TODAY' ? moment().startOf('day') : kwargs.type === 'NORMAL' ? moment().add(kwargs.days, 'day').startOf('day') : moment();
+        const messageData = {
+            type: kwargs.type,
+            confirm: kwargs.confirm,
+            origin: origin ? origin.id : null,
+            label: `Message sent by ${origin ? origin.name : 'Unknown User'}`,
+            message: kwargs.message,
+            target: kwargs.targets,
+            deadline: deadline
+        };
+        const messages = await db.addMessage(messageData);
+        for(const message of messages) {
+            if(message.target) wamp.publish(`${message.target}.message`, [], message);
+        }
+        if(kwargs.withEmail) {
+            logger.debug(`sendMessage by email`);
+            await email.sendPusherMessage(messageData);
+        }
     } catch(error) {
         logger.warn("sendMessage error: " + error);
         throw error;
     }
 }
 // *********************************************************************************************************************
-// TODO Postpone Message
+// Postpone Message
 // *********************************************************************************************************************
-async function postponeMessage(args, kwargs) {
+async function postponeMessage(args, kwargs, details) {
     try {
-        logger.debug('postponeMessage ' + kwargs.user);
+        logger.debug('postponeMessage ' + kwargs.id);
+        const message = await db.postponeMessage(kwargs.id, kwargs.days, kwargs.user);
+        if(pusherClient.numOfClientsForUser(kwargs.user) > 1) {
+            wamp.publish(`${kwargs.user}.message`, [kwargs.id], {
+                dueTo: moment(message.deadline).add(message.postpone, 'days').startOf('day').format('YYYY-MM-DD')
+            }, {exclude : [details.caller]});
+        }
     } catch(error) {
         logger.warn("postponeMessage error: " + error);
         throw error;

@@ -40,9 +40,9 @@ services:
       - './logs:/fluentd/log'
     restart: always
     environment:
-      - LOGGING_MAIL_SERVER
-      - LOGGING_MAIL_USER
-      - LOGGING_MAIL_PASSWORD
+      - MAIL_SERVER
+      - MAIL_USER
+      - MAIL_PASSWORD
       - LOGGING_MAIL_RECIPIENT
       - CHAMELEON_HOST
     networks:
@@ -207,6 +207,10 @@ services:
       - CROSSBAR_IPV4
       - CROSSBAR_SECRET_CHAMELEON
       - WAMP_BOOKING_HEARTBEAT_INTERVAL_MS
+      - MAIL_SERVER
+      - MAIL_USER
+      - MAIL_PASSWORD
+      - PUSHER_MESSAGE_DEBUG_EMAIL
     restart: always
     depends_on:
       - fluentd

@@ -21,10 +21,17 @@ require('../models/booking-project');
 require('../models/booking-work-type');
 
 const PUSHER_BOOKING_TIME_SPAN = 7; //number of days, where the pusher is looking for next day items to show real next active day, otherwise shows tomorrow (empty)
-
 // ---------------------------------------------------------------------------------------------------------------------
 //    T A S K S
 // ---------------------------------------------------------------------------------------------------------------------
+
+// *********************************************************************************************************************
+// GET TASK BY ID
+// *********************************************************************************************************************
+exports.getTaskById = async id => {
+    const task = await PusherTask.findOne({_id: id}).populate('project').lean();
+    return taskHelper.normalizeTask(task, await getUsers());
+};
 // *********************************************************************************************************************
 // GET TASKS FOR USER
 // *********************************************************************************************************************
@@ -94,7 +101,7 @@ exports.completeTask = async (id, data) => {
 // FOLLOW TASK COMPLETED
 // *********************************************************************************************************************
 exports.followTaskCompleted = async id => {
-    const result = {tasks: [], messages: []};
+    const result = {tasks: [], messages: [], updateProjects: []};
     const task = await PusherTask.findOne({_id: id}).populate('project target');
     task.followed = [];
     const followers = taskHelper.followTask(task);
@@ -109,18 +116,17 @@ exports.followTaskCompleted = async id => {
         for(const [i, followedMessage] of followers.messages.entries()) {
             const newMessage = await exports.addMessage(followedMessage);
             if(i === 0) task.followed.push('000000000000000000000001');
-            result.messages.push(newMessage);
+            result.messages = result.messages.concat(newMessage);
         }
-        result.messages = result.messages.flat(3);
     }
     if(followers.commands) {
         for(const followedCommand of followers.commands) {
             if(followedCommand.command === 'updateOnairState') {
                 const project = await updateProjectOnairState(followedCommand.project, followedCommand.onair, followedCommand.state);
-                if(project) result.updateProjects = project;
+                if(project) result.updateProjects.push(project);
             } else if(followedCommand.command === 'deleteOnair') {
                 const project = await deleteOnair(followedCommand.project, followedCommand.onair);
-                if(project) result.updateProjects = project;
+                if(project) result.updateProjects.push(project);
             }
         }
     }
@@ -148,9 +154,131 @@ exports.addTask = async task => {
     task.project = await BookingProject.findOne({_id: task.project});
     return taskHelper.normalizeTask(task, await getUsers());
 };
+// *********************************************************************************************************************
+// UPDATE TASK
+// *********************************************************************************************************************
+exports.updateTask = async (id, data) => {
+    const task = await PusherTask.findOneAndUpdate({_id: id}, {$set: data}, {new: true});
+    if(task) {
+        task.project = await BookingProject.findOne({_id: task.project});
+        return {updatedTask: taskHelper.normalizeTask(task, await getUsers()), followed: task.followed.filter(t => t.toString() != '000000000000000000000000' && t.toString() != '000000000000000000000001')};
+    } else throw new Error(`UpdateTask - Can't find task id: "${id}"`);
+};
+// *********************************************************************************************************************
+// FORWARD TASK
+// *********************************************************************************************************************
+exports.forwardTask = async (id, targetId) => {
+    const task = await PusherTask.findOneAndUpdate({_id: id}, {target: targetId}, { new: true });
+    if(task) {
+        task.project = await BookingProject.findOne({_id: task.project});
+        return await taskHelper.normalizeTask(task, await getUsers());
+    } else throw new Error(`ForwardTask - Can't find task id: ${id}`);
+};
+// *********************************************************************************************************************
+// CREATE OR MODIFY SUB-TASK
+// *********************************************************************************************************************
+exports.createOrModifySubTask = async data => { //data.status - create new - true, kind - required action
+    const masterTask = await PusherTask.findOne({_id: data.task}).lean();
+    if(masterTask) {
+        const type = masterTask.type === 'ARCHIVE_2D_LEAD' ? 'ARCHIVE_2D_OPERATOR' : 'ARCHIVE_MP_OPERATOR';
+        if (data.status) { //Create new task resolved or not depends on data.kind
+            return await exports.addTask({
+                project: masterTask.project,
+                type: type,
+                origin: masterTask.target,
+                target: data.target,
+                deadline: moment().add(3, 'days').startOf('day'),
+
+                resolved: data.kind === 'done' ? moment() : null,
+                followed: data.kind === 'done' ? ['000000000000000000000000'] : undefined,
+                dataTarget: data.kind === 'done' ? {bigArchive: false, resolvedByLead: true} : null
+            });
+        } else { //update/resolve existing task
+            const originalTask = await PusherTask.findOne({type: type, project: masterTask.project, target: data.target, resolved: null}).lean();
+            if (originalTask) {
+                const task = await exports.updateTask(originalTask._id, {
+                    resolved: moment(),
+                    followed: ['000000000000000000000000'],
+                    dataTarget: {bigArchive: false, resolvedByLead: true}
+                });
+                return task.updatedTask;
+            }
+            else return null;
+        }
+    } else throw new Error(`Can't find master task id: ${data.task}`);
+};
+// *********************************************************************************************************************
+// CREATE BIG ARCHIVE TASK
+// *********************************************************************************************************************
+exports.createBigArchiveTask = async (taskId, work) => {
+    const task = await PusherTask.findOne({_id: taskId});
+    if(task) {
+        const bigTask = await exports.addTask({
+            project: task.project,
+            type: `ARCHIVE_${work}_BIG`,
+            origin: task.target,
+            target: {role: `booking:tech-lead${work}`},
+            deadline: moment().startOf('day')
+        });
+        let parentTask = null;
+        if(task.origin) {
+            const parent = await PusherTask.findOne({type: `ARCHIVE_${work}_LEAD`, project: task.project, target: task.origin, resolved: null}).populate('project').lean();
+            if(parent) parentTask = await taskHelper.normalizeTask(parent, await getUsers());
+        }
+        return {bigTask: bigTask, parentTask: parentTask}
+    } else {
+        throw new Error(`Can't find task id: ${taskId}`);
+    }
+};
+// *********************************************************************************************************************
+// CREATE FREELANCER TASK
+// *********************************************************************************************************************
+exports.createFreelancerTask = async data => {
+    if(data) {
+        const project = await BookingProject.findOne({_id: data.project}, {label: true, manager: true}).populate({path: 'manager', select: 'name'}).lean();
+        if(!project) throw new Error(`No project '${data.project}' found.`);
+        const freelancer = await BookingResource.findOne({_id: data.freelancer}, {label: true, virtual: true, freelancer: true, confirmed: true}).lean();
+        if(!freelancer) throw new Error(`No freelancer '${data.freelancer}' found.`);
+        if(!freelancer.virtual && !freelancer.freelancer) throw new Error(`Resource '${freelancer.label}' is not set as freelancer.`);
+        const from = Array.isArray(data.date) ? data.date[0] : data.date;
+        const to = Array.isArray(data.date) ? data.date[1] : data.date;
+        const taskKey = `${data.project}:${data.freelancer}:${from}:${to}:${data.type === 'ask' ? 0 : 1}`;
+        const tasks = await PusherTask.find({type: data.type === 'ask' ? 'FREELANCER_REQUEST' : 'FREELANCER_CONFIRM', 'dataOrigin.key': taskKey, resolved: null}, {_id: true}).lean();
+        if(tasks.length === 0) {
+            const task = await exports.addTask({
+                project: data.project,
+                type: data.type === 'ask' ? 'FREELANCER_REQUEST' : 'FREELANCER_CONFIRM',
+                origin: project.manager._id,
+                target: {role: 'booking:hr-manager'},
+                deadline: moment().startOf('day'),
+                dataOrigin: {key: taskKey, manager: project.manager.name, freelancer: {label: freelancer.label, remote: freelancer.virtual, dates: {from: from, to: to}}}
+            });
+            delete task.valid;
+            return task;
+        }
+    }
+};
+// *********************************************************************************************************************
+// SET ARCHIVE CHECK-STATUS
+// *********************************************************************************************************************
+exports.setArchiveCheckItemStatus = async data => {
+    const task = await PusherTask.findOne({_id: data.task});
+    if(task) {
+        if(data.status > 0 || (task.dataOrigin && task.dataOrigin.checkList && task.dataOrigin.checkList[data.name])) {
+            if (!task.dataOrigin) task.dataOrigin = {};
+            if (!task.dataOrigin.checkList) task.dataOrigin.checkList = {};
+            if (data.status > 0) task.dataOrigin.checkList[data.name] = data.status;
+            else delete task.dataOrigin.checkList[data.name];
+            task.markModified('dataOrigin');
+            await task.save();
+            return await exports.getTaskById(data.task);
+        }
+    } else throw new Error(`Can't find task id: ${data.task}`);
+};
 // ---------------------------------------------------------------------------------------------------------------------
 //    M E S S A G E S  +  C R E A T E
 // ---------------------------------------------------------------------------------------------------------------------
+
 // *********************************************************************************************************************
 // GET MESSAGES FOR USER
 // *********************************************************************************************************************
@@ -165,6 +293,21 @@ exports.getMessagesForUser = async user => {
         });
         return await Promise.all(activeMessages.map(message => taskHelper.normalizeMessage(message, users, userData._id)));
     } else throw new Error(`Can't find user ${user}`);
+};
+// *********************************************************************************************************************
+// POSTPONE MESSAGE
+// *********************************************************************************************************************
+exports.postponeMessage = async (id, days, user) => {
+    const userIds = await exports.getUserBySsoId(user);
+    const message = await PusherMessage.findOne({_id: id});
+    if(message) {
+        const targetIndex = message.target.reduce((targetIndex, target, index) => target.toString() === userIds.id.toString() ? index : targetIndex, -1);
+        if(targetIndex >= 0) {
+            message.postpone.set(targetIndex,  message.postpone[targetIndex] + days);
+            await message.save();
+            return message;
+        } else throw new Error(`Can't find user-target: ${user} in message id: ${message._id}.`);
+    } else throw new Error(`Can't find message id: ${id}.`);
 };
 // *********************************************************************************************************************
 // GET GROUPS AND USERS FOR CREATE MESSAGE
@@ -242,6 +385,7 @@ exports.addMessage = async message => {
 // ---------------------------------------------------------------------------------------------------------------------
 //    W O R K  -  C L O C K
 // ---------------------------------------------------------------------------------------------------------------------
+
 // *********************************************************************************************************************
 // GET WORK-CLOCK FOR USER
 // *********************************************************************************************************************
@@ -277,6 +421,7 @@ exports.setWorkClock = async (ssoId, state) => {
 // ---------------------------------------------------------------------------------------------------------------------
 //    W O R K  -  L O G
 // ---------------------------------------------------------------------------------------------------------------------
+
 // *********************************************************************************************************************
 // GET WORK-LOGS FOR USER
 // *********************************************************************************************************************
@@ -372,6 +517,7 @@ exports.getWorklogsForUser = async (user, full) => {
 // ---------------------------------------------------------------------------------------------------------------------
 //    G E T  O T H E R  D A T A
 // ---------------------------------------------------------------------------------------------------------------------
+
 // *********************************************************************************************************************
 // GET ALL USERS (with workclock and requests by user)
 // *********************************************************************************************************************
@@ -410,7 +556,7 @@ exports.getProjectTeamForUser = async user => {
     const days = []; //array for every day in time span of {date, timings [], projects []}
     for(let i = 0; i < PUSHER_BOOKING_TIME_SPAN; i++) days.push({date: today.clone().add(i, 'days'), timings: [], projects: []});
     const userIds = await exports.getUserBySsoId(user);
-    const projects = await BookingProject.find({timing: {$gt: []}, $or: [{manager: userIds.id}, {supervisor: userIds.id}, {lead2D: userIds.id}, {lead3D: userIds.id}, {leadMP: userIds.id}/*, {producer: userIds.id}*/], deleted: null, offtime: {$ne: true}, internal: {$ne: true}, confirmed: true}, {label:true, timing:true, lead2D: true, lead3D: true, leadMP: true, manager: true, supervisor: true, producer: true}).lean();
+    const projects = await BookingProject.find({timing: {$gt: []}, $or: [{manager: userIds.id}, {supervisor: userIds.id}, {lead2D: userIds.id}, {lead3D: userIds.id}, {leadMP: userIds.id}], deleted: null, offtime: {$ne: true}, internal: {$ne: true}, confirmed: true}, {label:true, timing:true, lead2D: true, lead3D: true, leadMP: true, manager: true, supervisor: true, producer: true}).lean();
     projects.forEach(project => {
         const isManagerOrSupervisor = (project.manager && project.manager.toString() === userIds.id) || (project.supervisor && project.supervisor.toString() === userIds.id);
         project.timing.forEach(timing => {
@@ -665,10 +811,10 @@ exports.getUserBySsoId = async (ssoId, nullIfNotFound) => {
 exports.getSsoIdsForUsers = async uid => {
     if(!uid) return null;
     if(Array.isArray(uid)) {
-        const users = await Promise.all(uid.map(id => User.findOne({_id: id}).lean()));
+        const users = await Promise.all(uid.map(id => User.findOne({_id: id}, {ssoId: true}).lean()));
         return users.map(u => u && u.ssoId ? u.ssoId : null);
     } else {
-        const user =  User.findOne({_id: uid}).lean();
+        const user =  User.findOne({_id: uid}, {ssoId: true}).lean();
         return user && user.ssoId ? user.ssoId : null;
     }
 };
@@ -703,9 +849,11 @@ async function deleteOnair(projectId, onairId) {
         throw new Error('deleteOnair: - can\'t find project ID: ' + projectId);
     }
 }
+
 // ---------------------------------------------------------------------------------------------------------------------
 //    H E L P E R S
 // ---------------------------------------------------------------------------------------------------------------------
+
 // *********************************************************************************************************************
 // current status of log for all relevant approvers 0 = not approved, 1,2,3 = approved ok, maybe, wired, 4 = own log, 5 = approve is not required
 function getLogStatus(log) {
