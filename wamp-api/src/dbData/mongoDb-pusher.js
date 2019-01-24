@@ -2,9 +2,10 @@
 
 const mongoose = require('mongoose');
 const moment = require('moment');
-const logger = require('../logger');
+//const logger = require('../logger');
 const dataHelper = require('../lib/dataHelper');
 const taskHelper = require('../lib/taskHelper');
+const followTask = require('../lib/followTask');
 
 //Collections
 const PusherWorklog = require('../models/pusher-worklog');
@@ -104,7 +105,7 @@ exports.followTaskCompleted = async id => {
     const result = {tasks: [], messages: [], updateProjects: []};
     const task = await PusherTask.findOne({_id: id}).populate('project target');
     task.followed = [];
-    const followers = taskHelper.followTask(task);
+    const followers = followTask(task);
     if(followers.tasks) {
         for(const followedTask of followers.tasks) {
             const newTask = await exports.addTask(followedTask);
@@ -310,6 +311,34 @@ exports.postponeMessage = async (id, days, user) => {
     } else throw new Error(`Can't find message id: ${id}.`);
 };
 // *********************************************************************************************************************
+// CONFIRM MESSAGE
+// *********************************************************************************************************************
+exports.confirmMessage = async (id, answer, userIds) => {
+    const message = await PusherMessage.findOne({_id: id});
+    if(message) {
+        const targetIndex = message.target.reduce((targetIndex, target, index) => target.toString() === userIds.id.toString() ? index : targetIndex, -1);
+        if(targetIndex >= 0) {
+            if(answer) message.answer.set(targetIndex, answer);
+            message.confirmed.set(targetIndex, Date.now());
+            await message.save();
+            if(message.followed) { // notification about expired confirmation has been already sent => update status
+                const unanswered = message.target.filter((t, i) => message.confirmed[i] === null);
+                let update;
+                if(unanswered.length > 0) {
+                    const details = unanswered.reduce((o, id, i) => { o += i > 0 ? `, ${users[id] ? users[id].name : 'Unknown User'}` : `${users[id] ? users[id].name : 'Unknown User'}`; return o}, '');
+                    update = {details: details};
+                } else {
+                    update = {details: '', confirmed: [Date.now()]};
+                }
+                const normalized = await taskHelper.normalizeMessage(await updateMessage(message.followed, update), await getUsers());
+                return {message: message, update: normalized[0]};
+            } else {
+                return {message: message};
+            }
+        } else throw new Error(`Can't find user-target: ${userIds.ssoId} in message id: ${message._id}.`);
+    } else throw new Error(`Can't find message id: ${id}.`)
+};
+// *********************************************************************************************************************
 // GET GROUPS AND USERS FOR CREATE MESSAGE
 // *********************************************************************************************************************
 exports.getUsersAndGroupsForCreate = async user => {
@@ -417,7 +446,32 @@ exports.setWorkClock = async (ssoId, state) => {
         throw new Error(`Can't find user ${ssoId}`);
     }
 };
-
+// *********************************************************************************************************************
+// SET WORK-CLOCK REQUEST
+// *********************************************************************************************************************
+exports.setWorkClockRequest = async (userSsoId, subjectSsoId) => {
+    const user = await User.findOne({ssoId: userSsoId}, {_id: true}).lean();
+    if(!user) throw new Error(`Can't find user ${userSsoId}`);
+    const subject = await User.findOne({ssoId: subjectSsoId}, {_id: true}).lean();
+    if(!subject) throw new Error(`Can't find subject ${subjectSsoId}`);
+    const requested = await PusherWorkclockNotify.findOne({user: user._id, subject: subject._id, notified: null, canceled: null}).lean();
+    if(requested) return false;
+    else {
+        await PusherWorkclockNotify.create({user: user._id, subject: subject._id});
+        return true;
+    }
+};
+// *********************************************************************************************************************
+// CANCEL WORK-CLOCK REQUEST
+// *********************************************************************************************************************
+exports.cancelWorkClockRequest = async (userSsoId, subjectSsoId) => {
+    const user = await User.findOne({ssoId: userSsoId}, {_id: true}).lean();
+    if(!user) throw new Error(`Can't find user ${userSsoId}`);
+    const subject = await User.findOne({ssoId: subjectSsoId}, {_id: true}).lean();
+    if(!subject) throw new Error(`Can't find subject ${subjectSsoId}`);
+    const result = await PusherWorkclockNotify.update({user: user._id, subject: subject._id, notified: null, canceled: null}, {$set: {canceled : Date.now()}}, {multi: true});
+    return !!result && result.nModified > 0;
+};
 // ---------------------------------------------------------------------------------------------------------------------
 //    W O R K  -  L O G
 // ---------------------------------------------------------------------------------------------------------------------
@@ -513,7 +567,81 @@ exports.getWorklogsForUser = async (user, full) => {
 
     return result.sort((a, b) => {return (a.label < b.label) ? -1 : (a.label > b.label) ? 1 : 0});
 };
+// *********************************************************************************************************************
+// CONFIRM WORK-LOG
+// *********************************************************************************************************************
+exports.confirmWorkLog = async (id, kind, value) => {
+    const log = await PusherWorklog.findOne({_id: id}).populate('project job operatorJob');
+    if(log) {
+        if(!Array.isArray(kind)) kind = [kind];
+        let updateResolver = false;
+        let updateManager = false;
+        kind.forEach(type => {
+            switch (type) {
+                case 'final':
+                    if (value === true) log.approved = true;
+                    else {
+                        log.approved = false;
+                        log.resolve = true;
+                        // SEND TO worklog-resolver's
+                        updateResolver = true;
+                    }
+                    break;
+                case 'approved':
+                    log.approved = true;
+                    // SEND TO worklog-resolvers (THE OTHERS (all)) in this case, value = ssoId of user who approved (role: = booking:worklog-resolver)
+                    updateResolver = true;
+                    break;
+                case 'manager':
+                    log.confirmManager = value; // 1,2,3 as ok, maybe, weired
+                    break;
+                case 'supervisor':
+                    log.confirmSupervisor = value; // 1,2,3 as ok, maybe, weired
+                    break;
+                case 'lead2D':
+                    log.confirm2D = value; // 1,2,3 as ok, maybe, weired
+                    break;
+                case 'lead3D':
+                    log.confirm3D = value; // 1,2,3 as ok, maybe, weired
+                    break;
+                case 'leadMP':
+                    log.confirmMP = value; // 1,2,3 as ok, maybe, weired
+                    break;
+                case 'producer':
+                    log.confirmProducer = value; // 1,2,3 as ok, maybe, weired
+            }
+        });
+        if(!log.approved && !log.resolve) {
+            const logApproval = getLogStatus(log);
 
+            const complete = logApproval.manager !== 0 && logApproval.supervisor !== 0 && logApproval.lead2D !== 0 && logApproval.lead3D !== 0 && logApproval.producer !== 0 && logApproval.leadMP !== 0;
+            const someWeired = logApproval.manager === 3 || logApproval.supervisor === 3 || logApproval.lead2D === 3 || logApproval.lead3D === 3 || logApproval.producer === 3 || logApproval.leadMP === 3;
+            const someOk = logApproval.manager === 1 || logApproval.supervisor === 1 || logApproval.lead2D === 1 || logApproval.lead3D === 1 || logApproval.producer === 1 || logApproval.leadMP === 1;
+
+            log.approved =  complete && !someWeired && someOk;
+
+            if(complete && !log.approved) {
+                // IF COMPLETED AND NOT log.approved => NEED MANAGER DECISION -> SEND TO MANAGER
+                updateManager = true;
+            }
+        }
+        await log.save();
+        const update = [];
+        if(updateResolver) {
+            const users = await User.find({role: 'booking:worklog-resolver'}, {ssoId: true, _id: false}).lean();
+            users.forEach(u => {
+                if(update.indexOf(u.ssoId) < 0 && u.ssoId !== value) update.push(u.ssoId)
+            });
+        }
+        if(updateManager) {
+            const users = await User.find({_id: log.project.manager}, {ssoId: true, _id: false}).lean();
+            users.forEach(u => {
+                if(update.indexOf(u.ssoId) < 0 && u.ssoId !== value) update.push(u.ssoId)
+            });
+        }
+        return update;
+    } else throw new Error(`Can't find worklog ${id}`);
+};
 // ---------------------------------------------------------------------------------------------------------------------
 //    G E T  O T H E R  D A T A
 // ---------------------------------------------------------------------------------------------------------------------
@@ -927,6 +1055,12 @@ function getLogRole(log, userIds) {
 async function getUsers() {
     const users = await User.find({}, {__v: false}).lean();
     return dataHelper.getObjectOfNormalizedDocs(users);
+}
+// *********************************************************************************************************************
+async function updateMessage(id, data) {
+    const message = await PusherMessage.findOneAndUpdate({_id: id}, {$set: data}, {new: true});
+    if(message) return message;
+    else throw new Error(`UpdateMessage - Can't find message: ${id}`);
 }
 // *********************************************************************************************************************
 function isFreelancerConfirmed(confirmations, day) {

@@ -9,7 +9,6 @@ const moment = require('moment');
 module.exports = {
     // - - - tasks - - -
     'getTasksForUser': getTasksForUser,
-    'getUsersByRole': getUsersByRole,
     'postponeTask': postponeTask,
     'completeTask': completeTask,
     'forwardTask': forwardTask,
@@ -39,6 +38,7 @@ module.exports = {
     'confirmWorkLog': confirmWorkLog,
 
     // - - - get other data - - -
+    'getUsersByRole': getUsersByRole,
     'getProjectTeamForUser': getProjectTeamForUser,
     'getFreelancers': getFreelancers,
     'getAllPusherUsers': getAllPusherUsers,
@@ -106,9 +106,11 @@ async function completeTask(args, kwargs, details) {
             }
         }
         const data = await db.followTaskCompleted(kwargs.id);
-        for(const task of data.tasks) {
-            if(task.target) wamp.publish(`${task.target}.task`, [], task);
-            //TODO if any new task - pusherCheck(session, true) !!!!!!!!!!!!!!!!!!!!
+        if(data.tasks && data.tasks.length > 0) {
+            for (const task of data.tasks) {
+                if (task.target) wamp.publish(`${task.target}.task`, [], task);
+            }
+            wamp.publish('checkPusher', [true]);
         }
         for(const message of data.messages) {
             if(message.target) wamp.publish(`${message.target}.message`, [], message);
@@ -187,7 +189,7 @@ async function createFreelancerTask(args, kwargs) {
 // *********************************************************************************************************************
 async function setArchiveCheckItemStatus(args, kwargs, details) {
     try {
-        logger.debug(`setArchiveCheckItemStatus, task ${data.task}`);
+        logger.debug(`setArchiveCheckItemStatus, task ${kwargs.task}, field ${kwargs.name}, status ${kwargs.status}`);
         const task = await db.setArchiveCheckItemStatus(kwargs);
         if(task && task.target && pusherClient.numOfClientsForUser(task.target)) wamp.publish(`${task.target}.task`, [task.id], task, {exclude: [details.caller]});
     } catch(error) {
@@ -259,11 +261,35 @@ async function postponeMessage(args, kwargs, details) {
     }
 }
 // *********************************************************************************************************************
-// TODO Confirm Message
+// Confirm Message
 // *********************************************************************************************************************
-async function confirmMessage(args, kwargs) {
+async function confirmMessage(args, kwargs, details) {
     try {
-        logger.debug('confirmMessage ' + kwargs.user);
+        logger.debug(`confirmMessage ${kwargs.id} by ${kwargs.user}, answer: ${kwargs.answer}`);
+        const user = await db.getUserBySsoId(kwargs.user);
+        const data = await db.confirmMessage(kwargs.id, kwargs.answer, user);
+        if(data.update) wamp.publish(`${data.update.target}.message`, [data.update.id], {details: data.update.details}); // if details undefined => remove
+        if(pusherClient.numOfClientsForUser(kwargs.user) > 1) wamp.publish(`${kwargs.user}.message`, [kwargs.id], {}, {exclude : [details.caller]}); //remove on other clients of user
+        let messages;
+        if(kwargs.answer === 'explain') { //Add new message - need explain as answer of message with confirmation
+            messages = await db.addMessage({
+                type: 'INFO',
+                target: data.message.origin,
+                deadline: moment().startOf('day'),
+                label: `Explain message required.`,
+                message: `${user.name} require explanation of your message: "${data.message.message}" sent: ${moment(data.message.timestamp).format('DD/MM HH:mm')}.`
+            });
+        } else if(kwargs.answer === 'find-me') { //Add new message - work request will be fulfilled by kwargs.user
+            //TODO update details by Find me user request ????
+            messages = await db.addMessage({
+                type: 'NOW',
+                target: data.message.origin,
+                deadline: moment(),
+                label: `Await Work - Find Me.`,
+                message: `${user.name} has a work for you, find her/him.`
+            });
+        }
+        if(messages && messages.length) wamp.publish(`${messages[0].target}.message`, [], messages[0]);
     } catch(error) {
         logger.warn("confirmMessage error: " + error);
         throw error;
@@ -389,22 +415,30 @@ async function setWorkClock(args, kwargs, details) {
     }
 }
 // *********************************************************************************************************************
-// TODO Set Work Clock request
+// Set Work Clock request
 // *********************************************************************************************************************
-async function setWorkClockRequest(args, kwargs) {
+async function setWorkClockRequest(args, kwargs, details) {
     try {
-        logger.debug('setWorkClockRequest ' + kwargs.user);
+        logger.debug(`setWorkClockRequest by ${kwargs.user}, subject: ${kwargs.subject}`);
+        const modified = await  db.setWorkClockRequest(kwargs.user, kwargs.subject);
+        if(modified && pusherClient.numOfClientsForUser(kwargs.user) > 1) {
+            wamp.publish(`${kwargs.user}.workclockrequest`, [], {subject: kwargs.subject, requested: true}, {exclude : [details.caller]});
+        }
     } catch(error) {
         logger.warn("setWorkClockRequest error: " + error);
         throw error;
     }
 }
 // *********************************************************************************************************************
-// TODO Cancel Work Clock request
+// Cancel Work Clock request
 // *********************************************************************************************************************
-async function cancelWorkClockRequest(args, kwargs) {
+async function cancelWorkClockRequest(args, kwargs, details) {
     try {
-        logger.debug('cancelWorkClockRequest ' + kwargs.user);
+        logger.debug(`cancelWorkClockRequest by ${kwargs.user}, subject: ${kwargs.subject}`);
+        const modified = await  db.cancelWorkClockRequest(kwargs.user, kwargs.subject);
+        if(modified && pusherClient.numOfClientsForUser(kwargs.user) > 1) {
+            wamp.publish(`${kwargs.user}.workclockrequest`, [], {subject: kwargs.subject, requested: false}, {exclude : [details.caller]});
+        }
     } catch(error) {
         logger.warn("cancelWorkClockRequest error: " + error);
         throw error;
@@ -427,11 +461,31 @@ async function getWorklogsForUser(args, kwargs) {
     }
 }
 // *********************************************************************************************************************
-// TODO Confirm Work Log
+// Confirm Work Log
 // *********************************************************************************************************************
-async function confirmWorkLog(args, kwargs) {
+async function confirmWorkLog(args, kwargs, details) {
     try {
-        logger.debug('confirmWorkLog ' + kwargs.user);
+        logger.debug(`confirmWorkLog ${kwargs.id} by ${args[0]}, kind: ${kwargs.kind}, value: ${kwargs.value}`);
+        const data = await db.confirmWorkLog(kwargs.id, kwargs.kind, kwargs.value);
+        // REDUCE DATA BY ACTIVE USERS + ADD DEBUG USER, IF STILL LENGTH > 0, SEND FORCE UPDATE TO THOSE USERS
+        const updatedUsers = [];
+        const pusherClients = pusherClient.getClients();
+        if(data.length > 0) {
+            logger.debug(`force users: ${data} to work-log update`);
+            Object.keys(pusherClients).forEach(client => {
+                if((data.indexOf(pusherClients[client].user) >= 0 || pusherClients[client].debug) && updatedUsers.indexOf(pusherClients[client].user) < 0) {
+                    updatedUsers.push(pusherClients[client].user);
+                }
+            });
+            if(updatedUsers.length > 0) {
+                updatedUsers.forEach(user => {
+                    wamp.publish(`${user}.worklogupdate`);
+                });
+            }
+        }
+        if(pusherClient.numOfClientsForUser(args[0]) > 1 && updatedUsers.indexOf(args[0]) < 0) { // update others clients of the same user
+            wamp.publish(`${args[0]}.worklogupdate`, [], {}, {exclude: [details.caller]});
+        }
     } catch(error) {
         logger.warn("confirmWorkLog error: " + error);
         throw error;

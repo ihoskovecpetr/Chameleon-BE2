@@ -31,8 +31,6 @@ exports.sortByLabel = (a, b) => {
     return a.label.localeCompare(b.label);
 };
 
-//TODO vvvvvvvvvv
-
 exports.mapResources = (resources, users) => {
     return resources.reduce((output, resource) => {
         let userId = null;

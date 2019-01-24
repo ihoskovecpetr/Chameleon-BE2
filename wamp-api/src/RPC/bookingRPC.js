@@ -4,30 +4,25 @@ const db = require('../dbData/mongoDb-booking');
 const k2 = require('../dbData/mssqlK2-data');
 const logger = require('../logger');
 const wamp = require('../wamp');
-
-const LOCK_VALID_TIME = 1000;
-
-let lockedEvents = [];
-
-setInterval(checkLockedEvents, LOCK_VALID_TIME + 500);
+const lockedEvent = require('../lib/lockedEvent');
 
 module.exports = {
     'getData': getData,
     // ** Events
-    'addEvent': addEvent,
-    'updateEvent': updateEvent,
-    'removeEvent': removeEvent,
-    'splitEvent': splitEvent,
-    'joinEvents': joinEvents,
+    'addEvent': addEvent, //pusherCheck false + updatePusherData event
+    'updateEvent': updateEvent, //pusherCheck false + updatePusherData event
+    'removeEvent': removeEvent, //pusherCheck false + updatePusherData event
+    'splitEvent': splitEvent, // updatePusherData joinSplitEvent
+    'joinEvents': joinEvents, // updatePusherData joinSplitEvent
     // ** Projects
-    'addProject': addProject,
-    'updateProject': updateProject,
-    'removeProject': removeProject,
-    'addProjectAndEvent': addProjectAndEvent,
+    'addProject': addProject, //pusherCheck false
+    'updateProject': updateProject, //pusherCheck false + updatePusherData project
+    'removeProject': removeProject, //pusherCheck false + updatePusherData project
+    'addProjectAndEvent': addProjectAndEvent, //pusherCheck false + updatePusherData project, event
     // ** Resource
-    'addResource': addResource,
-    'updateResource': updateResource,
-    'removeResource': removeResource,
+    'addResource': addResource, // updatePusherData resource
+    'updateResource': updateResource, // updatePusherData resource
+    'removeResource': removeResource, // updatePusherData resource
     'reorderResource': reorderResource,
     'getNumberOfEventsForResource': getNumberOfEventsForResource,
     // ** Group
@@ -37,9 +32,6 @@ module.exports = {
     'reorderGroups': reorderGroups,
     // ** Pin
     'changeUserPin': changeUserPin,
-    // ** Event lock
-    'lockEvent': lockEvent,
-    'releaseEvent': releaseEvent,
     // ** K2
     'getK2projects': getK2projects,
     // ** Budget
@@ -64,8 +56,8 @@ async function getData(args, kwargs, details) {
             db.getJobs(),
             db.getUsers()
         ]);
-        logger.debug(`Getdata time: ${Date.now() - start}ms`);
-        return {groups, resources, holidays, projects, events, jobs, users, lockedEvents: lockedEvents.map(item => item.id)}
+        logger.debug(`getData time: ${Date.now() - start}ms`);
+        return {groups, resources, holidays, projects, events, jobs, users, lockedEvents: lockedEvent.getLockedEvents()}
     } catch (error) {
         logger.error(`getData error, user: "${args.length > 0 ? `${args[0]}, ` : 'Unknown'}" :: ${error}`);
         throw error;
@@ -77,12 +69,12 @@ async function getData(args, kwargs, details) {
 // *********************************************************************************************************************
 async function updateEvent(args, kwargs, details) {
     try {
-        logger.debug('updateEvent');
+        logger.debug(`updateEvent ${kwargs.id}`);
         const oldEvent = await db.updateEvent(kwargs.id, kwargs.event);
         const result = {id: kwargs.id, event: kwargs.event, fromProject: kwargs.fromProject, oldEvent: oldEvent};
         wamp.publish('updateEvent', [], result, {exclude : [details.caller]});
         await db.logOp('updateEvent', args[0], kwargs, null);
-        /*
+        /* TODO
         updatePusherData({
             event: {
                 id: kwargs.id,
@@ -102,12 +94,12 @@ async function updateEvent(args, kwargs, details) {
 
 async function addEvent(args, kwargs, details) {
     try {
-        logger.debug('addEvent');
+        logger.debug(`addEvent ${kwargs.id}`);
         await db.addEvent(kwargs.id, kwargs.event);
         const result = {id: kwargs.id, event: kwargs.event};
         wamp.publish('addEvent', [], result, {exclude : [details.caller]});
         await db.logOp('addEvent', args[0], kwargs, null);
-        /*
+        /* TODO
         updatePusherData({
             event: {
                 id: kwargs.id,
@@ -127,12 +119,12 @@ async function addEvent(args, kwargs, details) {
 
 async function removeEvent(args, kwargs, details) {
     try {
-        logger.debug('removeEvent');
+        logger.debug(`removeEvent ${kwargs.id}`);
         await db.removeEvent(kwargs.id);
         const result = {id: kwargs.id, event: kwargs.event};
         wamp.publish('removeEvent', [], result, {exclude : [details.caller]});
         await db.logOp('removeEvent', args[0], kwargs, null);
-        /*
+        /* TODO
         updatePusherData({
             event: {
                 id: kwargs.id,
@@ -152,12 +144,12 @@ async function removeEvent(args, kwargs, details) {
 
 async function splitEvent(args, kwargs, details) {
     try {
-        logger.debug('splitEvent');
+        logger.debug(`splitEvent ${kwargs.id} (${kwargs.id2})`);
         await db.splitEvent(kwargs.id, kwargs.event, kwargs.id2, kwargs.event2);
         const result = {id: kwargs.id, event: kwargs.event, id2: kwargs.id2, event2: kwargs.event2};
         wamp.publish('splitEvent', [], result, {exclude : [details.caller]});
         await db.logOp('splitEvent', args[0], kwargs, null);
-        /*
+        /* TODO
         updatePusherData({
             joinSplitEvent: {
                 id: kwargs.id,
@@ -177,12 +169,12 @@ async function splitEvent(args, kwargs, details) {
 
 async function joinEvents(args, kwargs, details) {
     try {
-        logger.debug('joinEvent');
+        logger.debug(`joinEvent ${kwargs.id} + ${kwargs.id2}`);
         await db.joinEvents(kwargs.id, kwargs.event, kwargs.id2);
         const result = {id: kwargs.id, event: kwargs.event, id2: kwargs.id2};
         wamp.publish('joinEvents', [], result, {exclude : [details.caller]});
         await db.logOp('joinEvent', args[0], kwargs, null);
-        /*
+        /* TODO
         updatePusherData({
             joinSplitEvent: {
                 id: kwargs.id,
@@ -204,12 +196,12 @@ async function joinEvents(args, kwargs, details) {
 // *********************************************************************************************************************
 async function addProject(args, kwargs, details) {
     try {
-        logger.debug('addProject');
+        logger.debug(`addProject ${kwargs.id} [${kwargs.project.label}]`);
         const project = await db.addProject(kwargs.id, kwargs.project);
         const result = {id: kwargs.id, project: project};
         wamp.publish('addProject', [], result, {exclude : [details.caller]});
         await db.logOp('addProject', args[0], kwargs, null);
-        /*
+        /* TODO
         if(project.K2rid) K2check(result.id, session);
         pusherCheck(session, false);
         projectLinkedOrUnlinkedWithBudget({id: result.id.toString(), label: result.project.label, budget: null}, {id: result.id.toString(), label: result.project.label, budget: result.project.budget ? result.project.budget.toString() : null});
@@ -224,12 +216,12 @@ async function addProject(args, kwargs, details) {
 
 async function updateProject(args, kwargs, details) {
     try {
-        logger.debug('updateProject');
+        logger.debug(`updateProject ${kwargs.id} [${kwargs.project.label}]`);
         const data = await db.updateProject(kwargs.id, kwargs.project);
         const result = {id: kwargs.id, project: data.newProject};
         wamp.publish('updateProject', [], result, {exclude : [details.caller]});
         await db.logOp('updateProject', args[0], kwargs, null);
-        /*
+        /* TODO
         if(result.project.K2rid && (result.project.K2rid !== data.oldProject.K2rid || jobsChanged(result.project.jobs, data.oldProject.jobs))) K2check(result.id, session);
         updatePusherData({
             project: {
@@ -251,12 +243,12 @@ async function updateProject(args, kwargs, details) {
 
 async function removeProject(args, kwargs, details) {
     try {
-        logger.debug('removeProject');
+        logger.debug(`removeProject ${kwargs.id}`);
         await db.removeProject(kwargs.id);
         const result = {id: kwargs.id, project: kwargs.project};
         wamp.publish('removeProject', [], result, {exclude : [details.caller]});
         await db.logOp('removeProject', args[0], kwargs, null);
-        /*
+        /* TODO
         updatePusherData({
             project: {
                 id: kwargs.id,
@@ -277,13 +269,13 @@ async function removeProject(args, kwargs, details) {
 
 async function addProjectAndEvent(args, kwargs, details) {
     try {
-        logger.debug('addProjectAndEvent');
+        logger.debug(`addProjectAndEvent ${kwargs.idProject} [${kwargs.project.label}], event ${kwargs.idEvent}`);
         const project = await db.addProject(kwargs.idProject, kwargs.project);
         await db.addEvent(kwargs.idEvent, kwargs.event, true);
         const result = {idProject: kwargs.idProject, project: project, idEvent: kwargs.idEvent, event: kwargs.event};
         wamp.publish('addProjectAndEvent', [], result, {exclude : [details.caller]});
         await db.logOp('addProjectAndEvent', args[0], kwargs, null);
-        /*
+        /* TODO
         if(project.K2rid) K2check(result.idProject, session);
         updatePusherData({
             project: {
@@ -313,12 +305,12 @@ async function addProjectAndEvent(args, kwargs, details) {
 // *********************************************************************************************************************
 async function addResource(args, kwargs, details) {
     try {
-        logger.debug('addResource');
+        logger.debug(`addResource ${kwargs.id} [${kwargs.resource.label}]`);
         const data = await db.addResource(kwargs.id, kwargs.resource);
         const result = {groups: data[0], resources: data[1]};
         wamp.publish('updateData', [], result, {exclude : [details.caller]});
         await db.logOp('addResource', args[0], kwargs, null);
-        /*
+        /* TODO
         updatePusherData({
             resource: {
                 id: kwargs.id,
@@ -337,12 +329,12 @@ async function addResource(args, kwargs, details) {
 
 async function updateResource(args, kwargs, details) {
     try {
-        logger.debug('updateResource');
+        logger.debug(`updateResource ${kwargs.id} [${kwargs.resource.label}]`);
         const data = await db.updateResource(kwargs.id, kwargs.resource);
         const result = data[0] ? {groups: data[0], resources: data[1]} : {resources: data[1]};
         wamp.publish('updateData', [], result, {exclude : [details.caller]});
         await db.logOp('updateResource', args[0], kwargs, null);
-        /*
+        /* TODO
         updatePusherData({
             resource: {
                 id: kwargs.id,
@@ -361,12 +353,12 @@ async function updateResource(args, kwargs, details) {
 
 async function removeResource(args, kwargs, details) {
     try {
-        logger.debug('removeResource');
+        logger.debug(`removeResource ${kwargs.id}`);
         const data = await db.removeResource(kwargs.id);
         const result = {groups: data[0], resources: data[1]};
         wamp.publish('updateData', [], result, {exclude : [details.caller]});
         await db.logOp('removeResource', args[0], kwargs, null);
-        /*
+        /* TODO
         updatePusherData({
             resource: {
                 id: kwargs.id,
@@ -413,7 +405,7 @@ async function getNumberOfEventsForResource(args, kwargs, details) {
 // *********************************************************************************************************************
 async function addGroup(args, kwargs, details) {
     try {
-        logger.debug('addGroup');
+        logger.debug(`addGroup ${kwargs.id} [${kwargs.group.label}]`);
         const groups = await db.addGroup(kwargs.id, kwargs.group);
         const result = {groups: groups};
         wamp.publish('updateData', [], result, {exclude : [details.caller]});
@@ -428,7 +420,7 @@ async function addGroup(args, kwargs, details) {
 
 async function updateGroup(args, kwargs, details) {
     try {
-        logger.debug('updateGroup');
+        logger.debug(`updateGroup ${kwargs.id} [${kwargs.group.label}]`);
         const groups = await db.updateGroup(kwargs.id, kwargs.group);
         const result = {groups: groups};
         wamp.publish('updateData', [], result, {exclude : [details.caller]});
@@ -443,7 +435,7 @@ async function updateGroup(args, kwargs, details) {
 
 async function removeGroup(args, kwargs, details) {
     try {
-        logger.debug('removeGroup');
+        logger.debug(`removeGroup ${kwargs.id}`);
         const groups = await db.removeGroup(kwargs.id);
         const result = {groups: groups};
         wamp.publish('updateData', [], result, {exclude : [details.caller]});
@@ -490,7 +482,7 @@ async function getK2projects(args, kwargs, details) {
 // *********************************************************************************************************************
 async function getBudgetLabel(args, kwargs, details) {
     try {
-        logger.debug('getBudgetLabel');
+        logger.debug(`getBudgetLabel ${kwargs.id}`);
         return await db.getBudgetLabel(kwargs.id);
     } catch (error) {
         logger.error("Get budget label error: " + error);
@@ -508,40 +500,11 @@ async function getAvailableBudgets(args, kwargs, details) {
 
 async function getBudgetMinutes(args, kwargs, details) {
     try {
-        logger.debug('getBudgetMinutes');
+        logger.debug(`getBudgetMinutes ${kwargs.id}`);
         return await db.getBudgetMinutes(kwargs.id);
     } catch (error) {
         logger.error("Get budget minutes error: " + error);
     }
-}
-
-// *********************************************************************************************************************
-// EVENT LOCK
-// *********************************************************************************************************************
-function lockEvent(args, kwargs, details) {
-    const index = lockedEvents.findIndex(event => event.id === args[0]);
-    if(index < 0) {
-        lockedEvents.push({timestamp: +new Date, id: args[0]});
-        session.publish('lockedEventsChanged', lockedEvents.map(item => item.id), {}, {exclude : [details.publisher]});
-    } else {
-        lockedEvents[index].timestamp = +new Date;
-    }
-}
-
-function releaseEvent(args, kwargs, details) {
-    const index = lockedEvents.findIndex(event => event.id === args[0]);
-    if(index >= 0) {
-        lockedEvents.splice(index, 1);
-        session.publish('lockedEventsChanged', lockedEvents.map(item => item.id), {}, {exclude : [details.publisher]});
-    }
-}
-
-function checkLockedEvents() {
-    if(lockedEvents.length === 0) return;
-    const timeStamp = +new Date;
-    const length = lockedEvents.length;
-    lockedEvents = lockedEvents.filter(item => (timeStamp - item.timestamp) <= LOCK_VALID_TIME);
-    if(lockedEvents.length < length) session.publish('lockedEventsChanged', lockedEvents.map(item => item.id));
 }
 
 // *********************************************************************************************************************
