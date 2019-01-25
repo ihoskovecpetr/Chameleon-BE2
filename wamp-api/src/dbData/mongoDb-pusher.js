@@ -947,6 +947,92 @@ exports.getSsoIdsForUsers = async uid => {
     }
 };
 // *********************************************************************************************************************
+// TODO GET BUDGET PRICE
+// *********************************************************************************************************************
+exports.getBudgetPrice = async id => {
+    return 0;
+};
+/*
+function getBudgetPrices(budget) {
+    const parts =  budget.parts.map(part => {
+        return {
+            offer: part.offer,
+            price: part.items.reduce((price, item) => price + ((item.numberOfUnits ? item.numberOfUnits : 0) * (item.price ? item.price : 0)), 0),
+            currency: budget.currency,
+            active: part.active
+        }
+    }).filter(item => item.active);
+    const hasOffer = parts.some(part => part.offer);
+    const result = parts.reduce((total, item) => {
+        total.offer = hasOffer ? item.offer ? total.offer + item.offer : total.offer + item.price : null;
+        total.price += item.price;
+        total.currency = item.currency;
+        return total;
+    }, {offer: 0, price: 0, currency: '', percent: null});
+    result.percent = result.price > 0 && result.offer ? Math.round(1000 * (result.price - result.offer) / result.price) / 10 : 0;
+    if(result.offer === 0) result.offer = null;
+    return result;
+}
+*/
+/*
+exports.getBudget = async id => {
+    const budget = await Budget.findOne({_id: id}).populate('pricelist parts').lean();
+    const colors = (await PricelistGroup.find({}, {color: true}).lean()).reduce((colors, group) => {colors[group._id.toString()] = group.color; return colors}, {});
+    const project = await BookingProject.findOne({budget: id, deleted: null, offtime: false}, {label: true, manager: true}).lean();
+    const v2 = !!budget.pricelist.v2;
+    return {
+        id: budget._id,
+        label: budget.label,
+        project: project
+            ?
+            {
+                _id: project._id,
+                label: project.label,
+                manager: project.manager
+            }
+            : null,
+        version: budget.version,
+        language: budget.language,
+        currency: budget.currency,
+        pricelist: {
+            id: budget.pricelist.pricelistId,
+            label: budget.pricelist.label,
+            items: budget.pricelist.pricelist.reduce((items, group) => items.concat(group.items.map(item => {
+                return {
+                    group: group.id,
+                    label: item.label,
+                    unit: item.unit,
+                    price: item.price,
+                    jobId: item.jobId,
+                    unitId: item.unitId,
+                    clientPrice : item.clientPrice,
+                    id: item.id,
+                    _id: item._id
+                }
+            })), []),
+            groups: budget.pricelist.pricelist.reduce((groups, group, index) => {
+                groups[group.id] = {label: group.label, index: index};
+                return groups;
+            }, {}),
+            colors: colors
+        },
+        parts: budget.parts,
+        client: budget.client,
+        contact:budget.contact,
+        date: budget.date,
+        state: budget.state,
+        created: budget.created,
+        modified: budget.modified,
+        conditions: budget.conditions,
+        projectLabel: budget.projectLabel,
+        colorOutput: budget.colorOutput,
+        singleOutput: budget.singleOutput,
+        multiTotal: budget.multiTotal,
+        v2: v2
+    }
+};
+*/
+// *********************************************************************************************************************
 // UPDATE PROJECT'S ONAIR STATE
 // *********************************************************************************************************************
 async function updateProjectOnairState(projectId, onairId, state) {
@@ -977,7 +1063,6 @@ async function deleteOnair(projectId, onairId) {
         throw new Error('deleteOnair: - can\'t find project ID: ' + projectId);
     }
 }
-
 // ---------------------------------------------------------------------------------------------------------------------
 //    H E L P E R S
 // ---------------------------------------------------------------------------------------------------------------------

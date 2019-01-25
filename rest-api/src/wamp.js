@@ -48,7 +48,7 @@ connection.onclose = (reason, details) => {
 
 function onchallenge(session, method, extra) {
     if (method === "wampcra") {
-        const key =  autobahn.auth_cra.derive_key(process.env.CROSSBAR_SECRET_CHAMELEON, extra.salt, extra.iterations, extra.keylen);
+        const key = autobahn.auth_cra.derive_key(process.env.CROSSBAR_SECRET_CHAMELEON, extra.salt, extra.iterations, extra.keylen);
         return autobahn.auth_cra.sign(key, extra.challenge);
     }
 }
@@ -58,5 +58,17 @@ function onchallenge(session, method, extra) {
 // *********************************************************************************************************************
 module.exports.notifyAboutUpdatedProject = project => {
     if(session && project) session.publish('updateProject', [], project);
+};
+
+module.exports.projectBudgetOfferChanged = data => {
+    if(session && data) {
+        //NORMALIZE FOR WAMP API 'notifyOfferChanged'
+        // from {oldProject, newProject, oldPrice, newPrice, oldBudget, newBudget, op}
+        // to {?????}
+        session.publish('notifyOfferChanged', [], {
+            previous: {project: data.oldProject ? {id: data.oldProject._id.toString(), label: data.oldProject.label} : null, budget: data.oldBudget ? {id: data.oldBudget, price: data.oldPrice} : null},
+            current: {project: data.newProject ? {id: data.newProject._id.toString(), label: data.newProject.label} : null, budget: data.newBudget ? {id: data.newBudget, price: data.newBudget} : null}
+        });
+    }
 };
 

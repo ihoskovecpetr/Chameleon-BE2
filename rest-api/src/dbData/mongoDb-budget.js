@@ -369,7 +369,7 @@ exports.createBudget = async options => { // budget = {label, pricelistId, langu
         client: snapshot.client
     });
     const project = options.project ? await exports.updateProjectsBudget(options.project, budget._id) : null;
-    return {budget: budget._id, project: project};
+    return {newBudget: budget._id, newProject: project, op: 'add'};
 };
 
 // *********************************************************************************************************************
@@ -391,7 +391,7 @@ exports.createBudgetAsCopy = async (id, budget) => {
     const newProject = await BookingProject.findOne({_id: budget.project});
     const newProjectID = newProject ? newProject._id.toString() : null;
     const project = newProjectID ? await exports.updateProjectsBudget(newProjectID, newId, true) : null;
-    return {project: project, newPrice: newPrice, oldPrice: oldPrice, budget: newId};
+    return {oldProject: project, newProject: project, newPrice: newPrice, oldPrice: oldPrice, newBudget: newId, oldBudget: id, op: 'copy'};
 };
 
 // *********************************************************************************************************************
@@ -413,13 +413,15 @@ exports.updateBudget = async (id, budget) => {
     const newProject = await BookingProject.findOne({_id: budget.project});
     const oldProjectID = oldProject ? oldProject._id.toString() : null;
     const newProjectID = newProject ? newProject._id.toString() : null;
-
-    const projects = {};
+    const result = {oldProject: null, newProject: null, newPrice: newPrice, oldPrice: oldPrice, oldBudget: id, newBudget: id, op: 'update'};
     if(oldProjectID !== newProjectID) {
-        if(newProjectID) projects.newProject = await exports.updateProjectsBudget(newProjectID, id, true);
-        if(oldProjectID) projects.oldProject = await exports.updateProjectsBudget(oldProjectID, null, true);
-    } else if(newProjectID) projects.project = await exports.updateProjectsBudget(newProjectID, id, true);
-    return {projects: projects, newPrice: newPrice, oldPrice: oldPrice};
+        if(newProjectID) result.newProject = await exports.updateProjectsBudget(newProjectID, id, true);
+        if(oldProjectID) result.oldProject = await exports.updateProjectsBudget(oldProjectID, null, true);
+    } else {
+        if(newProjectID) result.newProject = await exports.updateProjectsBudget(newProjectID, id, true);
+        result.oldProject = result.newProject;
+    }
+    return result;
 };
 
 // *********************************************************************************************************************
@@ -428,8 +430,8 @@ exports.updateBudget = async (id, budget) => {
 exports.removeBudget = async id => {
     const budget = await Budget.findOneAndUpdate({_id: id}, {deleted: moment()});
     let project = await BookingProject.findOne({budget: id}, {_id: true}).lean();
-    if(project) project =  await exports.updateProjectsBudget(project._id, id, true);
-    return {project: project, oldPrice: getBudgetPrices(budget), newPrice: null}
+    if(project) project = await exports.updateProjectsBudget(project._id, id, true);
+    return {oldProject: project, newProject: null, oldPrice: getBudgetPrices(budget), newPrice: null, oldBudget: id, newBudget: null, op: 'remove'}
 };
 
 // +++++  O T H E R S  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -509,7 +511,7 @@ exports.updateProjectsBudget = async (projectId, budgetId, updateMinutes) => {
             const normalizedProject = exports.getNormalizedProject(updatedProject);
             await exports.logOp('updateProjectBudget', '777777777777777777777777', normalizedProject, null);
             return normalizedProject;
-        }
+        } else return exports.getNormalizedProject(project);
     }
 };
 
@@ -532,40 +534,6 @@ exports.getNormalizedProject = source => {
     const id = project._id.toString();
     delete project._id;
     return {id: id, project: project};
-    /*return {
-        id: project._id.toString(),
-        project: {
-            label: project.label,
-            K2rid: project.K2rid,
-            K2client: project.K2client,
-            K2name: project.K2name,
-            K2projectId: project.K2projectId,
-            confirmed: project.confirmed,
-
-            internal: project.internal,
-
-            manager: project.manager,
-            supervisor: project.supervisor,
-            lead2D: project.lead2D,
-            lead3D: project.lead3D,
-            leadMP: project.leadMP,
-            producer: project.producer,
-            created: project.created,
-
-            deleted: project.deleted,
-
-            offtime: project.offtime,
-            events: project.events,
-            jobs: project.jobs,
-            timing: project.timing,
-            onair: project.onair,
-            invoice: project.invoice,
-            bookingNotes: project.bookingNotes,
-            budget: project.budget,
-            kickBack: project.kickBack
-        }
-    }
-    */
 };
 
 // *********************************************************************************************************************

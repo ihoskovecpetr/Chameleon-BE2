@@ -287,8 +287,8 @@ router.post('/budgets', [validateToken, authoriseApiAccess(BUDGET_ACCESS_USER)],
             next(error);
         } else {
             const result = await db.createBudget(req.body);
-            if (result.project) wamp.notifyAboutUpdatedProject(result.project);
-            res.status(200).json({id: result.budget});
+            if (result.newProject) wamp.notifyAboutUpdatedProject(result.newProject);
+            res.status(200).json({id: result.newBudget});
         }
     } catch(error) {
         next(error);
@@ -307,11 +307,9 @@ router.post('/budgets/:id', [validateToken, authoriseApiAccess(BUDGET_ACCESS_USE
             next(error);
         } else {
             const result = await db.createBudgetAsCopy(id, req.body);
-            if(result.project) wamp.notifyAboutUpdatedProject(result.project);
-            if(result.oldPrice || result.newPrice) {
-                //TODO wamp.projectBudgetOfferChanged({project:  projects[0] ? {id: projects[0]._id.toString(), label: projects[0].label} : {id: null}, budget: {id: budgetId.toString(), price: oldPrices}}, {project:  projects[1] ? {id: projects[1]._id.toString(), label: projects[1].label} : {id: null}, budget: {id: budgetId.toString(), price: newPrices}}))
-            }
-            res.status(200).json({id: result.budget}); //newId of budget
+            if(result.newProject) wamp.notifyAboutUpdatedProject(result.newProject);
+            wamp.projectBudgetOfferChanged(result);
+            res.status(200).json({id: result.newBudget}); //newId of budget
         }
     } catch(error) {
         next(error);
@@ -330,13 +328,9 @@ router.put('/budgets/:id', [validateToken, authoriseApiAccess(BUDGET_ACCESS_USER
             next(error);
         } else {
             const result = await db.updateBudget(id, req.body);
-            if(result.projects.oldProject) wamp.notifyAboutUpdatedProject(result.projects.oldProject);
-            if(result.projects.newProject) wamp.notifyAboutUpdatedProject(result.projects.newProject);
-            if(result.projects.project) wamp.notifyAboutUpdatedProject(result.projects.project);
-
-            if(result.oldPrice || result.newPrice) {
-                //TODO wamp.projectBudgetOfferChanged({project:  projects[0] ? {id: projects[0]._id.toString(), label: projects[0].label} : {id: null}, budget: {id: budgetId.toString(), price: oldPrices}}, {project:  projects[1] ? {id: projects[1]._id.toString(), label: projects[1].label} : {id: null}, budget: {id: budgetId.toString(), price: newPrices}}))
-            }
+            if(result.oldProject) wamp.notifyAboutUpdatedProject(result.oldProject);
+            if(result.newProject) wamp.notifyAboutUpdatedProject(result.newProject);
+            wamp.projectBudgetOfferChanged(result);
             res.status(200).end();
         }
     } catch(error) {
@@ -356,10 +350,8 @@ router.delete('/budgets/:id', [validateToken, authoriseApiAccess(BUDGET_ACCESS_U
             next(error);
         } else {
             const result = await db.removeBudget(id);
-            if(result.project) wamp.notifyAboutUpdatedProject(result.project);
-            if(result.oldPrice || result.newPrice) {
-                //TODO wamp.projectBudgetOfferChanged({project:  project ? {id: project._id.toString(), label: project.label} : {id: null}, budget: {id: budgetId.toString(), price: null}}, {project:  project ? {id: project._id.toString(), label: project.label} : {id: null}, budget: {id: null}}))
-            }
+            if(result.oldProject) wamp.notifyAboutUpdatedProject(result.oldProject);
+            wamp.projectBudgetOfferChanged(result);
             res.status(200).end();
         }
     } catch(error) {
