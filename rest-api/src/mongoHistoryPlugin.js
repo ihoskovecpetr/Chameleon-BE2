@@ -3,6 +3,7 @@
 const jsonpatch = require('fast-json-patch');
 const mongoose = require('mongoose');
 const HistoryModel = require('./models/history');
+//const logger = require('./logger');
 
 const historyPlugin = (options) => {
     let pluginOptions = {
@@ -72,13 +73,13 @@ const historyPlugin = (options) => {
     async function postUpdateOne() {
         if(this._original) {
             const current = await this.model.findOne({_id: this._original._id});
-            if(!current) throw new Error('No current document found.');
+            if(!current) throw new Error('No current document found (one). ' + this._original._id);
             current._original = this._original;
             current._method = this._method;
             current.__user = this.__user;
             await createHistory(current);
         } else {
-            throw new Error('No original document found.');
+            throw new Error('No original document found (one).');
         }
     }
 
@@ -99,14 +100,14 @@ const historyPlugin = (options) => {
         if(this._originals && this._originals.length > 0) {
             for(const original of this._originals) {
                 const current = await this.model.findOne({_id: original._id});
-                if(!current) throw new Error('No current document found.');
+                if(!current) throw new Error('No current document found (multi).');
                 current._original = original;
                 current._method = this._method;
                 current.__user = this.__user;
                 await createHistory(current);
             }
         } else {
-            throw new Error('No original document found.');
+            throw new Error('No original document found (multi).');
         }
     }
 

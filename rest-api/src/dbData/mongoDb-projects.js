@@ -9,6 +9,7 @@ const User = require('../models/user');
 const Project = require('../models/project');
 const Person = require('../models/contact-person');
 const Company = require('../models/contact-company');
+//const logger = require('../logger');
 
 // *******************************************************************************************
 // PROJECTS CRUD

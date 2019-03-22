@@ -122,7 +122,7 @@ router.delete('/persons/:id', [validateToken, authoriseApiAccess(PROJECTS_ACCESS
             error.statusCode = 400;
             next(error);
         } else {
-            await db.removeProject(id, req.remote_user);
+            await db.removePerson(id, req.remote_user);
             res.status(204).end();
         }
     } catch(error) {
@@ -181,7 +181,7 @@ router.delete('/companies/:id', [validateToken, authoriseApiAccess(PROJECTS_ACCE
             error.statusCode = 400;
             next(error);
         } else {
-            await db.removeProject(id, req.remote_user);
+            await db.removeCompany(id, req.remote_user);
             res.status(204).end();
         }
     } catch(error) {
