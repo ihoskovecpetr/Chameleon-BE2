@@ -62,13 +62,9 @@ module.exports.notifyAboutUpdatedProject = project => {
 
 module.exports.projectBudgetOfferChanged = data => {
     if(session && data) {
-        //NORMALIZE FOR WAMP API 'notifyOfferChanged'
-        // from {oldProject, newProject, oldPrice, newPrice, oldBudget, newBudget, op}
-        // to {?????}
-        session.publish('notifyOfferChanged', [], {
-            previous: {project: data.oldProject ? {id: data.oldProject._id.toString(), label: data.oldProject.label} : null, budget: data.oldBudget ? {id: data.oldBudget, price: data.oldPrice} : null},
-            current: {project: data.newProject ? {id: data.newProject._id.toString(), label: data.newProject.label} : null, budget: data.newBudget ? {id: data.newBudget, price: data.newBudget} : null}
-        });
+        const previous = data.oldProject && data.oldProject.id && data.oldBudget && data.oldBudget && data.oldPrice && data.oldPrice.offer ? {project: {id: data.oldProject.id, label: data.oldProject.label}, budget: data.oldBudget, price: data.oldPrice} : null;
+        const current = data.newProject && data.newProject.id && data.newBudget && data.newBudget && data.newPrice && data.newPrice.offer ? {project: {id: data.newProject.id, label: data.newProject.label}, budget: data.newBudget, price: data.newPrice} : null;
+        if(previous || current) session.publish('notifyOfferChanged', [], {previous: previous, current: current, op: data.op});
     }
 };
 

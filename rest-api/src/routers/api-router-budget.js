@@ -288,6 +288,7 @@ router.post('/budgets', [validateToken, authoriseApiAccess(BUDGET_ACCESS_USER)],
         } else {
             const result = await db.createBudget(req.body);
             if (result.newProject) wamp.notifyAboutUpdatedProject(result.newProject);
+            wamp.projectBudgetOfferChanged(result);// when just created, price is not set yet
             res.status(200).json({id: result.newBudget});
         }
     } catch(error) {

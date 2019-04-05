@@ -193,7 +193,7 @@ async function addProject(args, kwargs, details) {
         await db.logOp('addProject', args[0], kwargs, null);
         if(project.K2rid)  wamp.publish('K2Check', [result.id]);
         wamp.publish('pusherCheck', [false]);
-        wamp.publish('projectsBudgetChanged', [], {previous: null, current: {id: result.id, label: result.project.label, budget: result.project.budget ? result.project.budget.toString() : null}}, {exclude_me: false});
+        wamp.publish('projectsBudgetChanged', [], {previous: null, current: {id: result.id, label: result.project.label, budget: result.project.budget ? result.project.budget.toString() : null}, op: 'project-add'}, {exclude_me: false});
         return result;
     } catch (error) {
         await db.logOp('addProject', args[0], kwargs, error);
@@ -218,7 +218,7 @@ async function updateProject(args, kwargs, details) {
             }
         }, {exclude_me: false});
         wamp.publish('pusherCheck', [false]);
-        wamp.publish('projectsBudgetChanged', [], {previous: {id: kwargs.id, label: data.oldProject.label, budget: data.oldProject.budget ? data.oldProject.budget.toString() : null}, current: {id: kwargs.id, label: data.newProject.label, budget: data.newProject.budget ? data.newProject.budget.toString() : null}}, {exclude_me: false});
+        wamp.publish('projectsBudgetChanged', [], {previous: {id: kwargs.id, label: data.oldProject.label, budget: data.oldProject.budget ? data.oldProject.budget.toString() : null}, current: {id: kwargs.id, label: data.newProject.label, budget: data.newProject.budget ? data.newProject.budget.toString() : null}, op: 'project-update'}, {exclude_me: false});
         return result;
     } catch (error) {
         await db.logOp('updateProject', args[0], kwargs, error);
@@ -242,7 +242,7 @@ async function removeProject(args, kwargs, details) {
             }
         }, {exclude_me: false});
         wamp.publish('pusherCheck', [false]);
-        wamp.publish('projectsBudgetChanged', [], {previous: {id: result.id, label: result.project.label, budget: result.project.budget ? result.project.budget.toString() : null}, current: null}, {exclude_me: false});
+        wamp.publish('projectsBudgetChanged', [], {previous: {id: result.id, label: result.project.label, budget: result.project.budget ? result.project.budget.toString() : null}, current: null, op: 'project-remove'}, {exclude_me: false});
         return result;
     } catch (error) {
         await db.logOp('removeProject', args[0], kwargs, error);
@@ -273,7 +273,7 @@ async function addProjectAndEvent(args, kwargs, details) {
             }
         }, {exclude_me: false});
         wamp.publish('pusherCheck', [false]);
-        wamp.publish('projectsBudgetChanged', [], {previous: null, current: {id: result.idProject, label: result.project.label, budget: result.project.budget ? result.project.budget.toString() : null}}, {exclude_me: false});
+        wamp.publish('projectsBudgetChanged', [], {previous: null, current: {id: result.idProject, label: result.project.label, budget: result.project.budget ? result.project.budget.toString() : null}, op: 'project-add'}, {exclude_me: false});
         return result;
     } catch (error) {
         await db.logOp('addProjectAndEvent', args[0], kwargs, error);

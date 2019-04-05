@@ -18,8 +18,12 @@ const PusherMessage = require('../models/pusher-message');
 const BookingProject = require('../models/booking-project');
 const BookingEvent = require('../models/booking-event');
 const PusherGroup = require('../models/pusher-group');
+const Budget = require('../models/budget');
 require('../models/booking-project');
 require('../models/booking-work-type');
+require('../models/budget-item');
+
+const logger = require('../logger');
 
 const PUSHER_BOOKING_TIME_SPAN = 7; //number of days, where the pusher is looking for next day items to show real next active day, otherwise shows tomorrow (empty)
 // ---------------------------------------------------------------------------------------------------------------------
@@ -947,13 +951,16 @@ exports.getSsoIdsForUsers = async uid => {
     }
 };
 // *********************************************************************************************************************
-// TODO GET BUDGET PRICE
+// GET BUDGET PRICE
 // *********************************************************************************************************************
 exports.getBudgetPrice = async id => {
-    return 0;
-};
-/*
-function getBudgetPrices(budget) {
+    logger.debug(`GET BUDGET PRICE`);
+    if(!id) return null;
+    const budget = await Budget.findOne({_id: id}).populate('parts').lean();
+    if(!budget) {
+        logger.warn(`getBudgetPrice: can't find budget id: ${id}`);
+        return null;
+    }
     const parts =  budget.parts.map(part => {
         return {
             offer: part.offer,
@@ -972,66 +979,7 @@ function getBudgetPrices(budget) {
     result.percent = result.price > 0 && result.offer ? Math.round(1000 * (result.price - result.offer) / result.price) / 10 : 0;
     if(result.offer === 0) result.offer = null;
     return result;
-}
-*/
-/*
-exports.getBudget = async id => {
-    const budget = await Budget.findOne({_id: id}).populate('pricelist parts').lean();
-    const colors = (await PricelistGroup.find({}, {color: true}).lean()).reduce((colors, group) => {colors[group._id.toString()] = group.color; return colors}, {});
-    const project = await BookingProject.findOne({budget: id, deleted: null, offtime: false}, {label: true, manager: true}).lean();
-    const v2 = !!budget.pricelist.v2;
-    return {
-        id: budget._id,
-        label: budget.label,
-        project: project
-            ?
-            {
-                _id: project._id,
-                label: project.label,
-                manager: project.manager
-            }
-            : null,
-        version: budget.version,
-        language: budget.language,
-        currency: budget.currency,
-        pricelist: {
-            id: budget.pricelist.pricelistId,
-            label: budget.pricelist.label,
-            items: budget.pricelist.pricelist.reduce((items, group) => items.concat(group.items.map(item => {
-                return {
-                    group: group.id,
-                    label: item.label,
-                    unit: item.unit,
-                    price: item.price,
-                    jobId: item.jobId,
-                    unitId: item.unitId,
-                    clientPrice : item.clientPrice,
-                    id: item.id,
-                    _id: item._id
-                }
-            })), []),
-            groups: budget.pricelist.pricelist.reduce((groups, group, index) => {
-                groups[group.id] = {label: group.label, index: index};
-                return groups;
-            }, {}),
-            colors: colors
-        },
-        parts: budget.parts,
-        client: budget.client,
-        contact:budget.contact,
-        date: budget.date,
-        state: budget.state,
-        created: budget.created,
-        modified: budget.modified,
-        conditions: budget.conditions,
-        projectLabel: budget.projectLabel,
-        colorOutput: budget.colorOutput,
-        singleOutput: budget.singleOutput,
-        multiTotal: budget.multiTotal,
-        v2: v2
-    }
 };
-*/
 // *********************************************************************************************************************
 // UPDATE PROJECT'S ONAIR STATE
 // *********************************************************************************************************************
