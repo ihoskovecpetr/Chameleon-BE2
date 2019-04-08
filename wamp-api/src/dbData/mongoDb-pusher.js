@@ -954,7 +954,6 @@ exports.getSsoIdsForUsers = async uid => {
 // GET BUDGET PRICE
 // *********************************************************************************************************************
 exports.getBudgetPrice = async id => {
-    logger.debug(`GET BUDGET PRICE`);
     if(!id) return null;
     const budget = await Budget.findOne({_id: id}).populate('parts').lean();
     if(!budget) {

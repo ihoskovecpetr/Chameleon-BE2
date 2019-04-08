@@ -62,8 +62,8 @@ module.exports.notifyAboutUpdatedProject = project => {
 
 module.exports.projectBudgetOfferChanged = data => {
     if(session && data) {
-        const previous = data.oldProject && data.oldProject.id && data.oldBudget && data.oldBudget && data.oldPrice && data.oldPrice.offer ? {project: {id: data.oldProject.id, label: data.oldProject.label}, budget: data.oldBudget, price: data.oldPrice} : null;
-        const current = data.newProject && data.newProject.id && data.newBudget && data.newBudget && data.newPrice && data.newPrice.offer ? {project: {id: data.newProject.id, label: data.newProject.label}, budget: data.newBudget, price: data.newPrice} : null;
+        const previous = data.oldProject && data.oldProject.id && data.oldBudget && data.oldBudget && data.oldPrice && data.oldPrice.offer ? {project: {id: data.oldProject.id, label: data.oldProject.project.label}, budget: data.oldBudget, price: data.oldPrice} : null;
+        const current = data.newProject && data.newProject.id && data.newBudget && data.newBudget && data.newPrice && data.newPrice.offer ? {project: {id: data.newProject.id, label: data.newProject.project.label}, budget: data.newBudget, price: data.newPrice} : null;
         if(previous || current) session.publish('notifyOfferChanged', [], {previous: previous, current: current, op: data.op});
     }
 };

@@ -369,7 +369,7 @@ exports.createBudget = async options => { // budget = {label, pricelistId, langu
         client: snapshot.client
     });
     const project = options.project ? await exports.updateProjectsBudget(options.project, budget._id) : null;
-    return {newProject: project, oldProject: null, newBudget: budget._id, oldBudget: null, newPrice: null, oldPrice: null, op: 'budget-add'};
+    return {newProject: project, oldProject: null, newBudget: budget._id, oldBudget: null, newPrice: null, oldPrice: null};
 };
 
 // *********************************************************************************************************************
@@ -391,7 +391,7 @@ exports.createBudgetAsCopy = async (id, budget) => {
     const newProject = await BookingProject.findOne({_id: budget.project});
     const newProjectID = newProject ? newProject._id.toString() : null;
     const project = newProjectID ? await exports.updateProjectsBudget(newProjectID, newId, true) : null;
-    return {oldProject: project, newProject: project, newPrice: newPrice, oldPrice: oldPrice, newBudget: newId, oldBudget: id, op: 'budget-copy'};
+    return {oldProject: project, newProject: project, newPrice: newPrice, oldPrice: oldPrice, newBudget: newId, oldBudget: id};
 };
 
 // *********************************************************************************************************************
@@ -413,7 +413,7 @@ exports.updateBudget = async (id, budget) => {
     const newProject = await BookingProject.findOne({_id: budget.project});
     const oldProjectID = oldProject ? oldProject._id.toString() : null;
     const newProjectID = newProject ? newProject._id.toString() : null;
-    const result = {oldProject: null, newProject: null, newPrice: newPrice, oldPrice: oldPrice, oldBudget: id, newBudget: id, op: 'budget-update'};
+    const result = {oldProject: null, newProject: null, newPrice: newPrice, oldPrice: oldPrice, oldBudget: id, newBudget: id};
     if(oldProjectID !== newProjectID) {
         if(newProjectID) result.newProject = await exports.updateProjectsBudget(newProjectID, id, true);
         if(oldProjectID) result.oldProject = await exports.updateProjectsBudget(oldProjectID, null, true);
@@ -430,8 +430,8 @@ exports.updateBudget = async (id, budget) => {
 exports.removeBudget = async id => {
     const budget = await Budget.findOneAndUpdate({_id: id}, {deleted: moment()}).populate('parts');
     let project = await BookingProject.findOne({budget: id}, {_id: true}).lean();
-    if(project) project = await exports.updateProjectsBudget(project._id, id, true);
-    return {oldProject: project, newProject: null, oldPrice: getBudgetPrices(budget), newPrice: null, oldBudget: id, newBudget: null, op: 'budget-remove'}
+    if(project) project = await exports.updateProjectsBudget(project._id, null, true);
+    return {oldProject: project, newProject: null, oldPrice: getBudgetPrices(budget), newPrice: null, oldBudget: id, newBudget: null}
 };
 
 // +++++  O T H E R S  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
