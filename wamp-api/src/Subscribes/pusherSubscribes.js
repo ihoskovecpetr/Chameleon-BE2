@@ -20,10 +20,206 @@ function onPusherPing(args, kwargs, details) {
     pusherClient.clientPing(details.publisher, kwargs);
 }
 
-function updatePusherData(args, kwargs) {
+async function updatePusherData(args, kwargs) {
     logger.debug(`updatePusherData [${Object.keys(kwargs)}]`);
-    //TODO !!!!!!!!!!!!!!!!
     //logger.debug(JSON.stringify(kwargs));
+    const PUSHER_BOOKING_TIME_SPAN = db.getPusherBookingTimeSpan();
+    const today = moment().startOf('day');// startDate on event is without TZ !!!!
+    const nextDay = today.clone().add(PUSHER_BOOKING_TIME_SPAN, 'day');
+    try {
+        if(data.resource) {
+            if((data.resource.current && data.resource.current.type === 'OPERATOR' && (data.resource.current.virtual || data.resource.current.freelancer)) || (data.resource.previous && data.resource.previous.type === 'OPERATOR' && (data.resource.previous.virtual || data.resource.previous.freelancer))) {
+                const labelCurrent = data.resource.current ? data.resource.current.label : null;
+                const labelPrevious = data.resource.previous ? data.resource.previous.label : null;
+                const freelancerCurrent = data.resource.current && (data.resource.current.virtual || data.resource.current.freelancer);
+                const freelancerPrevious = data.resource.previous && (data.resource.previous.virtual || data.resource.previous.freelancer);
+                const confirmedCurrent = freelancerCurrent ? data.resource.current.confirmed.map(confirmation => {
+                    const from = moment(confirmation.from, 'YYYY-MM-DD').startOf('day');
+                    const to = moment(confirmation.to, 'YYYY-MM-DD').startOf('day');
+                    if(today.diff(to, 'days') > 0) return null;
+                    else if(today.diff(from, 'days') > 0) return {from: today.clone(), to: to};
+                    else return {from: from, to: to};
+                }).filter(confirmation => confirmation !== null) : [];
+                const confirmedPrevious = freelancerPrevious ? data.resource.previous.confirmed.map(confirmation => {
+                    const from = moment(confirmation.from, 'YYYY-MM-DD').startOf('day');
+                    const to = moment(confirmation.to, 'YYYY-MM-DD').startOf('day');
+                    if(today.diff(to, 'days') > 0) return null;
+                    else if(today.diff(from, 'days') > 0) return {from: today.clone(), to: to};
+                    else return {from: from, to: to};
+                }).filter(confirmation => confirmation !== null) : [];
+
+                const labelChanged = labelCurrent !== labelPrevious;
+                const freelancerChanged = freelancerCurrent !== freelancerPrevious;
+                const confirmedChanged = confirmedCurrent.length !== confirmedPrevious.length || confirmedCurrent.reduce((changed, confirmation, index) => {
+                    if(!changed) {
+                        if(confirmation.from.diff(confirmedPrevious[index].from, 'days') !== 0) return true;
+                        else if(confirmation.to.diff(confirmedPrevious[index].to, 'days') !== 0) return true;
+                        else return false;
+                    } else return true;
+                }, false);
+                if(labelChanged || freelancerChanged || confirmedChanged) {
+                    let notifyUsers = await db.getManagerSsoIdForResourceOfNotInternalProjects(data.resource.id, today);
+                    if(confirmedCurrent.length > 0 || confirmedPrevious.length > 0) {
+                        const hr = await db.getHrNotifyManagers();
+                        notifyUsers = notifyUsers.concat(hr).filter((id, index, self) => index === self.indexOf(id));
+                    }
+                    notifyPusherUsersFreelancerChanged(notifyUsers);
+                }
+            }
+        }
+        if(data.joinSplitEvent) {
+            //should not have impact on freelancers!!!
+        }
+        if(data.event) {
+            let currentIn = false;
+            let previousIn = false;
+
+            let currentInFuture = false;
+            let previousInFuture = false;
+
+            if (data.event.current) {
+                const currentEventStart = moment(data.event.current.startDate, 'YYYY-MM-DD').startOf('day');
+                const currentEventEnd = currentEventStart.clone().add(data.event.current.days.length, 'day').startOf('day');
+                currentIn = currentEventStart.isSameOrBefore(nextDay, 'day') && currentEventEnd.isAfter(today, 'day');
+                currentInFuture = !data.event.current.offtime && !data.event.current.external && currentEventEnd.isAfter(today, 'day');
+            }
+            if (data.event.previous) {
+                const previousEventStart = moment(data.event.previous.startDate, 'YYYY-MM-DD').startOf('day');
+                const previousEventEnd = previousEventStart.clone().add(data.event.previous.days.length, 'day').startOf('day');
+                previousIn = previousEventStart.isSameOrBefore(nextDay, 'day') && previousEventEnd.isAfter(today, 'day');
+                previousInFuture = !data.event.previous.offtime && !data.event.previous.external && previousEventEnd.isAfter(today, 'day');
+            }
+            if (currentIn || previousIn || currentInFuture || previousInFuture) {
+                let projectIds = [];
+                let operatorIds = [];
+
+                if(data.event.current && data.event.current.project) projectIds.push(data.event.current.project.toString());
+                if(data.event.current && data.event.current.operator) operatorIds.push(data.event.current.operator.toString());
+
+                if(data.event.previous && data.event.previous.project) projectIds.push(data.event.previous.project.toString());
+                if(data.event.previous && data.event.previous.operator) operatorIds.push(data.event.previous.operator.toString());
+
+                projectIds = projectIds.filter((id, index, self) => index === self.indexOf(id));
+                operatorIds = operatorIds.filter((id, index, self) => index === self.indexOf(id));
+
+                if (currentIn || previousIn) {
+                    let notifyUsersEvent = await db.getUsersForProjectId(projectIds);
+                    let operators = await db.getSsoIdForResourceId(operatorIds);
+                    notifyUsersEvent = notifyUsersEvent.concat(operators);
+                    notifyUsersEvent = notifyUsersEvent.filter((id, index, self) => index === self.indexOf(id));
+                    notifyPusherUsers(notifyUsersEvent);
+                }
+                if((currentInFuture || previousInFuture) && await db.isAnyOperatorFreelancer(operatorIds)) {
+                    let eventStartCurrent = data.event.current ? moment(data.event.current.startDate, 'YYYY-MM-DD').startOf('day') : null;
+                    if(eventStartCurrent !== null && eventStartCurrent.diff(today, 'days') < 0) eventStartCurrent = today.clone();
+                    let eventStartPrevious = data.event.previous ? moment(data.event.previous.startDate, 'YYYY-MM-DD').startOf('day') : null;
+                    if(eventStartPrevious !== null && eventStartPrevious.diff(today, 'days') < 0) eventStartPrevious = today.clone();
+                    const eventStartChanged = !data.event.current || !data.event.previous || eventStartCurrent.diff(eventStartPrevious, 'days') !== 0;
+                    const eventEndCurrent = data.event.current ? moment(data.event.current.startDate, 'YYYY-MM-DD').startOf('day').add(data.event.current.days.length, 'days') : null;
+                    const eventEndPrevious = data.event.previous ? moment(data.event.previous.startDate, 'YYYY-MM-DD').startOf('day').add(data.event.previous.days.length, 'days') : null;
+                    const eventEndChanged = !data.event.current || !data.event.previous || eventEndCurrent.diff(eventEndPrevious) !== 0;
+                    const eventActiveDaysChanged = !data.event.current || !data.event.previous || data.event.current.days.filter((day, i) => moment(data.event.current.startDate, 'YYYY-MM-DD').add(i, 'day').diff(today, 'days') >= 0 && day.duration > 0).length !== data.event.previous.days.filter((day, i) => moment(data.event.previous.startDate, 'YYYY-MM-DD').add(i, 'day').diff(today, 'days') >= 0 &&  day.duration > 0).length;
+                    const projectChanged = !data.event.current || !data.event.previous || data.event.current.project != data.event.previous.project;
+                    const operatorChanged = !data.event.current || !data.event.previous || data.event.current.operator != data.event.previous.operator;
+                    if(eventStartChanged || eventEndChanged || eventActiveDaysChanged || projectChanged || operatorChanged) {
+                        const managers = await db.getManagerSsoIdOfNotInternalProjects(projectIds);
+                        const hr = await db.getHrNotifyManagers();
+                        const toNotify = managers.concat(hr).filter((id, index, self) => index === self.indexOf(id));
+                        notifyPusherUsersFreelancerChanged(toNotify);
+                    }
+                }
+            }
+        }
+        if(data.project) {
+            const managerCurrent = data.project.current && data.project.current.manager ? data.project.current.manager.toString() : null;
+            const supervisorCurrent = data.project.current && data.project.current.supervisor ? data.project.current.supervisor.toString() : null;
+            const lead2DCurrent = data.project.current && data.project.current.lead2D ? data.project.current.lead2D.toString() : null;
+            const lead3DCurrent = data.project.current && data.project.current.lead3D ? data.project.current.lead3D.toString() : null;
+            const leadMPCurrent = data.project.current && data.project.current.leadMP ? data.project.current.leadMP.toString() : null;
+            const producerCurrent = data.project.current && data.project.current.producer ? data.project.current.producer.toString() : null;
+
+            const managerPrevious = data.project.previous && data.project.previous.manager ? data.project.previous.manager.toString() : null;
+            const supervisorPrevious = data.project.previous && data.project.previous.supervisor ? data.project.previous.supervisor.toString() : null;
+            const lead2DPrevious = data.project.previous && data.project.previous.lead2D ? data.project.previous.lead2D.toString() : null;
+            const lead3DPrevious = data.project.previous && data.project.previous.lead3D ? data.project.previous.lead3D.toString() : null;
+            const leadMPPrevious = data.project.previous && data.project.previous.leadMP ? data.project.previous.leadMP.toString() : null;
+            const producerPrevious = data.project.previous && data.project.previous.producer ? data.project.previous.producer.toString() : null;
+
+            const confirmedCurrent = data.project.current ? data.project.current.confirmed : null;
+            const confirmedPrevious = data.project.previous ? data.project.previous.confirmed : null;
+
+            const internalCurrent = data.project.current ? data.project.current.internal : null;
+            const internalPrevious = data.project.previous ? data.project.previous.internal : null;
+
+            const timingCurrent = data.project.current && data.project.current.timing ? data.project.current.timing.filter(timing => timingFilter(timing, today, nextDay)) : [];
+            const timingPrevious = data.project.previous && data.project.previous.timing ? data.project.previous.timing.filter(timing => timingFilter(timing, today, nextDay)) : [];
+
+            const labelCurrent = data.project.current && data.project.current.label ? data.project.current.label : null;
+            const labelPrevious = data.project.previous && data.project.previous.label ? data.project.previous.label : null;
+
+            if(labelCurrent !== labelPrevious || internalCurrent !== internalPrevious || managerCurrent !== managerPrevious) {
+                if(await db.hasProjectBookedFreelancer(data.project.id, today)) {
+                    let usersToNotify = await db.getSsoIdsForUsers([managerCurrent, managerPrevious].filter(manager => manager !== null).filter((manager, index, self) => self.indexOf(manager) === index));
+                    if (internalCurrent !== internalPrevious) {
+                        const hr = await db.getHrNotifyManagers();
+                        usersToNotify = usersToNotify.concat(hr);
+                    }
+                    if (usersToNotify && usersToNotify.length > 0) {
+                        notifyPusherUsersFreelancerChanged(usersToNotify);
+                    }
+                }
+            }
+
+            let timingHasBeenChanged = false;
+            let projectUsersHasBeenChanged = false;
+            let projectLabelOrConfirmationOrInternalHasBeenChanged = false;
+
+            if(timingCurrent.length === timingPrevious.length) {
+                for(let i = 0; i < timingCurrent.length; i++) {
+                    if(!timingHasBeenChanged) timingHasBeenChanged = timingCurrent[i].category !== timingPrevious[i].category || timingCurrent[i].type !== timingPrevious[i].type || timingCurrent[i].text !== timingPrevious[i].text || !moment(timingCurrent[i].date, 'YYYY-MM-DD').isSame(moment(timingPrevious[i].date, 'YYYY-MM-DD'), 'day')
+                }
+            } else timingHasBeenChanged = true;
+
+            if (labelCurrent !== labelPrevious || confirmedCurrent !== confirmedPrevious || internalCurrent !== internalPrevious) projectLabelOrConfirmationOrInternalHasBeenChanged = true;
+            if (managerCurrent !== managerPrevious) projectUsersHasBeenChanged = true;
+            if (supervisorCurrent !== supervisorPrevious) projectUsersHasBeenChanged = true;
+            if (lead2DCurrent !== lead2DPrevious) projectUsersHasBeenChanged = true;
+            if (lead3DCurrent !== lead3DPrevious) projectUsersHasBeenChanged = true;
+            if (leadMPCurrent !== leadMPPrevious) projectUsersHasBeenChanged = true;
+            if (producerCurrent !== producerPrevious) projectUsersHasBeenChanged = true;
+
+            if (projectUsersHasBeenChanged || projectLabelOrConfirmationOrInternalHasBeenChanged || timingHasBeenChanged) {
+                const notifyProjectUsersId = [];
+                if(timingHasBeenChanged || projectLabelOrConfirmationOrInternalHasBeenChanged) notifyProjectUsersId.push(managerCurrent, supervisorCurrent, lead2DCurrent, lead3DCurrent, leadMPCurrent, producerCurrent, managerPrevious, supervisorPrevious, lead2DPrevious, lead3DPrevious, leadMPPrevious, producerPrevious);
+                if(managerCurrent !== managerPrevious) notifyProjectUsersId.push(managerCurrent, managerPrevious);
+                if(supervisorCurrent !== supervisorPrevious) notifyProjectUsersId.push(supervisorCurrent, supervisorPrevious);
+                if(lead2DCurrent !== lead2DPrevious) notifyProjectUsersId.push(lead2DCurrent, lead2DPrevious);
+                if(lead3DCurrent !== lead3DPrevious) notifyProjectUsersId.push(lead3DCurrent, lead3DPrevious);
+                if(leadMPCurrent !== leadMPPrevious) notifyProjectUsersId.push(leadMPCurrent, leadMPPrevious);
+                if(producerCurrent !== producerPrevious) notifyProjectUsersId.push(producerCurrent, producerPrevious);
+
+                const tasks = await db.getTasks(data.project.id);
+                tasks.forEach(task => {
+                    if (task.target) notifyProjectUsersId.push(task.target.toString());
+                });
+                let usersToNotify = await db.getSsoIdsForUsers(notifyProjectUsersId.filter((id, index, self) => !!id && index === self.indexOf(id)));
+
+                if(projectLabelOrConfirmationOrInternalHasBeenChanged || projectUsersHasBeenChanged) {
+                    const events = await db.getEventsForProject(data.project.id);
+                    const operators = events.filter(event => { //filter project events for region today+, map to operator ids, remove null and duplicated
+                        const eventStart = moment(event.startDate, 'YYYY-MM-DD').startOf('day');
+                        const eventEnd = eventStart.clone().add(event.days.length, 'day').startOf('day');
+                        return eventStart.isSameOrBefore(nextDay, 'day') && eventEnd.isAfter(today, 'day');
+                    }).map(event => event.operator ? event.operator.toString() : null).filter((id, index, self) => !!id && index === self.indexOf(id));
+                    const operatorsIds = await db.getSsoIdForResourceId(operators);
+                    usersToNotify = usersToNotify.concat(operatorsIds).filter((id, index, self) => !!id && index === self.indexOf(id));
+                }
+                notifyPusherUsers(usersToNotify);
+            }
+        }
+    } catch(e) {
+        logger.warn('updatePusherData error: ' + e)
+    }
 }
 
 async function projectsBudgetChanged(args, kwargs) { //From project changes
@@ -73,6 +269,49 @@ async function notifyOfferChanged(args, kwargs) { //Called from above projectBud
             })
     }
 }
+function notifyPusherUsersFreelancerChanged(users) {
+    try {
+        if (!users || (Array.isArray(users) && users.length === 0)) return;
+        if (!Array.isArray(users)) users = [users];
+        users = users.filter((user, index, self) => index === self.indexOf(user));
+        const updatedUsers = [];
+        const pusherClients = pusherClient.getClients();
+        Object.keys(pusherClients).forEach(client => {
+            if (users.indexOf(pusherClients[client].user) >= 0 && updatedUsers.indexOf(pusherClients[client].user) < 0) {
+                updatedUsers.push(pusherClients[client].user);
+            }
+        });
+        if (updatedUsers.length > 0) {
+            updatedUsers.forEach(user => {
+                session.publish(user + '.freelancersupdate');
+            });
+        }
+    } catch(e) {logger.warn('notifyPusherUsersFreelancerChanged error: ' + e)}
+}
+
+function notifyPusherUsers(users) {
+    try {
+        if (!users || (Array.isArray(users) && users.length === 0)) return;
+        if (!Array.isArray(users)) users = [users];
+        users = users.filter((user, index, self) => index === self.indexOf(user));
+        const updatedUsers = [];
+        const pusherClients = pusherClient.getClients();
+        Object.keys(pusherClients).forEach(client => {
+            if (users.indexOf(pusherClients[client].user) >= 0 && updatedUsers.indexOf(pusherClients[client].user) < 0) {
+                updatedUsers.push(pusherClients[client].user);
+            }
+        });
+        if (updatedUsers.length > 0) {
+            updatedUsers.forEach(user => {
+                session.publish(user + '.workupdate');
+                session.publish(user + '.bookingupdate');
+                session.publish(user + '.tasksupdate');
+            });
+        }
+
+    } catch(e) {logger.warn('notifyPusherUsers (notify) error: ' + e)}
+}
+
 
 function percentString(amount) {
     if(!amount) amount = '0';

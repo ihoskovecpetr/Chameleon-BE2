@@ -192,6 +192,13 @@ async function addProject(args, kwargs, details) {
         wamp.publish('addProject', [], result, {exclude : [details.caller]});
         await db.logOp('addProject', args[0], kwargs, null);
         if(project.K2rid)  wamp.publish('K2Check', [result.id]);
+        wamp.publish('updatePusherData', [], {
+            project: {
+                id: kwargs.id,
+                previous: null,
+                current: project
+            }
+        }, {exclude_me: false});
         wamp.publish('pusherCheck', [false]);
         wamp.publish('projectsBudgetChanged', [], {previous: null, current: {id: result.id, label: result.project.label, budget: result.project.budget ? result.project.budget.toString() : null}, op: 'project-add'}, {exclude_me: false});
         return result;
