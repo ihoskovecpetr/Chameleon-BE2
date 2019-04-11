@@ -20,7 +20,7 @@ connectDb();
 const scheduledJobs = {
     "maintenance": {timing: process.env.SCHEDULER_TIMING_MAINTENANCE, job: maintenanceJob},
     "k2": {timing: process.env.SCHEDULER_TIMING_K2, job: k2Job},
-    "pusher": {timing: process.env.SCHEDULER_TIMING_PUSHER, job: pusherJob, args: ['param1', 'param2']}
+    "pusher": {timing: process.env.SCHEDULER_TIMING_PUSHER, job: pusherJob, args: [false, true]}
 };
 
 for(const job of Object.keys(scheduledJobs)) {
