@@ -88,16 +88,131 @@ module.exports = async (conditionsOnly, regular) => {
     } catch (e) {
         logger.warn(`PusherCheck:getAllTasks Error: ${e}`);
     }
-    // ----------------------------------------------
-    // AFTER SHOOT
-    // ----------------------------------------------
+    // -----------------------------------------------------------------------------------------------------------------
+    // PROJECTS WITH FLATTEN SHOOT EVENTS
+    // -----------------------------------------------------------------------------------------------------------------
     try {
         const shootProjects = await db.getProjectsWithShootEvent();
+        // *************************************************************************************************************
+        // VFX ARCHIVE
+        // *************************************************************************************************************
         const vfxArchiveSupervisorTasks = allTasks['VFX_ARCHIVE_SUPERVISOR'] ? allTasks['VFX_ARCHIVE_SUPERVISOR'].map(task => {task.found = false; return task}) : [];
         shootProjects.forEach(project => {
-
+            project.events.forEach(async event => {
+                const found = findTaskForEvent(project, event, vfxArchiveSupervisorTasks);
+                if(!found) { //ADD NEW TASK
+                    try {
+                        const newTask = await db.addTask({
+                            type: 'VFX_ARCHIVE_SUPERVISOR',
+                            project: project.id,
+                            target: project.supervisor ? project.supervisor.id : project.manager.id,
+                            deadline: moment().add(10, 'days').startOf('day'),
+                            dataOrigin: event
+                        });
+                        if(newTask.valid) {
+                            delete newTask.data;
+                            delete newTask.valid;
+                            session.publish(newTask.target + '.task', [], newTask);
+                        }
+                    } catch (e) {
+                        logger.warn(`PusherCheck:addTask 'VFX_ARCHIVE_SUPERVISOR' error: ${e}`);
+                    }
+                } else {
+                    vfxArchiveSupervisorTasks[found.index].found = true; //POSSIBLY CHANGE THE TASK ??? target? dataOrigin?
+                }
+            });
+        });
+        vfxArchiveSupervisorTasks.forEach(async task => {
+            if(!task.found && !task.resolved) { //REMOVE TASK
+                try {
+                    await db.removeTask(task.id);
+                    if (users[task.target]) {
+                        session.publish(users[task.target].ssoId + '.task', [task.id], null);
+                    }
+                } catch (e) {
+                    logger.warn(`PusherCheck:removeTask 'VFX_ARCHIVE_SUPERVISOR' error: ${e}`);
+                }
+            }
+        });
+        // *************************************************************************************************************
+        // FEEDBACK SHOOT SUPERVISOR
+        // *************************************************************************************************************
+        const feedbackShootSupervisorTasks = allTasks['FEEDBACK_SHOOT_SUPERVISOR'] ? allTasks['FEEDBACK_SHOOT_SUPERVISOR'].map(task => {task.found = false; return task}) : [];
+        shootProjects.forEach(project => {
+            project.events.forEach(async event => {
+                const found = findTaskForEvent(project, event, feedbackShootSupervisorTasks);
+                if(!found) { //ADD NEW TASK
+                    try {
+                        const newTask = await db.addTask({
+                            type: 'FEEDBACK_SHOOT_SUPERVISOR',
+                            project: project.id,
+                            target: project.supervisor ? project.supervisor.id : project.manager.id,
+                            deadline: moment().add(5, 'days').startOf('day'),
+                            dataOrigin: event
+                        });
+                        if(newTask.valid) {
+                            delete newTask.data;
+                            delete newTask.valid;
+                            session.publish(newTask.target + '.task', [], newTask);
+                        }
+                    } catch (e) {
+                        logger.warn(`PusherCheck:addTask 'FEEDBACK_SHOOT_SUPERVISOR' error: ${e}`);
+                    }
+                } else {
+                    feedbackShootSupervisorTasks[found.index].found = true; //POSSIBLY CHANGE THE TASK ??? target? dataOrigin?
+                }
+            });
+        });
+        feedbackShootSupervisorTasks.forEach(async task => {
+            if(!task.found && !task.resolved) { //REMOVE TASK
+                try {
+                    await db.removeTask(task.id);
+                    if (users[task.target]) {
+                        session.publish(users[task.target].ssoId + '.task', [task.id], null);
+                    }
+                } catch (e) {
+                    logger.warn(`PusherCheck:removeTask 'FEEDBACK_SHOOT_SUPERVISOR' error: ${e}`);
+                }
+            }
         });
     } catch (e) {
-        logger.warn(`PusherCheck:afterShoot Error: ${e}`);
+        logger.warn(`PusherCheck:shootProjects Error: ${e}`);
+    }
+    // -----------------------------------------------------------------------------------------------------------------
+    // PROJECTS WITH ON-AIR
+    // -----------------------------------------------------------------------------------------------------------------
+    const SMALL_PROJECT_HOURS = 30;
+    const LARGE_PROJECT_HOURS = 100;
+    try {
+        const projects = await db.getProjectAndOnAir();
+        //logger.debug(`Checking projects [#${projects.length}]:`);
+        // *************************************************************************************************************
+        // SET ON-AIR
+        // *************************************************************************************************************
+        const SET_ONAIR_BEFORE_END_OF_PROJECT_DAYS = 10;
+        const onAirSetTasks = allTasks['ONAIR_SET'] ? allTasks['ONAIR_SET'].map(task => {task.found = false; return task}) : [];
+        projects.forEach(project => {
+            //const foundTask = findTaskForOnAirProject(project, onAirSetTasks);
+            //logger.debug(project.label)
+        });
+    } catch (e) {
+        logger.warn(`PusherCheck:projects Error: ${e}`);
     }
 };
+// =====================================================================================================================
+// HELPERS
+// =====================================================================================================================
+function findTaskForEvent(project, event, tasks) {
+    let result = null;
+    tasks.forEach((task, index) => {
+        if(!result && !task.found) {
+            if (task.project.toString() == project.id.toString()) {
+                const target = project.supervisor ? project.supervisor.id : project.manager ? project.manager.id : null;
+                if (task.target.toString() == target.toString()) {
+                    if(Math.abs(moment(task.dataOrigin.lastDate).diff(event.lastDate,'days')) <= 3) result = {index: index};
+                }
+            }
+        }
+    });
+    return result;
+}

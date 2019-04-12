@@ -4,7 +4,6 @@ const mongoose = require('mongoose');
 const dataHelper = require('../lib/dataHelper');
 const taskHelper = require('../lib/taskHelper');
 const moment = require('moment');
-//const logger = require('../logger');
 
 //Collections
 const BookingProject = require('../models/booking-project');
@@ -16,6 +15,8 @@ const BookingOplog = require('../models/booking-oplog');
 const PusherWorklog = require('../models/pusher-worklog');
 const PusherTask = require('../models/pusher-task');
 const PusherMessage = require('../models/pusher-message');
+
+//const logger = require('../logger');
 
 exports = module.exports;
 
@@ -206,4 +207,83 @@ exports.getProjectsWithShootEvent = async () => {
         }
         return out;
     },[]);
+};
+// *********************************************************************************************************************
+// Get Projects and On-Air
+// *********************************************************************************************************************
+const CUT_OF_DAY = '2016-08-31'; //projects ended before cut_of_day are not returned
+exports.getProjectAndOnAir = async projectId => {
+    const query = {deleted: null, internal: false, offtime: false, confirmed: true};
+    if(projectId) query._id = projectId;
+    const jobs = await  BookingWorkType.find({},{type:true}).lean();
+    const projects = await BookingProject.find(query, {events: true, label:true, manager: true, supervisor: true, lead2D: true, lead3D:true, leadMP: true, producer: true, onair: true, confirmed: true, invoice: true, budget: true}).populate('events manager supervisor lead2D lead3D leadMP producer').lean();
+    const result = projects.map(project => {
+        let lastDate = null;
+        let lastDate2D = null;
+        let lastDate3D = null;
+        let totalDuration = 0;
+        let totalDuration2D = 0;
+        let totalDuration3D = 0;
+        project.events.forEach(event => {
+            const eventLastDate = moment(event.startDate).add(event.days.length - 1, 'days').startOf('day');
+            const eventDuration = event.days.reduce((o, day) => o + day.duration, 0);
+            if(!lastDate || eventLastDate.isAfter(lastDate)) lastDate = eventLastDate;
+            totalDuration += eventDuration;
+            if(jobs[event.job] === '3D') {
+                totalDuration3D += eventDuration;
+                if(!lastDate3D || eventLastDate.isAfter(lastDate3D)) lastDate3D = eventLastDate;
+            }
+            if(jobs[event.job] === '2D') {
+                totalDuration2D += eventDuration;
+                if(!lastDate2D || eventLastDate.isAfter(lastDate2D)) lastDate2D = eventLastDate;
+            }
+        });
+        return {
+            id: project._id.toString(),
+            label: project.label,
+            manager: project.manager ? {id: project.manager._id, ssoId: project.manager.ssoId} : null,
+            supervisor: project.supervisor ? {id: project.supervisor._id, ssoId: project.supervisor.ssoId} : null,
+            lead2D: project.lead2D ? {id: project.lead2D._id, ssoId: project.lead2D.ssoId} : null,
+            lead3D: project.lead3D ? {id: project.lead3D._id, ssoId: project.lead3D.ssoId} : null,
+            leadMP: project.leadMP ? {id: project.leadMP._id, ssoId: project.leadMP.ssoId} : null,
+            producer: project.producer ? {id: project.producer._id, ssoId: project.producer.ssoId} : null,
+            totalDuration: Math.round(totalDuration / 60),
+            totalDuration2D: Math.round(totalDuration2D / 60),
+            totalDuration3D: Math.round(totalDuration3D / 60),
+            lastDate: lastDate ? lastDate.format() : null,
+            lastDate2D: lastDate2D ? lastDate2D.format() : null,
+            lastDate3D: lastDate3D ? lastDate3D.format() : null,
+            onair: project.onair ? project.onair : [],
+            invoice: project.invoice ? project.invoice : [],
+            confirmed: project.confirmed,
+            budget: project.budget
+        };
+    });
+    const cutOfDay = moment(CUT_OF_DAY,'YYYY-MM-DD').startOf('day');
+    return result.filter(project => cutOfDay.isBefore(moment(project.lastDate)));
+};
+// *********************************************************************************************************************
+// Add Task
+// *********************************************************************************************************************
+exports.addTask = async task => {
+    const allTasks = await PusherTask.find({},{dataOrigin: true, dataTarget: true, project: true, resolved: true, type: true, timestamp:true}).lean();
+    task.conditionsMet = taskHelper.evaluateTaskConditions(task, task.project, (task.dataOrigin && task.dataOrigin.onAir && task.dataOrigin.onAir._id ? task.dataOrigin.onAir._id : null), allTasks);
+    if(task.type === 'PUBLISH_FACEBOOK' || task.type === 'PUBLISH_WEB') {
+        const onairConfirmed = taskHelper.getOnairConfirmedStatus(task.project, task.dataOrigin.onAir._id, allTasks);
+        if(onairConfirmed) task.dataOrigin.onAirConfirmed = onairConfirmed;
+    }
+    if (task && task.target && task.target.role) { // Target by role
+        const targets = exports.getUsersByRole(task.target.role);
+        if(targets.length > 0) task.target = targets[0].id; // get first user by role if more of them
+    }
+    const newTask = await PusherTask.create(task);
+    newTask.project = await BookingProject.findOne({_id: newTask.project});
+    const users = await exports.getUsers();
+    return taskHelper.normalizeTask(newTask, users);
+};
+// *********************************************************************************************************************
+// Remove Task
+// *********************************************************************************************************************
+exports.removeTask = async id => {
+    await PusherTask.findByIdAndRemove(id);
 };
