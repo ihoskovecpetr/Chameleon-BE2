@@ -273,17 +273,59 @@ exports.addTask = async task => {
         if(onairConfirmed) task.dataOrigin.onAirConfirmed = onairConfirmed;
     }
     if (task && task.target && task.target.role) { // Target by role
-        const targets = exports.getUsersByRole(task.target.role);
+        const targets = await exports.getUsersByRole(task.target.role);
         if(targets.length > 0) task.target = targets[0].id; // get first user by role if more of them
     }
     const newTask = await PusherTask.create(task);
     newTask.project = await BookingProject.findOne({_id: newTask.project});
-    const users = await exports.getUsers();
-    return taskHelper.normalizeTask(newTask, users);
+    return await taskHelper.normalizeTask(newTask, await exports.getUsers());
+};
+// *********************************************************************************************************************
+// Update Task
+// *********************************************************************************************************************
+exports.updateTask = async (id, data) => {
+    const task = await PusherTask.findOneAndUpdate({_id: id}, {$set: data}, { new: true });
+    if(!task) return new Error(`UpdateTask - Can't find task id: "${id}"`);
+    task.project = await BookingProject.findOne({_id: task.project}).lean();
+    const normalizedTask = await taskHelper.normalizeTask(task, await exports.getUsers());
+    return {updatedTask: normalizedTask, followed: task.followed.filter(t => t.toString() != '000000000000000000000000' && t.toString() != '000000000000000000000001')};
 };
 // *********************************************************************************************************************
 // Remove Task
 // *********************************************************************************************************************
 exports.removeTask = async id => {
-    await PusherTask.findByIdAndRemove(id);
+    await PusherTask.findOneAndRemove({_id: id});
 };
+// *********************************************************************************************************************
+// Update Project's On-Air state
+// *********************************************************************************************************************
+exports.updateProjectOnairState = async (projectId, onairId, state) => {
+    const project = await BookingProject.findOne({_id: projectId});
+    if(project) {
+        const newOnair = [];
+        project.onair.forEach(onair => {
+            if(onair._id.toString() === onairId.toString() && onair.state !== 'deleted') onair.state = state;
+            newOnair.push(onair);
+        });
+        project.onair = newOnair;
+        const updatedProject = await project.save();
+        return await dataHelper.normalizeDocument(updatedProject.toJSON());
+    } else throw new Error(`updateProjectOnairState:can't find project '${projectId}'`);
+};
+// *********************************************************************************************************************
+// Get Project Team from WorkLogs
+// *********************************************************************************************************************
+exports.getTeamFromWorkLog = async (projectId, job, me) => {
+    me = me ? me.toString() : null;
+    if(!Array.isArray(job)) job = [job];
+    let jobs = await BookingWorkType.find({},{type:true});
+    jobs = jobs.reduce((out, job) => {out[job._id] = job.type; return out}, {});
+    const logs = await PusherWorklog.find({project: projectId},{job: true, operatorName: true, operatorSurname: true, operator: true}).lean();
+    const teamOut = logs.reduce((team, log) => {
+        const operator = log.operatorName + " " + log.operatorSurname;
+        if ((log.operator ? log.operator.toString() : '') != me && job.indexOf(jobs[log.job]) >= 0 && team.indexOf(operator) < 0) team.push(operator);
+        return team;
+    }, []);
+    return teamOut.sort();
+};
+// *********************************************************************************************************************
