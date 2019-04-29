@@ -10,6 +10,7 @@ npm-debug.log
 docker-image-archives
 logs
 www
+pusher-releases
 certs
 dist*
 dist*/*

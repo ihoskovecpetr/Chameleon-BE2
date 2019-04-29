@@ -61,4 +61,8 @@ then
     cp ./docker-compose.yml ./dist/docker-compose.yml
     cp ./traefik-prod.toml ./dist/traefik.toml
     cp -r ./www ./dist/www
+    mkdir -p ./dist/pusher-releases/linux
+    mkdir -p ./dist/pusher-releases/mac
+    mkdir -p ./dist/pusher-releases/win
+    cp ./pusher-releases/icon.ico ./dist/pusher-releases/icon.ico
 fi

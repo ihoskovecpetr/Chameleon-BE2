@@ -12,7 +12,7 @@ module.exports = router;
 // *********************************************************************************************************************
 // GET AUTHENTICATED USER
 // *********************************************************************************************************************
-router.get('/users/authenticated', [validateToken],  async (req, res, next) => {
+router.get('/users/authenticated', validateToken,  async (req, res, next) => {
     try {
         const authenticatedUserId = req.remote_user;
         if(!authenticatedUserId) {
