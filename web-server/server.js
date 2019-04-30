@@ -1,6 +1,7 @@
 'use strict';
 
 const path = require('path');
+const fs = require('fs');
 const express = require('express');
 const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
@@ -16,6 +17,14 @@ const authenticate =  require('./src/authenticate');
 const AUTHENTICATION_COOKIE_NAME = process.env.AUTH_COOKIE_NAME;
 const AUTHENTICATION_COOKIE_OPTION = {httpOnly: true, secure: process.env.AUTH_COOKIE_HTTPS_ONLY !== 'false'};
 const PUSHER_UPDATE_ENABLED = process.env.PUSHER_UPDATE_ENABLED === 'true';
+const PUSHER_UPDATE_HOST = process.env.PUSHER_UPDATE_HOST;
+const PUSHER_UPDATE_PORT = process.env.PUSHER_UPDATE_PORT ? `:${process.env.PUSHER_UPDATE_PORT}` : '';
+const PUSHER_UPDATE_SSL = process.env.PUSHER_UPDATE_SSL && process.env.PUSHER_UPDATE_SSL === 'true';
+
+const PLATFORM_RELEASE_FILE_TEMPLATE = {
+    mac: 'Pusher-x.y.z-mac.zip',
+    linux: 'pusher-x.y.z-x86_64.AppImage'
+};
 
 const PORT = 3000;
 const HOST = '0.0.0.0';
@@ -87,62 +96,49 @@ app.use(express.static(__dirname + '/www/static'));
 // ================ PUSHER UPDATE SUPPORT ==============================================================================
 if(PUSHER_UPDATE_ENABLED) {
     logger.info(`Pusher update enabled.`);
-    //TODO validate user (token) ???
-    /*app.use('/pusher/releases', express.static(path.join(__dirname, 'pusher-releases')));
+    app.use('/pusher/releases/:platform/:file', [pusherReleaseMiddleware, express.static(path.join(__dirname, 'pusher-releases'))]);
+}
 
-    app.get('/pusher/releases/mac/latest', function(req, res) {
-        const latest = getLatestRelease('mac','.zip');
-        const clientVersion = req.query.v;
-        if (!latest || clientVersion === latest) {
+function pusherReleaseMiddleware(req, res, next) {
+    logger.debug(`VALIDATING PUSHER RELEASE ACCESS`);
+    logger.debug(`${req.params.platform} -> ${req.params.file}`);
+    if(req.params.file === 'latest') {
+        const latest = getLatestRelease(req.params.platform, req.query.v);
+        if (!latest ) {
             res.status(204).end();
         } else {
             res.json({
-                url: "https://booking.upp.cz/pusher/releases/mac/Pusher-" + latest + "-mac.zip"
+                url: `http${PUSHER_UPDATE_SSL ? 's' : ''}://${PUSHER_UPDATE_HOST}${PUSHER_UPDATE_PORT}/pusher/releases/${req.params.platform}/${latest}`
             });
         }
-    });
+    } else next(); //return static file
+}
 
-    app.get('/pusher/releases/linux/latest', function(req, res) {
-        const latest = getLatestRelease('linux', '.AppImage');
-        const clientVersion = req.query.v;
-        if (!latest || clientVersion === latest) {
-            res.status(204).end();
-        } else {
-            res.json({
-                url: "https://booking.upp.cz/pusher/releases/linux/pusher-" + latest + "-x86_64.AppImage"
-            });
+function getLatestRelease(platform, currentVersion) {
+    if(!PLATFORM_RELEASE_FILE_TEMPLATE[platform]) return null;
+    const dir = path.join(__dirname, 'pusher-releases', platform);
+    const fileRegex = new RegExp(`^${PLATFORM_RELEASE_FILE_TEMPLATE[platform].replace('x.y.z', '(\\d+\\.\\d+\\.\\d+)')}$`, 'i');
+    const versionsDesc = fs.readdirSync(dir)
+        .filter(file => fileRegex.test(file))
+        .map(file => file.match(fileRegex)[1] || '0.0.0')
+        .sort(compareVersion);
+    const latest = versionsDesc[0];
+    if(!latest || latest === currentVersion) return null;
+    else return PLATFORM_RELEASE_FILE_TEMPLATE[platform].replace('x.y.z', latest);
+}
+
+function compareVersion(a, b) {
+    let i, cmp, len, re = /(\.0)+[^\.]*$/;
+    a = (a + '').replace(re, '').split('.');
+    b = (b + '').replace(re, '').split('.');
+    len = Math.min(a.length, b.length);
+    for( i = 0; i < len; i++ ) {
+        cmp = parseInt(b[i], 10) - parseInt(a[i], 10);
+        if( cmp !== 0 ) {
+            return cmp;
         }
-    });
-
-    app.get('/pusher', function (req, res) {
-        res.sendFile(path.join(__dirname, 'html/pusher.html'));
-    });
-
-    function getLatestRelease(platformFolder, platformExtension) {
-        const dir = path.join(__dirname, 'pusher_releases', platformFolder);
-        const versionsDesc = fs.readdirSync(dir)
-            .filter(function(file){ return file.indexOf(platformExtension) === file.length - platformExtension.length})
-            .map(function(file){
-                const f = file.split('-');
-                if(f.length === 3) return f[1];
-                else return '0.0.0';
-            }).sort(compareVersion);
-        return versionsDesc[0];
     }
-
-    function compareVersion(a, b) {
-        let i, cmp, len, re = /(\.0)+[^\.]*$/;
-        a = (a + '').replace(re, '').split('.');
-        b = (b + '').replace(re, '').split('.');
-        len = Math.min(a.length, b.length);
-        for( i = 0; i < len; i++ ) {
-            cmp = parseInt(b[i], 10) - parseInt(a[i], 10);
-            if( cmp !== 0 ) {
-                return cmp;
-            }
-        }
-        return b.length - a.length;
-    }*/
+    return b.length - a.length;
 }
 // =====================================================================================================================
 

@@ -57,7 +57,7 @@ services:
     container_name: web-server
     volumes:
       - './www:/opt/app/www'
-      - './pusher-update:/opt/app/pusher-update'
+      - './pusher-releases:/opt/app/pusher-releases'
     labels:
       - traefik.enable=true
       - traefik.backend=web-server
@@ -78,6 +78,9 @@ services:
       - FLUENTD_IPV4
       - AUTH_DEBUG_PASSWORD
       - PUSHER_UPDATE_ENABLED
+      - PUSHER_UPDATE_HOST
+      - PUSHER_UPDATE_PORT
+      - PUSHER_UPDATE_SSL
     restart: always
     depends_on:
       - fluentd
