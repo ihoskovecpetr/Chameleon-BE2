@@ -100,18 +100,20 @@ if(PUSHER_UPDATE_ENABLED) {
 }
 
 function pusherReleaseMiddleware(req, res, next) {
-    logger.debug(`VALIDATING PUSHER RELEASE ACCESS`);
-    logger.debug(`${req.params.platform} -> ${req.params.file}`);
+    logger.debug(`Pusher release access: ${req.params.platform} -> ${req.params.file}`);
     if(req.params.file === 'latest') {
         const latest = getLatestRelease(req.params.platform, req.query.v);
         if (!latest ) {
             res.status(204).end();
         } else {
+            logger.debug(`http${PUSHER_UPDATE_SSL ? 's' : ''}://${PUSHER_UPDATE_HOST}${PUSHER_UPDATE_PORT}/pusher/releases/${req.params.platform}/${latest}`);
             res.json({
                 url: `http${PUSHER_UPDATE_SSL ? 's' : ''}://${PUSHER_UPDATE_HOST}${PUSHER_UPDATE_PORT}/pusher/releases/${req.params.platform}/${latest}`
             });
         }
-    } else next(); //return static file
+    } else { //return static file
+        next();
+    }
 }
 
 function getLatestRelease(platform, currentVersion) {
