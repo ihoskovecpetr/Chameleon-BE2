@@ -96,7 +96,10 @@ app.use(express.static(__dirname + '/www/static'));
 // ================ PUSHER UPDATE SUPPORT ==============================================================================
 if(PUSHER_UPDATE_ENABLED) {
     logger.info(`Pusher update enabled.`);
-    app.use('/pusher/releases', express.static(path.join(__dirname, 'pusher-releases')));
+    app.use('/pusher/releases', (req, res, next) => {
+        if(req.url[req.url.length - 1] === '/') req.url = req.url.substr(0, req.url.length - 1);
+        next();
+    }, express.static(path.join(__dirname, 'pusher-releases')));
     app.use('/pusher/releases/:platform/latest', pusherReleaseRouter);
 }
 
