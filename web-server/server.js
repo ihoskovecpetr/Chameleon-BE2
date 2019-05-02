@@ -23,7 +23,7 @@ const PUSHER_UPDATE_SSL = process.env.PUSHER_UPDATE_SSL && process.env.PUSHER_UP
 
 const PLATFORM_RELEASE_FILE_TEMPLATE = {
     mac: 'Pusher-x.y.z-mac.zip',
-    linux: 'pusher-x.y.z-x86_64.AppImage'
+    linux: 'Pusher x.y.z.AppImage'
 };
 
 const PORT = 3000;
@@ -96,25 +96,21 @@ app.use(express.static(__dirname + '/www/static'));
 // ================ PUSHER UPDATE SUPPORT ==============================================================================
 if(PUSHER_UPDATE_ENABLED) {
     logger.info(`Pusher update enabled.`);
-    app.use('/pusher/releases/:platform/:file', [pusherReleaseMiddleware, express.static(path.join(__dirname, 'pusher-releases'))]);
+    app.use('/pusher/releases', express.static(path.join(__dirname, 'pusher-releases')));
+    app.use('/pusher/releases/:platform/latest', pusherReleaseRouter);
 }
 
-function pusherReleaseMiddleware(req, res, next) {
-    logger.debug(`Pusher release access: ${req.params.platform} -> ${req.params.file}`);
-    if(req.params.file === 'latest') {
-        const latest = getLatestRelease(req.params.platform, req.query.v);
-        if (!latest ) {
-            res.status(204).end();
-        } else {
-            logger.debug(`http${PUSHER_UPDATE_SSL ? 's' : ''}://${PUSHER_UPDATE_HOST}${PUSHER_UPDATE_PORT}/pusher/releases/${req.params.platform}/${latest}`);
-            res.json({
-                url: `http${PUSHER_UPDATE_SSL ? 's' : ''}://${PUSHER_UPDATE_HOST}${PUSHER_UPDATE_PORT}/pusher/releases/${req.params.platform}/${latest}`
-            });
-        }
-    } else { //return static file
-        next();
+function pusherReleaseRouter(req, res) {
+    const latest = getLatestRelease(req.params.platform, req.query.v);
+    if (!latest ) {
+        logger.debug(`Pusher update requested, platform: ${req.params.platform} - no new version.`);
+        res.status(204).end();
+    } else {
+        logger.debug(`Pusher update requested, platform: ${req.params.platform} - new version: ${latest}`);
+        res.json({url: `http${PUSHER_UPDATE_SSL ? 's' : ''}://${PUSHER_UPDATE_HOST}${PUSHER_UPDATE_PORT}/pusher/releases/${req.params.platform}/${latest}`});
     }
 }
+
 
 function getLatestRelease(platform, currentVersion) {
     if(!PLATFORM_RELEASE_FILE_TEMPLATE[platform]) return null;
