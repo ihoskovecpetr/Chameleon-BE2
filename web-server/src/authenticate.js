@@ -28,7 +28,7 @@ module.exports = async function(user, password) {
 
     try {
         const token = await signToken({user: user, userName: userName, exp: Math.round(expirationAt.getTime() / 1000)}, AUTH_TOKEN_SECRET);
-        return {token: token}
+        return {token: token, userName: userName}
     } catch (e) {
         return {error: `Token rejected. [${e.message}]`}
     }

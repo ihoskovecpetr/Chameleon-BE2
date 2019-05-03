@@ -55,7 +55,7 @@ app.use(device.capture());
 app.post('/authenticate', async (req, res) => {
     const authenticationData = await authenticate(req.body.username, req.body.password);
     if(authenticationData.token) {
-        logger.info(`User '${req.body.username}' authenticated, token: ${authenticationData.token}.`);
+        logger.info(`User '${req.body.username}' authenticated, token: ${authenticationData.token}, name: ${authenticationData.userName}`);
         res.cookie(AUTHENTICATION_COOKIE_NAME, authenticationData.token, AUTHENTICATION_COOKIE_OPTION);
         res.status(200).json();
     } else {
@@ -73,12 +73,9 @@ app.delete('/authenticate', (req, res) => {
 
 // applications entry points
 for(const application of APPLICATIONS) {
-    if(application.authenticate) app.get(application.path, [setIgnoreExpirationOnMobile(application.ignoreExpirationOnMobile), validateToken], (req, res) => {
+    app.get(application.path, application.authenticate? [setIgnoreExpirationOnMobile(application.ignoreExpirationOnMobile), validateToken] : [], (req, res) => {
         if(application.clearCookie) res.clearCookie(AUTHENTICATION_COOKIE_NAME, AUTHENTICATION_COOKIE_OPTION);
-        res.sendFile(path.join(__dirname, application.file))
-    });
-    else app.get(application.path, (req, res) => {
-        if(application.clearCookie) res.clearCookie(AUTHENTICATION_COOKIE_NAME, AUTHENTICATION_COOKIE_OPTION);
+        else if(req.cookies[AUTHENTICATION_COOKIE_NAME]) res.setHeader(`Auth-Token`, req.cookies[AUTHENTICATION_COOKIE_NAME]);
         res.sendFile(path.join(__dirname, application.file))
     });
 }
