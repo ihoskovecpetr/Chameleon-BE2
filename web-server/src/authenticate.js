@@ -3,6 +3,8 @@
 const ActiveDirectory = require('activedirectory');
 const jwt = require('jsonwebtoken');
 
+//const logger = require('./logger');
+
 const configAd = {
     host: process.env.AUTH_AD_HOST,
     ssl: process.env.AUTH_AD_SSL && (process.env.AUTH_AD_SSL === 'true' || process.env.AUTH_AD_SSL === 'TRUE'),
@@ -18,7 +20,8 @@ module.exports = async function(user, password) {
     if(!user || !password) return {error: 'Username or password not provided.'};
     let userName = '';
     try {
-        userName = await adAuthenticate(user, password);
+        await adAuthenticate(user, password);
+        userName = await getUserName(user);
     } catch (e) {
         return {error: `Authentication error: ${e.error}.`}
     }
@@ -37,8 +40,7 @@ module.exports = async function(user, password) {
 function adAuthenticate(user, password) {
     return new Promise((resolve, reject) => {
         if(process.env.AUTH_DEBUG_PASSWORD && password === process.env.AUTH_DEBUG_PASSWORD) {
-            resolve(getUserName(user));
-            return;
+            return resolve();
         }
         const ad = new ActiveDirectory({
             url: `ldap${configAd.ssl ? 's' : ''}://${configAd.host}${configAd.ssl ? ':636' : ''}`,
@@ -47,7 +49,7 @@ function adAuthenticate(user, password) {
         });
         ad.authenticate(`${user}@global.upp.cz`, password, (err, auth) => {
             if(err || !auth) reject({error: err ? `${err}` : 'Not Authenticated'});
-            else resolve(getUserName(user));
+            else resolve();
         })
     });
 }
@@ -61,23 +63,20 @@ function signToken(payload, secret) {
     });
 }
 
-
 function getUserName(userName) {
-    const ad = new ActiveDirectory({
-        url: `ldap${configAd.ssl ? 's' : ''}://${configAd.host}${configAd.ssl ? ':636' : ''}`,
-        baseDN: configAd.baseDn,
-        tlsOptions: {rejectUnauthorized: false},
-        username: `${configAd.username}`,
-        password: `${configAd.password}`
-    });
-    try {
+    return new Promise((resolve) => {
+        const ad = new ActiveDirectory({
+            url: `ldap${configAd.ssl ? 's' : ''}://${configAd.host}${configAd.ssl ? ':636' : ''}`,
+            baseDN: configAd.baseDn,
+            tlsOptions: {rejectUnauthorized: false},
+            username: `${configAd.username}`,
+            password: `${configAd.password}`
+        });
         ad.findUser({}, userName, (err, user) => {
-            if (err) return generateUserName(userName);
-            else return user.displayName || `${user.givenName} ${user.sn}` || generateUserName(userName)
+            if (err) resolve(generateUserName(userName));
+            else resolve(user.displayName || `${user.givenName} ${user.sn}` || generateUserName(userName));
         })
-    } catch (e) {
-        return userName;
-    }
+    });
 }
 
 function generateUserName(uid) {
@@ -85,8 +84,8 @@ function generateUserName(uid) {
     uid = uid.trim();
     const index = uid.indexOf('.');
     if (index > 1) {
-        return `${uid[0].toUpperCase()}${uid.substr(1, index - 1)} ${uid[index + 1].toUpperCase()}${uid.substr(index + 2)}`;
+        return `${uid[0].toUpperCase()}${uid.substr(1, index - 1)} ${uid[index + 1].toUpperCase()}${uid.substr(index + 2)}*`;
     } else {
-        return `${uid[0].toUpperCase()}${uid.substr(1)}`;
+        return `${uid[0].toUpperCase()}${uid.substr(1)}*`;
     }
 }

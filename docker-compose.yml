@@ -81,6 +81,8 @@ services:
       - PUSHER_UPDATE_HOST
       - PUSHER_UPDATE_PORT
       - PUSHER_UPDATE_SSL
+      - AD_USER
+      - AD_PASSWORD
     restart: always
     depends_on:
       - fluentd
