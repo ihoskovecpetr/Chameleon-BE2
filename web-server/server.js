@@ -15,7 +15,7 @@ const authenticate =  require('./src/authenticate');
 
 // *********************************************************************************************************************
 const AUTHENTICATION_COOKIE_NAME = process.env.AUTH_COOKIE_NAME;
-const AUTHENTICATION_COOKIE_OPTION = {httpOnly: true, secure: process.env.AUTH_COOKIE_HTTPS_ONLY !== 'false'};
+const AUTHENTICATION_COOKIE_OPTION = {httpOnly: false, secure: process.env.AUTH_COOKIE_HTTPS_ONLY !== 'false'};
 const PUSHER_UPDATE_ENABLED = process.env.PUSHER_UPDATE_ENABLED === 'true';
 const PUSHER_UPDATE_HOST = process.env.PUSHER_UPDATE_HOST;
 const PUSHER_UPDATE_PORT = process.env.PUSHER_UPDATE_PORT ? `:${process.env.PUSHER_UPDATE_PORT}` : '';
@@ -75,7 +75,7 @@ app.delete('/authenticate', (req, res) => {
 for(const application of APPLICATIONS) {
     app.get(application.path, application.authenticate? [setIgnoreExpirationOnMobile(application.ignoreExpirationOnMobile), validateToken] : [], (req, res) => {
         if(application.clearCookie) res.clearCookie(AUTHENTICATION_COOKIE_NAME, AUTHENTICATION_COOKIE_OPTION);
-        else if(req.cookies[AUTHENTICATION_COOKIE_NAME]) res.setHeader(`Auth-Token`, req.cookies[AUTHENTICATION_COOKIE_NAME]);
+        //else if(req.cookies[AUTHENTICATION_COOKIE_NAME]) res.setHeader(`Auth-Token`, req.cookies[AUTHENTICATION_COOKIE_NAME]);
         res.sendFile(path.join(__dirname, application.file))
     });
 }
