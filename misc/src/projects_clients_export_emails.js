@@ -4,11 +4,8 @@ require('dotenv').config({path: path.resolve(__dirname, '../../.env')});
 const fs = require('fs');
 
 const config = {
-    //dbURI: `mongodb://${process.env.MONGO_DB_HOST}:${process.env.MONGO_DB_PORT}/${process.env.MONGO_DB_DATABASE}?authSource=admin`,
     dbURI: `mongodb://${process.env.MONGO_DB_HOST}:${process.env.MONGO_DB_PORT}/booking-devel?authSource=admin`,
     dbOptions: {
-        //user: process.env.MONGO_DB_USER,
-        //pass: process.env.MONGO_DB_PASSWORD,
         user: 'booking',
         pass: 'h35l0_b00king',
         useNewUrlParser: true
@@ -18,6 +15,7 @@ const config = {
 mongoose.Promise = global.Promise;
 mongoose.set('debug', true);
 
+//subscribed_members_export_4de65ff335.csv
 //subscribed_members_export_15d17415eb.csv
 
 //Email,"First Name","Last Name",,,,,,,,,,,,,,,,,,
@@ -26,12 +24,12 @@ mongoose.set('debug', true);
 (async () => {
     try {
 
-        const subscribed = fs.readFileSync('/Users/miroslav.kozel/Development/chameleon-backend/misc/data/subscribed_members_export_15d17415eb.csv', 'utf-8').split('\n').map(line => {
+        const subscribed = fs.readFileSync('/Users/miroslav.kozel/Development/chameleon-backend/misc/data/subscribed_members_export_4de65ff335.csv', 'utf-8').split('\n').map(line => {
             const fields = line.split(',');
             return fields[0].toLowerCase();
         });
 
-        const result = ['Email,"First Name","Last Name",Position,Company,ORIGIN,MEMBER_RATING,OPTIN_TIME,OPTIN_IP,CONFIRM_TIME,CONFIRM_IP,LATITUDE,LONGITUDE,GMTOFF,DSTOFF,TIMEZONE,CC,REGION,LAST_CHANGED,LEID,EUID,NOTES'];
+        const result = ['Email,"First Name","Last Name",Position,Company,ORIGIN,MEMBER_RATING,OPTIN_TIME,OPTIN_IP,CONFIRM_TIME,CONFIRM_IP,LATITUDE,LONGITUDE,GMTOFF,DSTOFF,TIMEZONE,CC,REGION,LAST_CHANGED,LEID,EUID,NOTES,TAG'];
 
         await mongoose.connect(config.dbURI, config.dbOptions);
 
@@ -48,7 +46,7 @@ mongoose.set('debug', true);
                         if(name.length > 1) {
                             firstName = name.shift();
                         }
-                        result.push(`${email.data.trim()},${firstName},${name.join(' ')},,,,,,,,,,,,,,,,,,`);
+                        result.push(`${email.data.trim()},${firstName},${name.join(' ')},,,,,,,,,,,,,,,,,,,,`);
                     }
                 }
 
@@ -57,7 +55,7 @@ mongoose.set('debug', true);
 
         console.log(result.length);
 
-        fs.writeFileSync('/Users/miroslav.kozel/Development/chameleon-backend/misc/data/toAdd.csv', result.join('\n'))
+        fs.writeFileSync('/Users/miroslav.kozel/Development/chameleon-backend/misc/data/toAdd_20190607.csv', result.join('\n'))
 
     } catch(e) {
         console.error(e);
