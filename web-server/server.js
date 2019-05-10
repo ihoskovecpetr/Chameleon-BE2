@@ -6,12 +6,16 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
 
+const connectDb = require('./src/mongodb-connect');
+const mongoose = require('mongoose');
+
 const version = require('./package.json').version;
 const logger = require('./src/logger');
 const device = require('express-device');
 
 const validateToken = require('./src/validateToken');
 const authenticate =  require('./src/authenticate');
+const basicAuth = require('basic-auth');
 
 // *********************************************************************************************************************
 const AUTHENTICATION_COOKIE_NAME = process.env.AUTH_COOKIE_NAME;
@@ -50,6 +54,18 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(cookieParser());
 app.use(device.capture());
+
+// pusher app authentication
+app.get('/pusher/auth', async (req, res) => {
+    try {
+        const user = basicAuth(req);
+        const authenticatedUser = await authenticate(user.name, user.pass, true);
+        if(authenticatedUser.error) res.status(403).send('403 Forbidden');
+        else res.status(200).json(authenticatedUser);
+    } catch (e) {
+        res.status(403).send('403 Forbidden');
+    }
+});
 
 // reset authenticate and set token if valid user
 app.post('/authenticate', async (req, res) => {
@@ -145,7 +161,10 @@ const server = app.listen(PORT, HOST, (err) => {
     if (err) {
         logger.error(err);
         process.exit(1);
-    } else logger.info(`Server listening on port: ${PORT}`);
+    } else {
+        logger.info(`Server listening on port: ${PORT}`);
+        connectDb();
+    }
 });
 
 // gracefully shutdown -------------------------------------------------------------------------------------------------
@@ -157,6 +176,10 @@ const signals = {
 Object.keys(signals).forEach(signal => {
     process.on(signal, async () => {
         logger.info(`Received Signal ${signal}, shutting down.`);
+        // Mongo DB
+        logger.info('Disconnecting MongoDb...');
+        await mongoose.connection.close();
+        logger.info(`MongoDb disconnected.`);
         // Server
         logger.info('Stopping server gracefully...');
         await server.close();

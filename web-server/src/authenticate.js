@@ -2,8 +2,8 @@
 
 const ActiveDirectory = require('activedirectory');
 const jwt = require('jsonwebtoken');
-
-//const logger = require('./logger');
+const db = require('./dbData');
+const logger = require('./logger');
 
 const configAd = {
     host: process.env.AUTH_AD_HOST,
@@ -15,22 +15,29 @@ const configAd = {
 
 const AUTH_TOKEN_SECRET = process.env.AUTH_TOKEN_SECRET;
 const EXPIRATION_MIN_DURATION = 2 * 3600000; //2hours
+const PUSHER_ACCESS = 'pusher:app';
 
-module.exports = async function(user, password) {
+module.exports = async function(user, password, pusher) {
     if(!user || !password) return {error: 'Username or password not provided.'};
     let userName = '';
+    let userData = {access: [], role: []};
     try {
         await adAuthenticate(user, password);
         userName = await getUserName(user);
+        userData = await db.getUserRoleAccess(user);
     } catch (e) {
         return {error: `Authentication error: ${e.error}.`}
+    }
+    if(pusher) {
+        if(userData.access.indexOf(PUSHER_ACCESS) >= 0) return {id: user, name: userName, role: userData.role};
+        else return {error: `User access forbidden.`};
     }
     const expirationAt = new Date();
     expirationAt.setHours(23, 59, 59, 999);
     if(expirationAt  - new Date() <= EXPIRATION_MIN_DURATION) expirationAt.setDate(expirationAt.getDate() + 1);
 
     try {
-        const token = await signToken({user: user, userName: userName, exp: Math.round(expirationAt.getTime() / 1000)}, AUTH_TOKEN_SECRET);
+        const token = await signToken({user: user, userName: userName, access: userData.access, role: userData.role, exp: Math.round(expirationAt.getTime() / 1000)}, AUTH_TOKEN_SECRET);
         return {token: token, userName: userName}
     } catch (e) {
         return {error: `Token rejected. [${e.message}]`}
@@ -77,6 +84,10 @@ function getUserName(userName) {
             else resolve(user.displayName || `${user.givenName} ${user.sn}` || generateUserName(userName));
         })
     });
+}
+
+function getUser() {
+
 }
 
 function generateUserName(uid) {
