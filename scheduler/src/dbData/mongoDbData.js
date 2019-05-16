@@ -389,4 +389,91 @@ exports.addWorkRequestMessageAndStage = async (id, messageId, stage) => {
     if(messageId) data['$push'] = {messages: messageId};
     await PusherWorkRequest.update({_id: id}, data);
 };
+//----------------------------------------------------------------------------------------------------------------------
+// ===> FREELANCER REMINDER
+//----------------------------------------------------------------------------------------------------------------------
+// *********************************************************************************************************************
+// Get Managers with Freelancers
+// *********************************************************************************************************************
+exports.getManagersWithFreelancers = async () => {
+    const today = moment().startOf('day');
+    const events = await BookingEvent.find({offtime: false}, {startDate: true, days: true, project: true, operator: true}).populate({path: 'project', select: 'manager internal deleted'}).populate({path: 'operator', select: 'virtual freelancer confirmed'}).lean();
+    const resources = await BookingResource.find({type: 'OPERATOR', $or: [{virtual: true}, {freelancer: true}], confirmed:{$exists: true, $ne: []}}, {confirmed: true}).lean();
+    const activeEvents = events.filter(event => {
+        if(event.project.internal || event.project.deleted) return false; // no internal or deleted projects
+        if(!event.operator || (!event.operator.virtual && !event.operator.freelancer)) return false;// event operator is not freelancer or virtual
+        const endDay = moment(event.startDate, 'YYYY-MM-DD').add((event.days.length - 1), 'days').startOf('day');
+        if(endDay.diff(today, 'days') < 0) return false; //only event having any day equal today and late
+        return true;
+    });
+
+    const freelancers = resources.map(resource => {
+        return {
+            id: resource._id.toString(),
+            confirmed: resource.confirmed.map(confirmation => {
+                return {
+                    from: moment(confirmation.from).startOf('day'),
+                    to: moment(confirmation.to).startOf('day')
+                }
+            })
+        }
+    });
+
+    const confirmedFreelancers = {};
+    const managersWithUnconfirmedFeelancers = [];
+
+    for(const freelancer of freelancers) {
+        for(const confirmation of freelancer.confirmed) {
+            let from = confirmation.from;
+            let to = confirmation.to;
+            if(to.diff(today, 'days') >= 0) {
+                if(today.diff(from, 'days') >= 0) from = today.clone();
+                if(!confirmedFreelancers[freelancer.id]) confirmedFreelancers[freelancer.id] = [];
+                const confirmationLength = to.diff(from, 'days') + 1;
+                for(let i = 0; i < confirmationLength; i++) {
+                    const dayString = from.clone().add(i, 'day').format('YYYY-MM-DD');
+                    if(confirmedFreelancers[freelancer.id].indexOf(dayString) < 0) confirmedFreelancers[freelancer.id].push(dayString);
+                }
+            }
+        }
+    }
+
+    for(const event of activeEvents) {
+        const day = moment(event.startDate, 'YYYY-MM-DD').startOf('day');
+        const operatorId = event.operator._id.toString();
+        for(let i = 0; i < event.days.length; i++) {
+            if(day.diff(today, 'days') >= 0 && event.days[i].duration > 0) { //event day from today and duration > 0
+                if (isFreelancerConfirmed(event.operator.confirmed, day)) {
+                    if(confirmedFreelancers[operatorId]) {
+                        const di = confirmedFreelancers[operatorId].indexOf(day.format('YYYY-MM-DD'));
+                        if(di >= 0) confirmedFreelancers[operatorId].splice(di, 1);
+                    }
+                } else if(event.project.manager) {
+                    if(managersWithUnconfirmedFeelancers.indexOf(event.project.manager.toString()) < 0) managersWithUnconfirmedFeelancers.push(event.project.manager.toString());
+                }
+            }
+            day.add(1, 'day');
+        }
+    }
+    const isConfirmedFreelancerWithoutEvent = Object.keys(confirmedFreelancers).reduce((out, id) => out || confirmedFreelancers[id].length > 0, false);
+    const hr = isConfirmedFreelancerWithoutEvent ? await getHrNotifyManagers(true) : [];
+    return {managers: managersWithUnconfirmedFeelancers, hr: hr};
+};
+
+function isFreelancerConfirmed(confirmations, day) {
+    if(!day || !confirmations) return false;
+    for(const confirmation of confirmations) {
+        if(day.diff(moment(confirmation.from).startOf('day'), 'days') >= 0 && moment(confirmation.to).startOf('day').diff(day, 'days') >= 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+async function getHrNotifyManagers(outputId) {
+    const users = await User.find({role: {$in: ['booking:hr-manager', 'booking:main-manager']}}, {ssoId: true}).lean();
+    if(users && users.length > 0) {
+        return users.map(user => outputId ? user._id.toString() : user.ssoId);
+    } else return [];
+}
 // *********************************************************************************************************************
