@@ -13,6 +13,7 @@ const User = require('../models/user');
 const BookingResource = require('../models/booking-resource');
 const PusherWorkclock = require('../models/pusher-workclock');
 const PusherWorkclockNotify = require('../models/pusher-workclock-notify');
+const PusherWorkRequest = require('../models/pusher-work-request');
 const PusherTask = require('../models/pusher-task');
 const PusherMessage = require('../models/pusher-message');
 const BookingProject = require('../models/booking-project');
@@ -461,7 +462,7 @@ exports.getWorkClock = async (userId, isSsoId) => {
 // SET WORK-CLOCK FOR USER
 // *********************************************************************************************************************
 exports.setWorkClock = async (ssoId, state) => {
-    const user = await User.findOne({ssoId: ssoId}, {_id: true}).lean();
+    const user = await User.findOne({ssoId: ssoId}, {_id: true, name: true, ssoId: true}).lean();
     if(user) {
         await PusherWorkclock.create({user: user._id, state: state});
         const requests = await PusherWorkclockNotify.find({subject: user._id, notified: null, canceled: null}).populate('user');
@@ -471,7 +472,7 @@ exports.setWorkClock = async (ssoId, state) => {
             if(!toNotify[request.user.ssoId]) toNotify[request.user.ssoId] = request.user;
             await request.save();
         }
-        return {user: user, toNotify: Object.keys(toNotify).map(u => toNotify[u])};
+        return {user: {_id: user._id, ssoId: user.ssoId, name: user.name}, toNotify: Object.keys(toNotify).map(u => toNotify[u])};
     } else {
         throw new Error(`Can't find user ${ssoId}`);
     }
@@ -501,6 +502,99 @@ exports.cancelWorkClockRequest = async (userSsoId, subjectSsoId) => {
     if(!subject) throw new Error(`Can't find subject ${subjectSsoId}`);
     const result = await PusherWorkclockNotify.update({user: user._id, subject: subject._id, notified: null, canceled: null}, {$set: {canceled : Date.now()}}, {multi: true});
     return !!result && result.nModified > 0;
+};
+// *********************************************************************************************************************
+// GET USER'S LEADS FOR TODAY
+// *********************************************************************************************************************
+exports.getTodayUserLeads = async userId => {
+    const result = {stage1: [], stage2: [], stage3: []};
+    let user = await User.findOne({ssoId: userId}, {_id: true, resource: true, name: true}).populate({path: 'resource', populate: {path: 'job'}, select: 'job'}).lean();
+    if(user && user.resource) {
+        user = {id: user._id.toString(), resource: user.resource._id, job: user.resource.job ? user.resource.job.type : null};
+        const todayStart = moment.utc().startOf('day').valueOf();
+        const todayEnd = moment.utc().endOf('day').valueOf();
+        const eventsQuery = {
+            $where : `(this.startDate.getTime() <= ${todayEnd}) && ((this.startDate.getTime() + (this.days.length * 24 * 3600000)) > ${todayStart})`,
+            external: {$ne: true},
+            operator: user.resource,
+            offtime: {$ne: true}
+        };
+        const eventProjectData = await BookingEvent.find(eventsQuery, {project: true}).populate({path: 'project', select: 'deleted lead2D lead3D leadMP supervisor manager producer', match: {deleted: null}}).lean();
+        eventProjectData.filter(event => event.project !== null).forEach(event => {
+            if((user.job === null || user.job === '2D') && event.project.lead2D && user.id !== event.project.lead2D.toString() && result.stage1.indexOf(event.project.lead2D.toString()) < 0) result.stage1.push(event.project.lead2D.toString());
+            if((user.job === null || user.job === '3D') && event.project.lead3D && user.id !== event.project.lead3D.toString() && result.stage1.indexOf(event.project.lead3D.toString()) < 0) result.stage1.push(event.project.lead3D.toString());
+            if((user.job === null || user.job === 'MP') && event.project.leadMP && user.id !== event.project.leadMP.toString() && result.stage1.indexOf(event.project.leadMP.toString()) < 0) result.stage1.push(event.project.leadMP.toString());
+            if(event.project.manager && user.id !== event.project.manager.toString() && result.stage2.indexOf(event.project.manager.toString()) < 0 && result.stage1.indexOf(event.project.manager.toString()) < 0) result.stage2.push(event.project.manager.toString());
+            if(event.project.supervisor && user.id !== event.project.supervisor.toString() && result.stage2.indexOf(event.project.supervisor.toString()) < 0 && result.stage1.indexOf(event.project.supervisor.toString()) < 0) result.stage2.push(event.project.supervisor.toString());
+            //if(event.project.producer && user.id !== event.project.producer.toString() && result.stage2.indexOf(event.project.producer.toString()) < 0 && result.stage1.indexOf(event.project.producer.toString()) < 0) result.stage2.push(event.project.producer.toString());
+        });
+        const managers = await User.find({role: 'booking:manager'}, {_id: true}).lean();
+        managers.forEach(manager => {
+            if(user.id !== manager._id.toString() && result.stage1.indexOf(manager._id.toString()) < 0 && result.stage2.indexOf(manager._id.toString()) < 0) result.stage3.push(manager._id.toString());
+        });
+        return result;
+    } else throw new Error(`getTodayUserLeads:: ${user ? `User: ${user.name} [${userId}] hasn't defined resource.` : `Can't find user: ${userId}.`}`);
+};
+// *********************************************************************************************************************
+// CREATE WORK REQUEST
+// *********************************************************************************************************************
+exports.createWorkRequest = async (userId, leads) => {
+    let stage = 3;
+    let stageLeads = leads.stage3;
+    if(leads.stage1.length > 0) {
+        stage = 1;
+        stageLeads = leads.stage1;
+    } else if(leads.stage2.length > 0) {
+        stage = 2;
+        stageLeads = leads.stage2;
+    }
+    const user = await User.findOne({ssoId: userId}).lean();
+    if(user) {
+        await PusherWorkRequest.update({user: user._id, closed: null}, {closed: Date.now()}, {multi: true}); //close all open requests for the user - should never happen but....
+        const request = await PusherWorkRequest.create({user: user._id, stage: stage});
+        return {requestId: request._id, stageLeads : stageLeads, user: {id: user._id, ssoId: user.ssoId, name: user.name}};
+    } else throw new Error(`createWorkRequest:: Can't find user: ${userId}`);
+};
+// *********************************************************************************************************************
+// UPDATE WORK REQUEST BY MESSAGE AND STAGE
+// *********************************************************************************************************************
+exports.addWorkRequestMessageAndStage = async (id, messageId, stage) => {
+    const data = {};
+    if(stage) {
+        data.stage = stage;
+        data.stageTime = Date.now();
+    }
+    if(messageId) data['$push'] = {messages: messageId};
+    await PusherWorkRequest.update({_id: id}, data);
+};
+// *********************************************************************************************************************
+// CLOSE WORK REQUEST
+// *********************************************************************************************************************
+exports.closeWorkRequest = async userId => {
+    const user = await User.findOne({ssoId: userId}).lean();
+    if(user) {
+        const requests = await PusherWorkRequest.find({user: user._id, closed: null});
+        return await Promise.all(requests.map(request => {
+            request.closed = Date.now();
+            return request.save();
+        }))
+    } else throw new Error(`closeWorkRequest:: Can't find user: ${userId}`);
+};
+// *********************************************************************************************************************
+// UPDATE MESSAGE DETAIL
+// *********************************************************************************************************************
+exports.updateMessageDetails = async (messageIds, details) => {
+    const users = await getUsers();
+    let messages = await PusherMessage.find({_id: {$in: messageIds}});
+    const messagesToUpdate = [];
+    for(const message of messages) {
+        message.details = details;
+        const updatedMessage = await message.save();
+        updatedMessage.target.forEach((user, index) => {
+            if(updatedMessage.confirmed[index] === null) messagesToUpdate.push({message: updatedMessage, user: user});
+        });
+    }
+    return await Promise.all(messagesToUpdate.map(msgData => taskHelper.normalizeMessage(msgData.message, users, msgData.user)));
 };
 // ---------------------------------------------------------------------------------------------------------------------
 //    W O R K  -  L O G
@@ -553,7 +647,7 @@ exports.getWorklogsForUser = async (user, full) => {
             const _log = {
                 id: log._id,
                 operator: log.operatorName.toUpperCase() + ' ' + log.operatorSurname.toUpperCase(),
-                date: moment(log.date).format(),
+                date: moment(log.date).add(12, 'hours').startOf('day').format(),
                 work: log.job.shortLabel,
                 hours: log.hours,
                 description: log.description,
@@ -582,8 +676,8 @@ exports.getWorklogsForUser = async (user, full) => {
         project.logs = project.logs.sort((a,b) => {
             const aa = a.resolve ? 2 : a.finalApprove ? 1 : 0;
             const bb = b.resolve ? 2 : b.finalApprove ? 1 : 0;
-            const importanceComare = aa - bb;
-            if(importanceComare !== 0) return importanceComare;
+            const importanceCompare = aa - bb;
+            if(importanceCompare !== 0) return importanceCompare;
             const dateCompare = new Date(a.date) - new Date(b.date);
             if(dateCompare !== 0) return dateCompare;
             const operatorCompare =  (a.operator < b.operator) ? -1 : (a.operator > b.operator) ? 1 : 0;

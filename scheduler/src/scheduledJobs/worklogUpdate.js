@@ -4,5 +4,6 @@ const logger = require('../logger');
 const wamp = require('../wamp');
 
 module.exports = async () => {
-    logger.debug('Maintenance Job Fired');
+    logger.debug('Worklog Update Job Fired');
+    wamp.publish('all.worklogupdate');
 };

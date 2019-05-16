@@ -370,26 +370,26 @@ async function setWorkClock(args, kwargs, details) {
         wamp.publish('all.workclock', [], {userId: data.user._id, user: data.user.ssoId, state: kwargs.state}, {exclude : [details.caller]});
         //if somebody requested to be notified - do it
         for(const user of data.toNotify) wamp.publish(user.ssoId + '.workclockrequest', [], {subject: data.user.ssoId, requested: false}, {exclude : [details.caller]});
+        let stateString = '';
+        switch (kwargs.state) {
+            case 'OUT':
+                stateString = 'Out of office';
+                break;
+            case 'BUSY':
+                stateString = 'Working';
+                break;
+            case 'READY':
+                stateString = 'Await work';
+                break;
+            case 'PAUSE':
+                stateString = 'Work break';
+                break;
+            case 'PAUSE_READY':
+                stateString = 'Await work - break';
+                break;
+            default: stateString = 'Unknown'
+        }
         if(data.toNotify.length > 0) {
-            let stateString = '';
-            switch (kwargs.state) {
-                case 'OUT':
-                    stateString = 'Out of office';
-                    break;
-                case 'BUSY':
-                    stateString = 'Working';
-                    break;
-                case 'READY':
-                    stateString = 'Await work';
-                    break;
-                case 'PAUSE':
-                    stateString = 'Work break';
-                    break;
-                case 'PAUSE_READY':
-                    stateString = 'Await work - break';
-                    break;
-                default: stateString = 'Unknown'
-            }
             const message = {
                 type: 'NOW',
                 label: 'Work-Clock status changed',
@@ -405,9 +405,37 @@ async function setWorkClock(args, kwargs, details) {
         }
         // if work requested (raised hand)
         if(kwargs.ready === true) { // if state is ready or leave ready - notify manager, supervisor,...
-
+            const leads = await db.getTodayUserLeads(kwargs.user);
+            const data = await db.createWorkRequest(kwargs.user, leads); // {requestId: id, stageLeads: [id]}
+            const message = {
+                type: 'WORK_REQUEST',
+                label: 'Await Work',
+                message: `${data.user.name} is awaiting work.`,
+                origin: data.user.id,
+                target: data.stageLeads,
+                deadline: moment()
+            };
+            const newMessages = await db.addMessage(message);
+            if(newMessages && newMessages.length > 0) {
+                newMessages.forEach(message => {
+                    if (message.target) {
+                        wamp.publish(message.target + '.message', [], message);
+                        //logger.debug(`Sent message "${message.label} - ${message.message}" to: ${message.target}`);
+                    }
+                });
+                //email.sendPusherMessage(message);
+                return db.addWorkRequestMessageAndStage(data.requestId, newMessages[0].id);
+            }
         } else if(kwargs.ready === false) { //close request - set request closed, set details of message(s) to current status and update pusher if some active (not confirmed/answered yet)
-
+            const closedRequests = await db.closeWorkRequest(kwargs.user);
+            let messages = closedRequests.reduce((messages, request) => messages.concat(request.messages), []);
+            messages = await db.updateMessageDetails(messages, `${new Date()}, ${stateString}`);
+            messages.forEach(message => {
+                if (message.id && message.target) {
+                    wamp.publish(message.target + '.message', [message.id], message);
+                    //logger.debug(`Sent update message "${JSON.stringify(message)}" to: ${message.target}`);
+                }
+            });
         }
     } catch(error) {
         logger.warn("setWorkClock error: " + error);

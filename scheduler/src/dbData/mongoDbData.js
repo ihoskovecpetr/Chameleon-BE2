@@ -15,6 +15,7 @@ const BookingOplog = require('../models/booking-oplog');
 const PusherWorklog = require('../models/pusher-worklog');
 const PusherTask = require('../models/pusher-task');
 const PusherMessage = require('../models/pusher-message');
+const PusherWorkRequest = require('../models/pusher-work-request');
 
 //const logger = require('../logger');
 
@@ -327,5 +328,65 @@ exports.getTeamFromWorkLog = async (projectId, job, me) => {
         return team;
     }, []);
     return teamOut.sort();
+};
+//----------------------------------------------------------------------------------------------------------------------
+// ===> WORK REQUEST
+//----------------------------------------------------------------------------------------------------------------------
+// *********************************************************************************************************************
+// Get Open Work Requests
+// *********************************************************************************************************************
+exports.getOpenWorkRequests = async stageStepMin => { //requests which are ready for next stage
+    const requests = await PusherWorkRequest.find({closed: null, stage: {$lt: 4}}).populate('messages user').lean();
+    return requests.filter(request => {
+        const someFindMe = request.messages.length > 0 ? request.messages.reduce((someFindMe, message) => someFindMe || message.answer.some(item => item === 'find-me'), false) : false;
+        const allConfirmedNoStage3 = !someFindMe && request.stage === 3 && request.messages.reduce((allNo, message) => allNo && message.answer.every(item => item === 'no'), true);
+        const lastStageAllConfirmedStageLess3 = request.stage <= 2 && (request.messages.length > 0 ? request.messages[request.messages.length - 1].confirmed.every(item => !!item) : true);
+        const lastStageTimeoutStageLess3 = request.stage <= 2 && moment(request.stageTime).add(stageStepMin, 'minutes').isBefore(moment());
+        return !someFindMe && (allConfirmedNoStage3 || lastStageAllConfirmedStageLess3 || lastStageTimeoutStageLess3);
+    }).map(request => ({id: request._id, user: {id: request.user._id, name: request.user.name}, stage: request.stage}));
+};
+// *********************************************************************************************************************
+// GET USER'S LEADS FOR TODAY
+// *********************************************************************************************************************
+exports.getTodayUserLeads = async userId => { //mongo db _id
+    const result = {stage1: [], stage2: [], stage3: []};
+    let user = await User.findOne({_id: userId}, {_id: true, resource: true, name: true}).populate({path: 'resource', populate: {path: 'job'}, select: 'job'}).lean();
+    if(user && user.resource) {
+        user = {id: user._id.toString(), resource: user.resource._id, job: user.resource.job ? user.resource.job.type : null};
+        const todayStart = moment.utc().startOf('day').valueOf();
+        const todayEnd = moment.utc().endOf('day').valueOf();
+        const eventsQuery = {
+            $where : `(this.startDate.getTime() <= ${todayEnd}) && ((this.startDate.getTime() + (this.days.length * 24 * 3600000)) > ${todayStart})`,
+            external: {$ne: true},
+            operator: user.resource,
+            offtime: {$ne: true}
+        };
+        const eventProjectData = await BookingEvent.find(eventsQuery, {project: true}).populate({path: 'project', select: 'deleted lead2D lead3D leadMP supervisor manager producer', match: {deleted: null}}).lean();
+        eventProjectData.filter(event => event.project !== null).forEach(event => {
+            if((user.job === null || user.job === '2D') && event.project.lead2D && user.id !== event.project.lead2D.toString() && result.stage1.indexOf(event.project.lead2D.toString()) < 0) result.stage1.push(event.project.lead2D.toString());
+            if((user.job === null || user.job === '3D') && event.project.lead3D && user.id !== event.project.lead3D.toString() && result.stage1.indexOf(event.project.lead3D.toString()) < 0) result.stage1.push(event.project.lead3D.toString());
+            if((user.job === null || user.job === 'MP') && event.project.leadMP && user.id !== event.project.leadMP.toString() && result.stage1.indexOf(event.project.leadMP.toString()) < 0) result.stage1.push(event.project.leadMP.toString());
+            if(event.project.manager && user.id !== event.project.manager.toString() && result.stage2.indexOf(event.project.manager.toString()) < 0 && result.stage1.indexOf(event.project.manager.toString()) < 0) result.stage2.push(event.project.manager.toString());
+            if(event.project.supervisor && user.id !== event.project.supervisor.toString() && result.stage2.indexOf(event.project.supervisor.toString()) < 0 && result.stage1.indexOf(event.project.supervisor.toString()) < 0) result.stage2.push(event.project.supervisor.toString());
+            //if(event.project.producer && user.id !== event.project.producer.toString() && result.stage2.indexOf(event.project.producer.toString()) < 0 && result.stage1.indexOf(event.project.producer.toString()) < 0) result.stage2.push(event.project.producer.toString());
+        });
+        const managers = await User.find({role: 'booking:manager'}, {_id: true}).lean();
+        managers.forEach(manager => {
+            if(user.id !== manager._id.toString() && result.stage1.indexOf(manager._id.toString()) < 0 && result.stage2.indexOf(manager._id.toString()) < 0) result.stage3.push(manager._id.toString());
+        });
+        return result;
+    } else throw new Error(`getTodayUserLeads:: ${user ? `User: ${user.name} [${userId}] hasn't defined resource.` : `Can't find user: ${userId}.`}`);
+};
+// *********************************************************************************************************************
+// UPDATE WORK REQUEST BY MESSAGE AND STAGE
+// *********************************************************************************************************************
+exports.addWorkRequestMessageAndStage = async (id, messageId, stage) => {
+    const data = {};
+    if(stage) {
+        data.stage = stage;
+        data.stageTime = Date.now();
+    }
+    if(messageId) data['$push'] = {messages: messageId};
+    await PusherWorkRequest.update({_id: id}, data);
 };
 // *********************************************************************************************************************
