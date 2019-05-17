@@ -476,4 +476,34 @@ async function getHrNotifyManagers(outputId) {
         return users.map(user => outputId ? user._id.toString() : user.ssoId);
     } else return [];
 }
+//----------------------------------------------------------------------------------------------------------------------
+// ===> PROJECTS ARCHIVE
+//----------------------------------------------------------------------------------------------------------------------
+// *********************************************************************************************************************
+// Get Process Tasks
+// *********************************************************************************************************************
+exports.getProcessTasks = async () => {
+    return await PusherTask.find({type: 'ARCHIVE_PROCESS', resolved: null}, {project: true, dataOrigin: true, followed: true, origin: true}).populate([{path: 'project', select: 'projectId'}, {path: 'followed', select: 'dataTarget resolved'}]).lean();
+};
+// *********************************************************************************************************************
+// Create Archive Review Task
+// *********************************************************************************************************************
+exports.createArchiveReviewTask = async (processTask, data) => {
+    const newTask = await db.addTask({
+        type: 'ARCHIVE_PROCESS_REVIEW',
+        project: processTask.project._id,
+        target: processTask.origin,
+        deadline: moment().add(3, 'days').startOf('day'),
+        dataOrigin: data
+    });
+    if(newTask && newTask.id) await PusherTask.findOneAndUpdate({_id: processTask._id}, {$push: {followed: newTask.id}});
+    wamp.publish(newTask.target + '.task', [], newTask);
+    return newTask;
+};
+// *********************************************************************************************************************
+// Update Task by Id
+// *********************************************************************************************************************
+exports.updateArchiveTask = async (id, data) => {
+    await PusherTask.finOneAndUpdate({_id: id}, {$set: data});
+};
 // *********************************************************************************************************************
