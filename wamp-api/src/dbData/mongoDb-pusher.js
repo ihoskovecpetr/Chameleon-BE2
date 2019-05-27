@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const moment = require('moment');
 //const logger = require('../logger');
 const dataHelper = require('../lib/dataHelper');
+const dateHelper = require('../lib/dateHelper');
 const taskHelper = require('../lib/taskHelper');
 const followTask = require('../lib/followTask');
 
@@ -834,7 +835,7 @@ exports.getProjectTeamForUser = async user => {
         .populate({path: 'project', populate: {path: 'manager supervisor lead2D lead3D leadMP producer', select: 'name'}, select: 'label manager supervisor lead2D lead3D leadMP producer deleted internal confirmed'})
         .lean();
 
-    const activeProjects = events.filter(event => !event.project.deleted && !event.project.internal).reduce((projects, event) => {
+    const activeProjects = events.filter(event => !event.project.deleted && !event.project.internal &&!event.project.rnd).reduce((projects, event) => {
         const projectId = event.project._id.toString();
         const isEventOperator = userIds.resource && event.operator ? event.operator._id.toString() === userIds.resource : false;
         if(!projects[projectId]) {
@@ -989,7 +990,7 @@ exports.getFreelancers = async userSsoId => {
     }
 
     const activeEvents = events.filter(event => {
-        if(event.project.internal || event.project.deleted) return false; // no internal or deleted projects
+        if(event.project.internal || event.project.rnd || event.project.deleted) return false; // no internal, r&d or deleted projects
         if(userId && !isHR && (!event.project.manager || event.project.manager.toString() !== userId)) return false; //only if user is manager or HR
         if(!event.operator || (!event.operator.virtual && !event.operator.freelancer)) return false;// event operator is not freelancer or virtual
         const endDay = moment(event.startDate, 'YYYY-MM-DD').add((event.days.length - 1), 'days').startOf('day');
@@ -1033,7 +1034,7 @@ exports.getFreelancers = async userSsoId => {
         confirmed: isHR ? Object.keys(confirmedFreelancers).map(key => {
             return {
                 freelancer: confirmedFreelancers[key].freelancer,
-                dates: compactDates(confirmedFreelancers[key].dates)
+                dates: compactDates(confirmedFreelancers[key].dates.filter(dateHelper.isWorkingDay))
             }
         }).filter(obj => obj.dates.length > 0) : [],
         unconfirmed: Object.keys(unconfirmedFreelancers).map(key => {
@@ -1050,7 +1051,7 @@ exports.getFreelancers = async userSsoId => {
 // *********************************************************************************************************************
 exports.getManagerSsoIdForResourceOfNotInternalProjects = async (resourceId, cutDay) => {
     const events = await BookingEvent.find({operator: resourceId, offtime: false}, {project: true, startDate: true, days: true}).populate({path: 'project', select: 'manager deleted', populate: {path: 'manager', select: 'ssoId'}}).lean();
-    return events.filter(event => !event.project.deleted && !event.project.internal && (!cutDay || moment(event.startDate, 'YYYY-MM-DD').startOf('day').add(event.days.length - 1, 'day').diff(cutDay, 'days') >= 0)).reduce((managers, event) => {
+    return events.filter(event => !event.project.deleted && !event.project.internal && !event.project.rnd && (!cutDay || moment(event.startDate, 'YYYY-MM-DD').startOf('day').add(event.days.length - 1, 'day').diff(cutDay, 'days') >= 0)).reduce((managers, event) => {
         if(managers.indexOf(event.project.manager.ssoId) < 0) managers.push(event.project.manager.ssoId);
         return managers;
     }, []);
@@ -1061,7 +1062,7 @@ exports.getManagerSsoIdForResourceOfNotInternalProjects = async (resourceId, cut
 exports.getManagerSsoIdOfNotInternalProjects = async projectIds => {
     if(!Array.isArray(projectIds)) projectIds = [projectIds];
     const projects = await BookingProject.find({_id: {$in: projectIds}}).populate('manager').lean();
-    return projects.filter(project => !project.deleted && !project.internal && project.manager).map(project => project.manager.ssoId);
+    return projects.filter(project => !project.deleted && !project.internal && !event.project.rnd && project.manager).map(project => project.manager.ssoId);
 };
 // *********************************************************************************************************************
 // GET HR-NOTIFY MANAGERS

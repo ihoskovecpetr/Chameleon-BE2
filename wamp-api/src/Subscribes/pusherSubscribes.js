@@ -4,6 +4,8 @@ const logger = require('../logger');
 const moment = require('moment');
 const db = require('../dbData/mongoDb-pusher');
 
+const wamp = require('../wamp');
+
 const pusherClient = require('../lib/pusherClient');
 
 module.exports = {
@@ -151,16 +153,19 @@ async function updatePusherData(args, kwargs) {
             const internalCurrent = kwargs.project.current ? kwargs.project.current.internal : null;
             const internalPrevious = kwargs.project.previous ? kwargs.project.previous.internal : null;
 
+            const rndCurrent = kwargs.project.current ? kwargs.project.current.rnd : null;
+            const rndPrevious = kwargs.project.previous ? kwargs.project.previous.rnd : null;
+
             const timingCurrent = kwargs.project.current && kwargs.project.current.timing ? kwargs.project.current.timing.filter(timing => timingFilter(timing, today, nextDay)) : [];
             const timingPrevious = kwargs.project.previous && kwargs.project.previous.timing ? kwargs.project.previous.timing.filter(timing => timingFilter(timing, today, nextDay)) : [];
 
             const labelCurrent = kwargs.project.current && kwargs.project.current.label ? kwargs.project.current.label : null;
             const labelPrevious = kwargs.project.previous && kwargs.project.previous.label ? kwargs.project.previous.label : null;
 
-            if(labelCurrent !== labelPrevious || internalCurrent !== internalPrevious || managerCurrent !== managerPrevious) {
+            if(labelCurrent !== labelPrevious || internalCurrent !== internalPrevious || rndCurrent !== rndPrevious || managerCurrent !== managerPrevious) {
                 if(await db.hasProjectBookedFreelancer(kwargs.project.id, today)) {
                     let usersToNotify = await db.getSsoIdsForUsers([managerCurrent, managerPrevious].filter(manager => manager !== null).filter((manager, index, self) => self.indexOf(manager) === index));
-                    if (internalCurrent !== internalPrevious) {
+                    if (internalCurrent !== internalPrevious || rndCurrent !== rndPrevious) {
                         const hr = await db.getHrNotifyManagers();
                         usersToNotify = usersToNotify.concat(hr);
                     }
@@ -180,7 +185,7 @@ async function updatePusherData(args, kwargs) {
                 }
             } else timingHasBeenChanged = true;
 
-            if (labelCurrent !== labelPrevious || confirmedCurrent !== confirmedPrevious || internalCurrent !== internalPrevious) projectLabelOrConfirmationOrInternalHasBeenChanged = true;
+            if (labelCurrent !== labelPrevious || confirmedCurrent !== confirmedPrevious || internalCurrent !== internalPrevious || rndCurrent !== rndPrevious) projectLabelOrConfirmationOrInternalHasBeenChanged = true;
             if (managerCurrent !== managerPrevious) projectUsersHasBeenChanged = true;
             if (supervisorCurrent !== supervisorPrevious) projectUsersHasBeenChanged = true;
             if (lead2DCurrent !== lead2DPrevious) projectUsersHasBeenChanged = true;
@@ -262,7 +267,7 @@ async function notifyOfferChanged(args, kwargs) { //Called from above projectBud
             .then(newMessages => {
                 if(newMessages && newMessages.length > 0) {
                     newMessages.forEach(message => {
-                        if (message.target) session.publish(message.target + '.message', [], message);
+                        if (message.target) wamp.publish(message.target + '.message', [], message);
                     });
                     //email.sendPusherMessage(message);
                 }
@@ -287,7 +292,7 @@ function notifyPusherUsers(users, topics) {
         if (updatedUsers.length > 0) {
             updatedUsers.forEach(user => {
                 topics.forEach(topic => {
-                    session.publish(`${user}.${topic}`);
+                    wamp.publish(`${user}.${topic}`);
                     logger.debug(`wamp publish - ${user}.${topic}`);
                 });
             });

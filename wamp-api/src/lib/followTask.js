@@ -217,20 +217,60 @@ module.exports = task => {
             }
             break;
         case 'MAKING_OF_MANAGER':
-            followTasks.push({
-                project: task.project._id,
-                type: 'MAKING_OF_OPERATOR',
-                target: task.dataTarget.operator, //task.target._id
-                deadline: moment().add(task.dataTarget.dueTo, 'days').startOf('day'),
-                dataOrigin: {note: task.dataTarget.note ? task.dataTarget.note : null}
-            });
+            if(task.dataTarget.operator) { //Deprecated from pusher 2.0.0
+                followTasks.push({
+                    project: task.project._id,
+                    type: 'MAKING_OF_OPERATOR',
+                    target: task.dataTarget.operator,
+                    deadline: moment().add(task.dataTarget.dueTo, 'days').startOf('day'),
+                    dataOrigin: {note: task.dataTarget.note ? task.dataTarget.note : null}
+                });
+            }
+            if(task.dataTarget.operator2D) {
+                followTasks.push({
+                    project: task.project._id,
+                    type: 'MAKING_OF_OPERATOR_2D',
+                    target: task.dataTarget.operator2D,
+                    deadline: moment().add(task.dataTarget.dueTo, 'days').startOf('day'),
+                    dataOrigin: {note: task.dataTarget.note ? task.dataTarget.note : null, operator2D: task.dataTarget.operator2D ? task.dataTarget.operator2D : null, operator3D: task.dataTarget.operator3D ? task.dataTarget.operator3D : null}
+                });
+            }
+            if(task.dataTarget.operator3D) {
+                followTasks.push({
+                    project: task.project._id,
+                    type: 'MAKING_OF_OPERATOR_3D',
+                    target: task.dataTarget.operator3D,
+                    deadline: moment().add(task.dataTarget.dueTo, 'days').startOf('day'),
+                    dataOrigin: {note: task.dataTarget.note ? task.dataTarget.note : null, operator2D: task.dataTarget.operator2D ? task.dataTarget.operator2D : null, operator3D: task.dataTarget.operator3D ? task.dataTarget.operator3D : null}
+                });
+            }
             break;
-        case 'MAKING_OF_OPERATOR':
+        case 'MAKING_OF_OPERATOR': //Deprecated from pusher 2.0.0
             const clipName2 = task.dataOrigin && task.dataOrigin.onAir && task.dataOrigin.onAir.name ? task.dataOrigin.onAir.name : null;
             followMessages.push({
                 type: 'INFO',
                 label: task.project.label + (clipName2 ? ' - ' + clipName2 : ''),
                 message: 'VFX breakdown done by ' + task.target.name,
+                target: task.project.manager, //task.target._id
+                deadline: moment().add(10, 'days').startOf('day')
+            });
+            break;
+        case 'MAKING_OF_OPERATOR_2D':
+            const clipName3 = task.dataOrigin && task.dataOrigin.onAir && task.dataOrigin.onAir.name ? task.dataOrigin.onAir.name : null;
+            followMessages.push({
+                type: 'INFO',
+                label: task.project.label + (clipName3 ? ' - ' + clipName3 : ''),
+                message: 'VFX breakdown done by ' + task.target.name + ' (2D)',
+                target: task.project.manager, //task.target._id
+                deadline: moment().add(10, 'days').startOf('day')
+            });
+            break;
+        case 'MAKING_OF_OPERATOR_3D':
+            const clipName4 = task.dataOrigin && task.dataOrigin.onAir && task.dataOrigin.onAir.name ? task.dataOrigin.onAir.name : null;
+            followMessages.push({
+                type: 'INFO',
+                label: task.project.label + (clipName4 ? ' - ' + clipName4 : ''),
+                message: 'VFX breakdown done by ' + task.target.name + ' (3D)',
                 target: task.project.manager, //task.target._id
                 deadline: moment().add(10, 'days').startOf('day')
             });

@@ -40,5 +40,5 @@ function checkLockedEvents() {
     const timeStamp = +new Date;
     const length = lockedEvents.length;
     lockedEvents = lockedEvents.filter(item => (timeStamp - item.timestamp) <= LOCK_VALID_TIME);
-    if(lockedEvents.length < length) session.publish('lockedEventsChanged', lockedEvents.map(item => item.id));
+    if(lockedEvents.length < length) wamp.publish('lockedEventsChanged', lockedEvents.map(item => item.id));
 }

@@ -49,6 +49,9 @@ mongoose.set('debug', true);
         const result8 = await Events.updateMany({},  {$set: {archived: false}}, {multi: true});
         console.log(`Set Archived Event to false: ${JSON.stringify(result8.result)}`);
 
+        const result9 = await Projects.updateMany({},  {$set: {rnd: false}}, {multi: true});
+        console.log(`Set R&D Project to false: ${JSON.stringify(result9.result)}`);
+
     } catch(e) {
         console.error(e);
     } finally {

@@ -10,6 +10,7 @@ const BookingProjectSchema = new Schema({
     K2projectId: {type: String, default: null},
     confirmed: {type: Boolean, default: false},
     internal: {type: Boolean, default: false},
+    rnd: {type: Boolean, default: false},
     manager: {type: Schema.Types.ObjectId, ref: 'user', default: null},
     supervisor: {type: Schema.Types.ObjectId, ref: 'user', default: null},
     lead2D: {type: Schema.Types.ObjectId, ref: 'user', default: null},
