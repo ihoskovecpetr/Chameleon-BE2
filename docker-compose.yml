@@ -130,6 +130,8 @@ services:
       - CROSSBAR_SECRET_CHAMELEON
       - LOGGER_LEVEL
       - FLUENTD_IPV4
+      - AVAILABILITY_API_SECRET
+      - AVAILABILITY_API_IP
     restart: always
     depends_on:
       - fluentd

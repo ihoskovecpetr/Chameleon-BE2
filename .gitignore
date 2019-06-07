@@ -16,3 +16,5 @@ dist*
 dist*/*
 /crossbar/crossbar-node/config.json
 !.gitattributes
+misc/db-backup
+misc/data

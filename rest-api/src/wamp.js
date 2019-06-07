@@ -23,7 +23,10 @@ let reportedLost = false;
 
 module.exports.open = () => connection.open();
 module.exports.getSession = () => session;
-module.exports.publish = (topic, args, kwargs, option) => {if(session) session.publish(topic, args, kwargs, option)};
+module.exports.publish = (topic, args, kwargs, option) => {
+    logger.debug(`Wamp publish. Topic: ${topic}, session: [${!!session}]`);
+    if(session) session.publish(topic, args, kwargs, option);
+};
 module.exports.close = (reason, message) => connection.close(reason, message);
 
 connection.onopen = s => {

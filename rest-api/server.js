@@ -17,6 +17,7 @@ const apiRouterAdmin = require('./src/routers/api-router-admin');
 const apiRouterProjects = require('./src/routers/api-router-projects');
 const apiRouterBudget = require('./src/routers/api-router-budget');
 const apiRouterAnalytics = require('./src/routers/api-router-analytics');
+const apiRouterAvailability = require('./src/routers/api-router-availability');
 
 // *********************************************************************************************************************
 const PORT = 3000;
@@ -38,6 +39,7 @@ app.use('/api/v1/admin', apiRouterAdmin);
 app.use('/api/v1/projects', apiRouterProjects);
 app.use('/api/v1/budget', apiRouterBudget);
 app.use('/api/v1/analytics', apiRouterAnalytics);
+app.use('/api/v1/availability', apiRouterAvailability);
 
 // *********************************************************************************************************************
 // Error handler
