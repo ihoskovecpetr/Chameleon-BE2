@@ -6,6 +6,7 @@ today=`date +%Y-%m-%d_%H:%M:%S`
 
 # DESTINATION DB + CREDENTIALS
 chameleon_db=chameleon-devel
+
 mongo_host=srv-mongo01.upp.cz:27017
 mongo_user=admin
 mongo_pass=m0ng0_01_adm1n
