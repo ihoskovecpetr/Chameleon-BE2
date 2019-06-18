@@ -1,3 +1,4 @@
-FROM fluent/fluentd:v1.3-onbuild
-RUN ["gem", "install", "fluent-plugin-mail"]
-RUN ["gem", "install", "fluent-plugin-rewrite-tag-filter"]
+FROM fluent/fluentd:v1.5
+USER root
+RUN gem install fluent-plugin-mail fluent-plugin-rewrite-tag-filter
+USER fluent
