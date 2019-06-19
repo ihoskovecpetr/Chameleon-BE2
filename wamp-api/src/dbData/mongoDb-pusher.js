@@ -1062,7 +1062,7 @@ exports.getManagerSsoIdForResourceOfNotInternalProjects = async (resourceId, cut
 exports.getManagerSsoIdOfNotInternalProjects = async projectIds => {
     if(!Array.isArray(projectIds)) projectIds = [projectIds];
     const projects = await BookingProject.find({_id: {$in: projectIds}}).populate('manager').lean();
-    return projects.filter(project => !project.deleted && !project.internal && !event.project.rnd && project.manager).map(project => project.manager.ssoId);
+    return projects.filter(project => !project.deleted && !project.internal && project.manager).map(project => project.manager.ssoId);
 };
 // *********************************************************************************************************************
 // GET HR-NOTIFY MANAGERS
