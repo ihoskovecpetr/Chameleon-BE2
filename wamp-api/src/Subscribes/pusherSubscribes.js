@@ -30,7 +30,7 @@ async function updatePusherData(args, kwargs) {
     const nextDay = today.clone().add(PUSHER_BOOKING_TIME_SPAN, 'day');
     try {
         if(kwargs.resource) {
-            if((kwargs.resource.current && kwargs.resource.current.type === 'OPERATOR' && (kwargs.resource.current.virtual || kwargs.resource.current.freelancer)) || (kwargs.resource.previous && kwargs.resource.previous.type === 'OPERATOR' && (kwargs.resource.previous.virtual || kwargsresource.previous.freelancer))) {
+            if((kwargs.resource.current && kwargs.resource.current.type === 'OPERATOR' && (kwargs.resource.current.virtual || kwargs.resource.current.freelancer)) || (kwargs.resource.previous && kwargs.resource.previous.type === 'OPERATOR' && (kwargs.resource.previous.virtual || kwargs.resource.previous.freelancer))) {
                 const labelCurrent = kwargs.resource.current ? kwargs.resource.current.label : null;
                 const labelPrevious = kwargs.resource.previous ? kwargs.resource.previous.label : null;
                 const freelancerCurrent = kwargs.resource.current && (kwargs.resource.current.virtual || kwargs.resource.current.freelancer);
