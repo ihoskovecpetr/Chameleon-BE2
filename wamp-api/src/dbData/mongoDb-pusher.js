@@ -1004,7 +1004,7 @@ exports.getFreelancers = async userSsoId => {
         const operatorId = event.operator._id.toString();
         const isManager = event.project.manager && event.project.manager.toString() === userId;
         for(let i = 0; i < event.days.length; i++) {
-            if(day.diff(today, 'days') >= 0 && event.days[i].duration > 0) { //event day from today and duration > 0
+            if(day.diff(today, 'days') >= 0 /*&& event.days[i].duration > 0*/) { //event day from today and duration > 0
                 if (isFreelancerConfirmed(event.operator.confirmed, day)) {
                     if(confirmedFreelancers[operatorId]) {
                         const di = confirmedFreelancers[operatorId].dates.indexOf(day.format('YYYY-MM-DD'));
@@ -1323,6 +1323,7 @@ function compactDates(dateArray) {
     }
     return dates;
 }
+
 // *********************************************************************************************************************
 function sortByLabel(a, b) {
     return a.label.localeCompare(b.label);
