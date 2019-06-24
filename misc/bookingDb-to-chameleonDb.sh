@@ -2,10 +2,19 @@
 #stop on error
 set -e
 
+if [[ -z "$1" ]]
+  then
+    echo "No destination DB supplied as the first argument!"
+    exit 1
+fi
+
 today=`date +%Y-%m-%d_%H:%M:%S`
 
 # DESTINATION DB + CREDENTIALS
-chameleon_db=chameleon-devel
+chameleon_db=$1
+
+echo "Source DBs: booking + booking-devel (projects)"
+echo "Destination DB: $chameleon_db"
 
 mongo_host=srv-mongo01.upp.cz:27017
 mongo_user=admin
