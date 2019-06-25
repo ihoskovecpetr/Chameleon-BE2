@@ -12,8 +12,8 @@ logs
 www
 pusher-releases
 certs
-dist_20190624
-dist_20190624/*
+dist
+dist_*
 /crossbar/crossbar-node/config.json
 !.gitattributes
 misc/db-backup
