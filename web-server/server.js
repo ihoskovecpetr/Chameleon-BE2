@@ -27,7 +27,7 @@ const PUSHER_UPDATE_SSL = process.env.PUSHER_UPDATE_SSL && process.env.PUSHER_UP
 
 const PLATFORM_RELEASE_FILE_TEMPLATE = {
     mac: 'Pusher-x.y.z-mac.zip',
-    linux: 'Pusher x.y.z.AppImage'
+    linux: 'pusher-x.y.z-x86_64.AppImage'
 };
 
 const PORT = 3000;

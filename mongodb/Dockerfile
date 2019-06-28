@@ -1,0 +1,2 @@
+ARG VERSION=latest
+FROM mongo:$VERSION
