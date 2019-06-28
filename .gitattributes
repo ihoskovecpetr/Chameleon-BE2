@@ -1,2 +1,3 @@
 .env filter=git-crypt diff=git-crypt
 .env.production filter=git-crypt diff=git-crypt
+/certs/upp.cz.key filter=git-crypt diff=git-crypt
