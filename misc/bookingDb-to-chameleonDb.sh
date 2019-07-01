@@ -54,7 +54,7 @@ fi
 echo -- restoring booking data to chameleon...
 if [[ "$use_docker" = true ]]
 then
-    docker run --name mongodb -it --rm -v ${backup_dir_abs}:/data/backup/ chameleon/mongodb:latest bash -c "exec mongorestore --quiet -h ${mongo_host} -u ${mongo_user} -p ${mongo_pass} --authenticationDatabase admin -d ${chameleon_db} --dir /data/backup/${today}/booking"
+    docker run --name mongodb -it --rm -v ${backup_dir_abs}:/data/backup/ chameleon/mongodb:latest bash -c "exec mongorestore --quiet --drop -h ${mongo_host} -u ${mongo_user} -p ${mongo_pass} --authenticationDatabase admin -d ${chameleon_db} --dir /data/backup/${today}/booking"
 else
     mongorestore --quiet --drop -h ${mongo_host} -u ${mongo_user} -p ${mongo_pass} --authenticationDatabase admin -d ${chameleon_db} --dir ./${backup_dir}/${today}/booking
 fi
@@ -64,7 +64,7 @@ echo -- restoring projects data to chameleon...
 echo -- restoring booking data to chameleon...
 if [[ "$use_docker" = true ]]
 then
-    docker run --name mongodb -it --rm -v ${backup_dir_abs}:/data/backup/ chameleon/mongodb:latest bash -c "exec mongorestore --quiet -h ${mongo_host} -u ${mongo_user} -p ${mongo_pass} --authenticationDatabase admin -d ${chameleon_db} --nsExclude ${chameleon_db}.users --dir /data/backup/${today}/booking-devel"
+    docker run --name mongodb -it --rm -v ${backup_dir_abs}:/data/backup/ chameleon/mongodb:latest bash -c "exec mongorestore --quiet --drop -h ${mongo_host} -u ${mongo_user} -p ${mongo_pass} --authenticationDatabase admin -d ${chameleon_db} --nsExclude ${chameleon_db}.users --dir /data/backup/${today}/booking-devel"
 else
     mongorestore --quiet --drop -h ${mongo_host} -u ${mongo_user} -p ${mongo_pass} --authenticationDatabase admin -d ${chameleon_db} --nsExclude ${chameleon_db}.users --dir ./${backup_dir}/${today}/booking-devel
 fi
