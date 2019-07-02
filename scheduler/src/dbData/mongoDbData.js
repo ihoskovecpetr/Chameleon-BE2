@@ -28,9 +28,11 @@ exports = module.exports;
 exports.logOp = async (type, user, data, err) => {
     await BookingOplog.create({type: type, user: user, data: data, success: !err, reason: err});
 };
+
 //----------------------------------------------------------------------------------------------------------------------
 // ===>  K2
 //----------------------------------------------------------------------------------------------------------------------
+
 // *********************************************************************************************************************
 // Get K2 linked projects
 // *********************************************************************************************************************
@@ -82,6 +84,7 @@ exports.addOrUpdateWorklog = async worklog => {
 //----------------------------------------------------------------------------------------------------------------------
 // ===> PUSHER
 //----------------------------------------------------------------------------------------------------------------------
+
 // *********************************************************************************************************************
 // Update Tasks ConditionsMet
 // *********************************************************************************************************************
@@ -330,9 +333,11 @@ exports.getTeamFromWorkLog = async (projectId, job, me) => {
     }, []);
     return teamOut.sort();
 };
+
 //----------------------------------------------------------------------------------------------------------------------
 // ===> WORK REQUEST
 //----------------------------------------------------------------------------------------------------------------------
+
 // *********************************************************************************************************************
 // Get Open Work Requests
 // *********************************************************************************************************************
@@ -390,9 +395,11 @@ exports.addWorkRequestMessageAndStage = async (id, messageId, stage) => {
     if(messageId) data['$push'] = {messages: messageId};
     await PusherWorkRequest.update({_id: id}, data);
 };
+
 //----------------------------------------------------------------------------------------------------------------------
 // ===> FREELANCER REMINDER
 //----------------------------------------------------------------------------------------------------------------------
+
 // *********************************************************************************************************************
 // Get Managers with Freelancers
 // *********************************************************************************************************************
@@ -477,9 +484,11 @@ async function getHrNotifyManagers(outputId) {
         return users.map(user => outputId ? user._id.toString() : user.ssoId);
     } else return [];
 }
+
 //----------------------------------------------------------------------------------------------------------------------
 // ===> PROJECTS ARCHIVE
 //----------------------------------------------------------------------------------------------------------------------
+
 // *********************************************************************************************************************
 // Get Process Tasks
 // *********************************************************************************************************************
@@ -506,5 +515,38 @@ exports.createArchiveReviewTask = async (processTask, data) => {
 // *********************************************************************************************************************
 exports.updateArchiveTask = async (id, data) => {
     await PusherTask.finOneAndUpdate({_id: id}, {$set: data});
+};
+
+//----------------------------------------------------------------------------------------------------------------------
+// ===> MAINTENANCE
+//----------------------------------------------------------------------------------------------------------------------
+
+// *********************************************************************************************************************
+// Set Archive Flag (Project/events)
+// *********************************************************************************************************************
+exports.setArchiveFlag = async age => {
+    const result = {project: 0, event: 0};
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const latestDayToArchive = new Date(today.getTime() - (age * 24 * 60 * 60 * 1000));
+    const projects = await BookingProject.find({archived: false, deleted: null}).lean();
+    for(const project of projects) {
+        const projectEvents = await BookingEvent.find({project: project._id, archived: false}, {_id: true, startDate: true, days: true}).lean();
+        let latestProjectDay = 0;
+        for(const event of projectEvents) {
+            const eventStartDate = new Date(event.startDate);
+            const eventLastDay = new Date(eventStartDate.getFullYear(), eventStartDate.getMonth(), eventStartDate.getDate() + (event.days && event.days.length > 0 ? event.days.length - 1 : 0), 0, 0, 0, 0);
+            if (eventLastDay - latestProjectDay > 0) latestProjectDay = eventLastDay;
+            if (project.offtime && latestDayToArchive - eventLastDay > 0) {
+                await BookingEvent.updateOne({_id: event._id}, {$set: {archived: true}});
+                result.event += 1;
+            }
+        }
+        if(!project.offtime && latestDayToArchive - latestProjectDay > 0 && latestProjectDay > 0) {
+            await BookingProject.updateOne({_id: project._id}, {$set: {archived: true}});
+            result.project += 1;
+        }
+    }
+    return result;
 };
 // *********************************************************************************************************************

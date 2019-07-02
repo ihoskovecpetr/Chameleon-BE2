@@ -168,6 +168,7 @@ services:
       - CROSSBAR_SECRET_CHAMELEON
       - LOGGER_LEVEL
       - FLUENTD_IPV4
+      - PROJECT_AGE_TO_ARCHIVE
     restart: always
     depends_on:
       - fluentd
