@@ -109,20 +109,27 @@ app.use(express.static(__dirname + '/www/static'));
 // ================ PUSHER UPDATE SUPPORT ==============================================================================
 if(PUSHER_UPDATE_ENABLED) {
     logger.info(`Pusher update enabled.`);
+    app.use('/pusher/releases/:platform/latest', pusherReleaseRouter);
+    app.use('/pusher/releases/win/RELEASES', pusherWinReleaseRouter);
     app.use('/pusher/releases', (req, res, next) => {
+        logger.debug(`Pusher release requested: ${req.url}`);
         if(req.url[req.url.length - 1] === '/') req.url = req.url.substr(0, req.url.length - 1);
         next();
     }, express.static(path.join(__dirname, 'pusher-releases')));
-    app.use('/pusher/releases/:platform/latest', pusherReleaseRouter);
+}
+
+function pusherWinReleaseRouter(req, res) {
+    logger.debug(`Pusher (${req.query.localVersion}) update requested, platform: win - returning /win/RELEASES file`);
+    res.status(200).sendFile(path.join(__dirname, 'pusher-releases', 'win', 'RELEASES'));
 }
 
 function pusherReleaseRouter(req, res) {
     const latest = getLatestRelease(req.params.platform, req.query.v);
     if (!latest ) {
-        logger.debug(`Pusher update requested, platform: ${req.params.platform} - no new version.`);
+        logger.debug(`Pusher (${req.query.v}) update requested, platform: ${req.params.platform} - no new version.`);
         res.status(204).end();
     } else {
-        logger.debug(`Pusher update requested, platform: ${req.params.platform} - new version: ${latest}`);
+        logger.debug(`Pusher (${req.query.v}) update requested, platform: ${req.params.platform} - new version: ${latest}`);
         res.json({url: `http${PUSHER_UPDATE_SSL ? 's' : ''}://${PUSHER_UPDATE_HOST}${PUSHER_UPDATE_PORT}/pusher/releases/${req.params.platform}/${latest}`});
     }
 }
