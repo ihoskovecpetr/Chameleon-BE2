@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const path = require('path');
 require('dotenv').config({path: path.resolve(__dirname, '../../.env')});
 const fs = require('fs');
+const moment = require('moment');
 
 const config = {
     dbURI: `mongodb://${process.env.MONGO_DB_HOST}:${process.env.MONGO_DB_PORT}/booking-devel?authSource=admin`,
@@ -15,8 +16,9 @@ const config = {
 mongoose.Promise = global.Promise;
 mongoose.set('debug', true);
 
-//subscribed_members_export_4de65ff335.csv
-//subscribed_members_export_15d17415eb.csv
+//const currentMembers = 'subscribed_members_export_4de65ff335.csv';
+//const currentMembers = 'subscribed_members_export_15d17415eb.csv';
+const currentMembers = 'subscribed_members_export_1bde686f3d.csv';
 
 //Email,"First Name","Last Name",,,,,,,,,,,,,,,,,,
 //shiqing.zhao@shootinggalleryasia.com,Shiging,Zhao,,"Shooting Gallery Asia","INDIE\, EGYPT...",2,"2018-10-11 09:55:14",,"2018-10-11 09:55:14",89.233.144.101,,,,,,,,"2018-10-11 09:55:14",90498395,810826c56e,
@@ -24,12 +26,14 @@ mongoose.set('debug', true);
 (async () => {
     try {
 
-        const subscribed = fs.readFileSync('/Users/miroslav.kozel/Development/chameleon-backend/misc/data/subscribed_members_export_4de65ff335.csv', 'utf-8').split('\n').map(line => {
+        const subscribed = fs.readFileSync(`${path.resolve(__dirname, '../data')}/${currentMembers}`, 'utf-8').split('\n').map(line => {
             const fields = line.split(',');
             return fields[0].toLowerCase();
         });
 
-        const result = ['Email,"First Name","Last Name",Position,Company,ORIGIN,MEMBER_RATING,OPTIN_TIME,OPTIN_IP,CONFIRM_TIME,CONFIRM_IP,LATITUDE,LONGITUDE,GMTOFF,DSTOFF,TIMEZONE,CC,REGION,LAST_CHANGED,LEID,EUID,NOTES,TAG'];
+        const result = ['Email,"First Name","Last Name",Position,Company,ORIGIN,MEMBER_RATING,OPTIN_TIME,OPTIN_IP,CONFIRM_TIME,CONFIRM_IP,LATITUDE,LONGITUDE,GMTOFF,DSTOFF,TIMEZONE,CC,REGION,LAST_CHANGED,LEID,EUID,NOTES,TAGS'];
+        const numOfFields = result[0].split(',').length;
+        const commasToAdd = ','.repeat(numOfFields - 3);
 
         await mongoose.connect(config.dbURI, config.dbOptions);
 
@@ -46,7 +50,7 @@ mongoose.set('debug', true);
                         if(name.length > 1) {
                             firstName = name.shift();
                         }
-                        result.push(`${email.data.trim()},${firstName},${name.join(' ')},,,,,,,,,,,,,,,,,,,,`);
+                        result.push(`${email.data.trim()},${firstName},${name.join(' ')}${commasToAdd}`);
                     }
                 }
 
@@ -55,7 +59,7 @@ mongoose.set('debug', true);
 
         console.log(result.length);
 
-        fs.writeFileSync('/Users/miroslav.kozel/Development/chameleon-backend/misc/data/toAdd_20190607.csv', result.join('\n'))
+        fs.writeFileSync(`${path.resolve(__dirname, '../data')}/toAdd_${moment().format('YYYYMMDD')}.csv`, result.join('\n'))
 
     } catch(e) {
         console.error(e);
