@@ -14,7 +14,8 @@ module.exports = async function(req, res, next) {
         next();
     } catch (e) {
         const app = getApplication(req);
-        if(app.indexOf('authenticated') < 0) res.redirect(`/login${app ? `?app=${app}` : ''}`);
+        if(app.indexOf('authenticated') < 0) res.redirect(`/login${app ? `?app=${app}` : ''}`); //if()else is not shared to web-server
+        else res.status(401).end();
     }
 };
 
