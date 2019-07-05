@@ -14,7 +14,7 @@ module.exports = async function(req, res, next) {
         next();
     } catch (e) {
         const app = getApplication(req);
-        res.redirect(`/login${app ? `?app=${app}` : ''}`);
+        if(app.indexOf('authenticated') < 0) res.redirect(`/login${app ? `?app=${app}` : ''}`);
     }
 };
 

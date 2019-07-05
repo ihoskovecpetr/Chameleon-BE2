@@ -134,7 +134,6 @@ function pusherReleaseRouter(req, res) {
     }
 }
 
-
 function getLatestRelease(platform, currentVersion) {
     if(!PLATFORM_RELEASE_FILE_TEMPLATE[platform]) return null;
     const dir = path.join(__dirname, 'pusher-releases', platform);
