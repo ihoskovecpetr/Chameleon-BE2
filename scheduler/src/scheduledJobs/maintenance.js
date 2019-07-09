@@ -7,7 +7,8 @@ const db = require('../dbData/mongoDbData');
 const PROJECT_AGE_TO_ARCHIVE = process.env.PROJECT_AGE_TO_ARCHIVE || null;
 
 module.exports = async () => {
-    logger.debug('Maintenance Job Fired');
+    logger.debug('Maintenance Job Fired - Skipped for now');
+    return;
     try {
         if(PROJECT_AGE_TO_ARCHIVE) {
             const result = await db.setArchiveFlag(PROJECT_AGE_TO_ARCHIVE);

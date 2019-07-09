@@ -9,7 +9,7 @@ const fs = require('fs');
 let privateKey = null;
 
 module.exports = async () => {
-    logger.debug('Project Archive Job Fired');
+    logger.debug('Project Archive Job Fired - Skipped for now');
     return;
     const processTasks = await db.getProcessTasks();
     processTasks.forEach(async task => {
