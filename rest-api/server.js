@@ -1,5 +1,5 @@
 'use strict';
-
+const compression = require('compression');
 const express = require('express');
 const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
@@ -18,6 +18,7 @@ const apiRouterProjects = require('./src/routers/api-router-projects');
 const apiRouterBudget = require('./src/routers/api-router-budget');
 const apiRouterAnalytics = require('./src/routers/api-router-analytics');
 const apiRouterAvailability = require('./src/routers/api-router-availability');
+const apiRouterBooking = require('./src/routers/api-router-booking');
 
 // *********************************************************************************************************************
 const PORT = 3000;
@@ -27,6 +28,7 @@ const HOST = '0.0.0.0';
 logger.info(`Chameleon RESTful Api version: ${version}, (${process.env.NODE_ENV === 'production' ? 'production' : 'development'})`);
 
 const app = express();
+app.use(compression());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(cookieParser());
@@ -40,6 +42,7 @@ app.use('/api/v1/projects', apiRouterProjects);
 app.use('/api/v1/budget', apiRouterBudget);
 app.use('/api/v1/analytics', apiRouterAnalytics);
 app.use('/api/v1/availability', apiRouterAvailability);
+app.use('/api/v1/booking', apiRouterBooking);
 
 // *********************************************************************************************************************
 // Error handler

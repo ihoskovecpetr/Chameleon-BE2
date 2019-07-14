@@ -1,8 +1,8 @@
 'use strict';
-
+const compression = require('compression');
+const express = require('express');
 const path = require('path');
 const fs = require('fs');
-const express = require('express');
 const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
 
@@ -50,6 +50,7 @@ const APPLICATIONS = [
 logger.info(`Chameleon Web Server version: ${version}, (${process.env.NODE_ENV === 'production' ? 'production' : 'development'})`);
 
 const app = express();
+app.use(compression());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(cookieParser());
@@ -89,14 +90,10 @@ app.delete('/authenticate', (req, res) => {
 
 // applications entry points
 for(const application of APPLICATIONS) {
-    app.get(application.path, application.authenticate? [/*setDebugInfo(application),*/ setIgnoreExpirationOnMobile(application.ignoreExpirationOnMobile), validateToken] : [], (req, res) => {
+    app.get(application.path, application.authenticate? [setIgnoreExpirationOnMobile(application.ignoreExpirationOnMobile), validateToken] : [], (req, res) => {
         if(application.clearCookie) res.clearCookie(AUTHENTICATION_COOKIE_NAME, AUTHENTICATION_COOKIE_OPTION);
-        //else if(req.cookies[AUTHENTICATION_COOKIE_NAME]) res.setHeader(`Auth-Token`, req.cookies[AUTHENTICATION_COOKIE_NAME]);
         //do not store html on local browser page
-        res.set({
-            'Cache-Control':'no-cache, no-store, must-revalidate, max-age=0',
-            'Pragma': 'no-cache'
-        });
+        res.set({'Cache-Control':'no-cache, no-store, must-revalidate, max-age=0', 'Pragma': 'no-cache'});
         res.sendFile(path.join(__dirname, application.file))
     });
 }
@@ -107,15 +104,7 @@ function setIgnoreExpirationOnMobile(ignoreExpirationOnMobile) {
         next();
     };
 }
-/*
-function setDebugInfo(application) {
-    return (req, res, next) => {
-        req.application = application;
-        logger.debug(`App requested, path: ${application.path}`);
-        next();
-    };
-}
-*/
+
 // serve static files
 app.use(express.static(__dirname + '/www/static'));
 

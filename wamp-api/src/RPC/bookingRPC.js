@@ -7,7 +7,8 @@ const wamp = require('../wamp');
 const lockedEvent = require('../lib/lockedEvent');
 
 module.exports = {
-    'getData': getData,
+    //'getData': getData,
+    'getBookingLockedEvents': getBookingLockedEvents,
     // ** Events
     'addEvent': addEvent,
     'updateEvent': updateEvent,
@@ -43,11 +44,22 @@ module.exports = {
 // *********************************************************************************************************************
 // GET ALL DATA
 // *********************************************************************************************************************
+async function getBookingLockedEvents(args, kwargs, details) {
+    try {
+        return lockedEvent.getLockedEvents();
+    } catch (error) {
+        logger.error(`getBookingLockedEvents error: ${error}`);
+        throw error;
+    }
+}
+/*
 async function getData(args, kwargs, details) {
     try {
         const start = Date.now();
         logger.debug(`Requested data. Caller: ${args.length > 0 ? `${args[0]}, ` : ''}${details.caller}`);
-        const [groups, resources, holidays, projects, events, jobs, users] = await Promise.all([
+
+ */
+        /*const [groups, resources, holidays, projects, events, jobs, users] = await Promise.all([
             db.getResourceGroups(),
             db.getResources(),
             db.getHolidays(),
@@ -55,15 +67,21 @@ async function getData(args, kwargs, details) {
             db.getEvents(),
             db.getJobs(),
             db.getUsers()
-        ]);
+        ]);*/
+/*        const groups = await db.getResourceGroups();
+        const resources = await db.getResources();
+        const holidays = await db.getHolidays();
+        const projects = await db.getProjects();
+        const events = await db.getEvents();
+        const jobs = await db.getJobs();
+        const users = await db.getUsers();
         logger.debug(`getData time: ${Date.now() - start}ms`);
         return {groups, resources, holidays, projects, events, jobs, users, lockedEvents: lockedEvent.getLockedEvents()}
     } catch (error) {
         logger.error(`getData error, user: "${args.length > 0 ? `${args[0]}, ` : 'Unknown'}" :: ${error}`);
         throw error;
     }
-}
-
+}*/
 // *********************************************************************************************************************
 // EVENTS
 // *********************************************************************************************************************

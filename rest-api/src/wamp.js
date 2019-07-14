@@ -12,10 +12,22 @@ const connection = new autobahn.Connection({
     authmethods: ["wampcra"],
     authid: 'chameleon',
     onchallenge: onchallenge,
+
     max_retries: -1, // default 15, -1 means forever
     initial_retry_delay: 1, // default 1.5
     max_retry_delay: 10, // default 300
-    retry_delay_growth: 1.1 // default 1.5
+    retry_delay_growth: 1.1, // default 1.5
+
+    autoping_interval: 3,
+    autoping_timeout: 3,
+    autoping_size: 4,
+
+    on_user_error: (error, customErrorMessage) => {
+        logger.warn(`Autobahn user error: ${error} || ${customErrorMessage}`);
+    },
+    on_internal_error: (error, customErrorMessage) => {
+        logger.warn(`Autobahn internal error: ${error} || ${customErrorMessage}`);
+    }
 });
 
 let wampWasConnectedBefore = false;
@@ -24,9 +36,10 @@ let reportedLost = false;
 module.exports.open = () => connection.open();
 module.exports.getSession = () => session;
 module.exports.publish = (topic, args, kwargs, option) => {
-    logger.debug(`Wamp publish. Topic: ${topic}, session: [${!!session}]`);
+    logger.debug(`Wamp publish. Topic: ${topic}, session: ${!!session}`);
     if(session) session.publish(topic, args, kwargs, option);
 };
+
 module.exports.close = (reason, message) => connection.close(reason, message);
 
 connection.onopen = s => {

@@ -21,10 +21,22 @@ const connection = new autobahn.Connection({
     authmethods: ["wampcra"],
     authid: 'chameleon',
     onchallenge: onchallenge,
+
     max_retries: -1, // default 15, -1 means forever
     initial_retry_delay: 1, // default 1.5
     max_retry_delay: 10, // default 300
-    retry_delay_growth: 1.1 // default 1.5
+    retry_delay_growth: 1.1, // default 1.5
+
+    autoping_interval: 3,
+    autoping_timeout: 3,
+    autoping_size: 4,
+
+    on_user_error: (error, customErrorMessage) => {
+        logger.warn(`Autobahn user error: ${error} || ${customErrorMessage}`);
+    },
+    on_internal_error: (error, customErrorMessage) => {
+        logger.warn(`Autobahn internal error: ${error} || ${customErrorMessage}`);
+    }
 });
 
 let wampWasConnectedBefore = false;
@@ -45,20 +57,22 @@ connection.onopen = s => {
         logger.info(`Connection to crossbar router re-opened. [${CROSSBAR_URL}]`);
     }
 
-    for(const procName of Object.keys(bookingRPC)) session.register(procName, bookingRPC[procName]);
+    for(const procName of Object.keys(bookingRPC)) session.register(procName, bookingRPC[procName], {force_reregister: true}).then(undefined , error => logger.debug(`Registration ${procName} error: ${JSON.stringify(error)}`));
     for(const topic of Object.keys(bookingSubscribes)) session.subscribe(topic, bookingSubscribes[topic]);
-    for(const procName of Object.keys(pusherRPC)) session.register(procName, pusherRPC[procName]);
+    for(const procName of Object.keys(pusherRPC)) session.register(procName, pusherRPC[procName], {force_reregister: true}).then(undefined , error => logger.debug(`Registration ${procName} error: ${JSON.stringify(error)}`));
     for(const topic of Object.keys(pusherSubscribes)) session.subscribe(topic, pusherSubscribes[topic]);
 
     if(!heartBeatTimer) heartBeatTimer = setInterval(() => {
-        session.publish('heart_beat',[],{time: +new Date(), interval: HEARTBEAT_INTERVAL, healthy: mongoose.connection.readyState === 1});
+        session.publish('heart_beat', [], {time: +new Date(), interval: HEARTBEAT_INTERVAL, healthy: mongoose.connection.readyState === 1});
     }, HEARTBEAT_INTERVAL);
 };
 
-connection.onclose = (reason, details) => {
+connection.onclose = reason => {
     session = null;
+
     if(heartBeatTimer) clearInterval(heartBeatTimer);
     heartBeatTimer = null;
+
     if(!reportedLost && wampWasConnectedBefore) {
         if(reason === 'closed') logger.info('Connection to crossbar closed.');
         else logger.warn('Connection to crossbar closed: ' + reason);
