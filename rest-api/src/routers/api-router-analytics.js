@@ -10,7 +10,7 @@ const validateToken = require('../validateToken');
 const authoriseApiAccess = require('./authoriseApiAccess');
 
 const ANALYTICS_ACCESS_FULL = ['analytics:full'];
-const ANALYTICS_ACCESS_MANAGER = ANALYTICS_ACCESS_FULL.concat(['analytics.restricted-1']);
+const ANALYTICS_ACCESS_MANAGER = ANALYTICS_ACCESS_FULL.concat(['analytics:restricted-1']);
 
 module.exports = router;
 
