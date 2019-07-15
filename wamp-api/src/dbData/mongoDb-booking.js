@@ -250,11 +250,13 @@ exports.getBudgetMinutes = async budgetId => {
         });
         if(budget.client && mongoose.Types.ObjectId.isValid(budget.client)) {
             const kickBack = await BudgetClient.findOne({_id: budget.client}, {kickBack: true}).lean();
-            result.kickBack = !!kickBack.kickBack;
-            if(kickBack.kickBack) {
-                Object.keys(result.jobs).forEach(jobKey => {
-                    result.jobs[jobKey] = Math.round(result.jobs[jobKey] * (1 - kickBack.kickBack)); //TODO double check
-                })
+            if(kickBack) {
+                result.kickBack = !!kickBack.kickBack;
+                if (kickBack.kickBack) {
+                    Object.keys(result.jobs).forEach(jobKey => {
+                        result.jobs[jobKey] = Math.round(result.jobs[jobKey] * (1 - kickBack.kickBack)); //TODO double check
+                    })
+                }
             }
         }
     }
