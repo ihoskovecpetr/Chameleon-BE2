@@ -1255,6 +1255,9 @@ function getLogStatus(log) {
                 if(log.operatorJob.type !== 'MP') logStatus.leadMP = 5;
             }
             break;
+        case 'PG':
+            logStatus.leadMP = 5;
+            break;
         //TODO solve DEV and SUP mapped to 2D, 3D, leads....
     }
     // producer approve log of supervisor of the project

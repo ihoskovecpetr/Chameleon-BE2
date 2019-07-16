@@ -36,6 +36,8 @@ module.exports = async projectId => {
                 const work = workLog.map(log => {
                     let logKod = log.Kod.trim();
                     if(logKod === 'OV' && log.Zkr.trim() === 'TASK WORK') logKod = 'TW';
+                    if(logKod === 'OV' && log.Zkr.trim() === 'PROGRAMATOR') logKod = 'PG';
+
                     // INTERNI_GRADING - ObjectId = 586ce3fca6bf9a09681bd7e0, K2rid = 73005854097557 set as OV !!!!!!
                     if(project.K2rid == '73005854097557') logKod = 'OV';
                     //detect new workTypes - support, development - Kod = 'IT'
