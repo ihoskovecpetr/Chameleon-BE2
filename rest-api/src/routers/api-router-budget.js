@@ -5,7 +5,7 @@ const router = express.Router();
 const mongoose = require('mongoose');
 const db = require('../dbData/mongoDb-budget');
 const wamp = require('../wamp');
-const moment = require('moment');
+const moment = require('moment-timezone');
 
 const pricelistPdf = require('../pdf/pricelistPdf');
 const budgetPdf = require('../pdf/budgetPdf');
@@ -18,6 +18,9 @@ const logger = require('../logger');
 const BUDGET_ACCESS_FULL = ['budget:full'];
 const BUDGET_ACCESS_USER = BUDGET_ACCESS_FULL.concat(['budget:user']);
 const BUDGET_ACCESS_READONLY = BUDGET_ACCESS_USER.concat(['budget:readonly']);
+
+
+moment.tz.setDefault('Europe/Prague');
 
 module.exports = router;
 
