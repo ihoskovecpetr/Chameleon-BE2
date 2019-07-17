@@ -1270,10 +1270,10 @@ function getLogRole(log, userIds) {
     const logOperator = log.operator ? log.operator.toString() : null; //user ID
     const logUserRole = [];
     //TODO solve DEV and SUP mapped to 2D, 3D, leads....
-    if(log.project.manager == userIds.id    &&    ['2D','3D','MP','GR','OV','TW','SV'].indexOf(log.job.type) >= 0) logUserRole.push('manager');
-    if(log.project.supervisor == userIds.id &&    ['2D','3D','MP',     'OV','TW','SV'].indexOf(log.job.type) >= 0) logUserRole.push('supervisor');
-    if(log.project.lead2D == userIds.id     &&   (['2D','MP'].indexOf(log.job.type) >= 0 || ((log.job.type === 'OV' || log.job.type === 'TW') && log.operatorJob && (log.operatorJob.type === '2D' || log.operatorJob.type === 'GR')))) logUserRole.push('lead2D');
-    if(log.project.lead3D == userIds.id     &&   (['3D','MP'].indexOf(log.job.type) >= 0 || ((log.job.type === 'OV' || log.job.type === 'TW') && log.operatorJob && log.operatorJob.type === '3D'))) logUserRole.push('lead3D');
+    if(log.project.manager == userIds.id    &&    ['2D','3D','MP','GR','OV','TW','SV','PG'].indexOf(log.job.type) >= 0) logUserRole.push('manager');
+    if(log.project.supervisor == userIds.id &&    ['2D','3D','MP',     'OV','TW','SV','PG'].indexOf(log.job.type) >= 0) logUserRole.push('supervisor');
+    if(log.project.lead2D == userIds.id     &&   (['2D','MP','PG'].indexOf(log.job.type) >= 0 || ((log.job.type === 'OV' || log.job.type === 'TW') && log.operatorJob && (log.operatorJob.type === '2D' || log.operatorJob.type === 'GR')))) logUserRole.push('lead2D');
+    if(log.project.lead3D == userIds.id     &&   (['3D','MP','PG'].indexOf(log.job.type) >= 0 || ((log.job.type === 'OV' || log.job.type === 'TW') && log.operatorJob && log.operatorJob.type === '3D'))) logUserRole.push('lead3D');
     if(log.project.leadMP == userIds.id     &&   (['MP'].indexOf(log.job.type) >= 0      || ((log.job.type === 'OV' || log.job.type === 'TW') && log.operatorJob && log.operatorJob.type === 'MP'))) logUserRole.push('leadMP');
     if(logOperator != userIds.id && userIds.role.indexOf('booking:main-producer') >= 0 && log.project.supervisor && log.project.supervisor == logOperator) logUserRole.push('producer');
     return logUserRole;
