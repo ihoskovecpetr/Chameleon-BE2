@@ -50,13 +50,19 @@ then
     echo "#!/usr/bin/env bash" > ./dist/docker-images/load-docker-images.sh
     #prune all current docker images etc...
     echo docker system prune -a -f --volumes >> ./dist/docker-images/load-docker-images.sh
+
     for app_image in "${app_full_list[@]}"
     do
+        if test -f ${app_image}/VERSION ; then
+            version=$(<./${app_image}/VERSION)
+        else
+            version=$(cat ./${app_image}/package.json | grep version | head -1 | awk -F: '{ print $2 }' | sed 's/[\",]//g' | tr -d '[[:space:]]')
+        fi
+        echo Exporting image archive ${app_image}-${version}.tar
         #copy docker image
-        cp ./docker-image-archives/$app_image-latest.tar ./dist/docker-images/$app_image-latest.tar
-        echo docker load -i ./$app_image-latest.tar >> ./dist/docker-images/load-docker-images.sh
+        cp ./docker-image-archives/${app_image}-${version}.tar ./dist/docker-images/${app_image}-${version}.tar
+        echo docker load -i ./${app_image}-${version}.tar >> ./dist/docker-images/load-docker-images.sh
     done
-
     # copy server files
     cp ./docker-compose.yml ./dist/docker-compose.yml
     cp ./traefik-prod.toml ./dist/traefik.toml
