@@ -627,8 +627,8 @@ async function getBudgetMinutes(budgetId) {
         });
         if(budget.client && mongoose.Types.ObjectId.isValid(budget.client)) {
             const client = await BudgetClient.findOne({_id: budget.client}, {kickBack: true}).lean();
-            result.kickBack = client && client.kickBack;
-            if(client && client.kickBack) {
+            result.kickBack = client && !!client.kickBack;
+            if(client && !!client.kickBack) {
                 Object.keys(result.jobs).forEach(jobKey => {
                     result.jobs[jobKey] = Math.round(result.jobs[jobKey] * (1 - client.kickBack)); //TODO double check
                 })
