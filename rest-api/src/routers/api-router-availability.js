@@ -57,9 +57,11 @@ router.post('/event/:id', authorizeApiAccess(), async (req, res, next) => {
                 await db.logOp('addEvent', '333333333333333333333333', {id: id, event: event}, null);
                 res.status(200).end();
             } else {
-                const error = new Error(`Add Event (availability) - no resource or user, uid: ${req.body.uid}, avbId: ${avbId}`);
-                error.statusCode = 400;
-                next(error);
+                //const error = new Error(`Add Event (availability) - no resource or user, uid: ${req.body.uid}, avbId: ${avbId}`);
+                //error.statusCode = 400;
+                //next(error);
+                logger.debug(`Add Event (availability) - no resource or user, uid: ${req.body.uid}, avbId: ${avbId}`);
+                res.status(404).end();
             }
         } else {
             const error = new Error(`Add Event (availability) - no or valid data provided`);
@@ -95,9 +97,11 @@ router.delete('/event/:id', authorizeApiAccess(), async (req, res, next) => {
                 await db.logOp('removeEvent', '333333333333333333333333', result, null);
                 res.status(200).end();
             } else {
-                const error = new Error(`Remove Event (availability) - avb event not found`);
-                error.statusCode = 400;
-                next(error);
+                //const error = new Error(`Remove Event (availability) - avb event ${avbId}  not found`);
+                //error.statusCode = 400;
+                //next(error);
+                logger.debug(`Remove Event (availability) - avb event ${avbId} not found`); //TODO USER ??????
+                res.status(404).end();
             }
         } else {
             const error = new Error(`Remove Event (availability) - no or invalid avb-id was provided [${req.params.id}]`);
@@ -143,9 +147,11 @@ router.put('/event/:id', authorizeApiAccess(), async (req, res, next) => {
                 db.logOp('updateEvent', '333333333333333333333333', data, null);
                 res.status(200).end();
             } else {
-                const error = new Error(`Update Event (availability) - avb event not found`);
-                error.statusCode = 404;
-                next(error);
+                //const error = new Error(`Update Event (availability) - avb event ${avbId} not found`);
+                //error.statusCode = 404;
+                //next(error);
+                logger.debug(`Update Event (availability) - avb event ${avbId} not found`); //TODO USER ??????
+                res.status(404).end();
             }
         } else {
             const error = new Error(`Update Event (availability) - no or invalid avb-id was provided [${req.params.id}]`);
@@ -165,9 +171,9 @@ function authorizeApiAccess() {
         const requestIp = (req.header('x-real-ip') || req.header('x-forwarded-for') || req.connection.remoteAddress).split(",")[0];
         const requestPhrase = req.header('x-availability-phrase');
         const requestToken = req.header('x-availability-token');
-        logger.debug(`Authorize AVB Api, request IP: ${requestIp}, request Phrase: ${requestPhrase}, request Token: ${requestToken}`);
-        logger.debug(`x-real-ip: ${req.header('x-real-ip')}`);
-        logger.debug(`x-forwarded-for: ${req.header('x-forwarded-for')}`);
+        //logger.debug(`Authorize AVB Api, request IP: ${requestIp}, request Phrase: ${requestPhrase}, request Token: ${requestToken}`);
+        //logger.debug(`x-real-ip: ${req.header('x-real-ip')}`);
+        //logger.debug(`x-forwarded-for: ${req.header('x-forwarded-for')}`);
         if(requestPhrase && requestToken) {
             const localToken = crypto.createHmac("md5", secret).update(requestPhrase).digest('hex');
             if(requestToken === localToken) {
@@ -184,6 +190,9 @@ function authorizeApiAccess() {
             }
         }
         logger.warn(`AuthorizeApiAccess (AVB) - Unauthorized.`);
+        logger.debug(`Authorize AVB Api, request IP: ${requestIp}, request Phrase: ${requestPhrase}, request Token: ${requestToken}`);
+        logger.debug(`x-real-ip: ${req.header('x-real-ip')}`);
+        logger.debug(`x-forwarded-for: ${req.header('x-forwarded-for')}`);
         res.status(401).end();
     };
 }
