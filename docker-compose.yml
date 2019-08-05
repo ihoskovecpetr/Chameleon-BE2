@@ -1,6 +1,53 @@
 version: '3.4'
 services:
   ######################################################################################################################
+  # LOGGING - FLUENTD
+  ######################################################################################################################
+  fluentd:
+    image: ${FLUENTD_IMAGE}
+    container_name: fluentd
+    volumes:
+      - './logs:/fluentd/log'
+    restart: always
+    environment:
+      - MAIL_SERVER
+      - MAIL_USER
+      - MAIL_PASSWORD
+      - LOGGING_MAIL_RECIPIENT
+      - CHAMELEON_HOST
+    networks:
+      net:
+        ipv4_address: ${FLUENTD_IPV4}
+
+  ######################################################################################################################
+  # CROSSBAR
+  ######################################################################################################################
+  crossbar:
+    image: ${CROSSBAR_IMAGE}
+    container_name: crossbar
+    labels:
+      - traefik.enable=true
+      - traefik.backend=wamp-api
+      - traefik.frontend.entryPoints=ws,wss
+      - 'traefik.frontend.rule=Host:${CHAMELEON_HOST};PathPrefix:/ws'
+      - traefik.port=3000
+      - traefik.docker.network=chameleon_net
+    networks:
+      net:
+        ipv4_address: ${CROSSBAR_IPV4}
+    restart: always
+    depends_on:
+      - fluentd
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: '${FLUENTD_IPV4}:24224'
+        fluentd-async-connect: 'true'
+        fluentd-retry-wait: '1s'
+        fluentd-max-retries: '30'
+        tag: chameleon.{{.Name}}
+
+  ######################################################################################################################
   # REVERSE PROXY - TRAEFIK
   ######################################################################################################################
   reverse-proxy:
@@ -29,25 +76,6 @@ services:
         fluentd-retry-wait: '1s'
         fluentd-max-retries: '30'
         tag: chameleon.{{.Name}}
-
-  ######################################################################################################################
-  # LOGGING - FLUENTD
-  ######################################################################################################################
-  fluentd:
-    image: ${FLUENTD_IMAGE}
-    container_name: fluentd
-    volumes:
-      - './logs:/fluentd/log'
-    restart: always
-    environment:
-      - MAIL_SERVER
-      - MAIL_USER
-      - MAIL_PASSWORD
-      - LOGGING_MAIL_RECIPIENT
-      - CHAMELEON_HOST
-    networks:
-      net:
-        ipv4_address: ${FLUENTD_IPV4}
 
   ######################################################################################################################
   # WEB SERVER - NODE
@@ -91,6 +119,7 @@ services:
     restart: always
     depends_on:
       - fluentd
+    command: ["./wait-for.sh", "fluentd:24224", "--", "node", "server.js"]
 
   ######################################################################################################################
   # REST API - NODE
@@ -136,6 +165,42 @@ services:
     depends_on:
       - fluentd
       - crossbar
+    command: ["./wait-for.sh", "fluentd:24224", "--", "node", "server.js"]
+
+  ######################################################################################################################
+  # WAMP API (CROSSBAR, NODE)
+  ######################################################################################################################
+  wamp-api:
+    image: ${WAMP_API_IMAGE}
+    container_name: wamp-api
+    networks:
+      - net
+    environment:
+      - MONGO_DB_HOST
+      - MONGO_DB_PORT
+      - MONGO_DB_DATABASE
+      - MONGO_DB_USER
+      - MONGO_DB_PASSWORD
+      - K2_DB_HOST
+      - K2_DB_INSTANCE
+      - K2_DB_DATABASE
+      - K2_DB_USER
+      - K2_DB_PASSWORD
+      - NODE_ENV
+      - LOGGER_LEVEL
+      - FLUENTD_IPV4
+      - CROSSBAR_IPV4
+      - CROSSBAR_SECRET_CHAMELEON
+      - WAMP_BOOKING_HEARTBEAT_INTERVAL_MS
+      - MAIL_SERVER
+      - MAIL_USER
+      - MAIL_PASSWORD
+      - PUSHER_MESSAGE_DEBUG_EMAIL
+    restart: always
+    depends_on:
+      - fluentd
+      - crossbar
+    command: ["./wait-for.sh", "fluentd:24224", "--", "node", "server.js"]
 
   ######################################################################################################################
   # SCHEDULER - NODE
@@ -173,68 +238,7 @@ services:
     depends_on:
       - fluentd
       - crossbar
-
-  ######################################################################################################################
-  # CROSSBAR
-  ######################################################################################################################
-  crossbar:
-    image: ${CROSSBAR_IMAGE}
-    container_name: crossbar
-    labels:
-      - traefik.enable=true
-      - traefik.backend=wamp-api
-      - traefik.frontend.entryPoints=ws,wss
-      - 'traefik.frontend.rule=Host:${CHAMELEON_HOST};PathPrefix:/ws'
-      - traefik.port=3000
-      - traefik.docker.network=chameleon_net
-    networks:
-      net:
-        ipv4_address: ${CROSSBAR_IPV4}
-    restart: always
-    depends_on:
-      - fluentd
-    logging:
-      driver: fluentd
-      options:
-        fluentd-address: '${FLUENTD_IPV4}:24224'
-        fluentd-async-connect: 'true'
-        fluentd-retry-wait: '1s'
-        fluentd-max-retries: '30'
-        tag: chameleon.{{.Name}}
-
-  ######################################################################################################################
-  # WAMP API (CROSSBAR, NODE)
-  ######################################################################################################################
-  wamp-api:
-    image: ${WAMP_API_IMAGE}
-    container_name: wamp-api
-    networks:
-      - net
-    environment:
-      - MONGO_DB_HOST
-      - MONGO_DB_PORT
-      - MONGO_DB_DATABASE
-      - MONGO_DB_USER
-      - MONGO_DB_PASSWORD
-      - K2_DB_HOST
-      - K2_DB_INSTANCE
-      - K2_DB_DATABASE
-      - K2_DB_USER
-      - K2_DB_PASSWORD
-      - NODE_ENV
-      - LOGGER_LEVEL
-      - FLUENTD_IPV4
-      - CROSSBAR_IPV4
-      - CROSSBAR_SECRET_CHAMELEON
-      - WAMP_BOOKING_HEARTBEAT_INTERVAL_MS
-      - MAIL_SERVER
-      - MAIL_USER
-      - MAIL_PASSWORD
-      - PUSHER_MESSAGE_DEBUG_EMAIL
-    restart: always
-    depends_on:
-      - fluentd
-      - crossbar
+    command: ["./wait-for.sh", "fluentd:24224", "--", "node", "server.js"]
 
 networks:
   net:
