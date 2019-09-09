@@ -1,7 +1,7 @@
 {
   "name": "chameleon-scheduler",
   "log-tag": "scheduler",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Chameleon Scheduler",
   "author": "Miroslav Kozel <mirek.kozel@gmail.com>",
   "main": "server.js",

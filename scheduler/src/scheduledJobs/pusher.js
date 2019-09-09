@@ -643,7 +643,7 @@ module.exports = async (conditionsOnly, regular) => {
                 const checkTask = invoiceCheckTasks.filter(task => !task.resolved && task.project === project.id && task.dataOrigin && task.dataOrigin.invoiceDueTo && task.dataOrigin.invoiceDueTo == invoiceDueTo);
                 if(checkTask.length > 0 && areInvoicesDifferent(checkTask[0].dataOrigin.invoiceName, invoiceObject[invoiceDueTo])) {
                     try {
-                        const data = await db.updateTask(sendTask[0].id, {'dataOrigin.invoiceName': invoiceObject[invoiceDueTo]});
+                        const data = await db.updateTask(checkTask[0].id, {'dataOrigin.invoiceName': invoiceObject[invoiceDueTo]});
                         const updatedTask = data.updatedTask;
                         if(updatedTask && updatedTask.valid) {
                             delete updatedTask.valid;
