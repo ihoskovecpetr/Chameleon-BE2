@@ -295,7 +295,7 @@ module.exports = async (conditionsOnly, regular) => {
             const onAirFiltered = project.onair.filter(onair => onair.state != 'deleted' && onair.date && (projectCloseToEnd || moment(onair.date).diff(today,'days') <= MAKING_OF_BEFORE_ON_AIR_DAYS) && (project.onair.length == 1 || onair.name));
             onAirFiltered.forEach(async onair => {
                 // Does exists a task for the project and the onair id?
-                if(!publishManagerShowTasks.some(task =>  task.project === project.id && (typeof task.dataOrigin.onAir === 'string' || onair._id.toString() == task.dataOrigin.onAir._id.toString()))) {
+                if(!makingOfSupervisorTasks.some(task =>  task.project === project.id && (typeof task.dataOrigin.onAir === 'string' || onair._id.toString() == task.dataOrigin.onAir._id.toString()))) {
                     //CREATE NEW TASK - MAKING_OF_SUPERVISOR
                     try {
                         const newTask = await db.addTask({
