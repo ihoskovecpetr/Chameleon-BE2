@@ -27,6 +27,22 @@ exports.isFreeDay = date => {
     return isWeekend(date) || isHoliday(date);
 };
 
+exports.isWeekend = date => {
+    if(typeof date === 'string') {
+        date = new Date(date);
+        date.setHours(0, 0, 0, 0);
+    }
+    return isWeekend(date);
+};
+
+exports.isHoliday = date => {
+    if(typeof date === 'string') {
+        date = new Date(date);
+        date.setHours(0, 0, 0, 0);
+    }
+    return isHoliday(date);
+};
+
 // *=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*
 
 function getEasterForYear(year) { //SUNDAY

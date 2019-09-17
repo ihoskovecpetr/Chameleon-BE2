@@ -1,7 +1,7 @@
 {
   "name": "chameleon-scheduler",
   "log-tag": "scheduler",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Chameleon Scheduler",
   "author": "Miroslav Kozel <mirek.kozel@gmail.com>",
   "main": "server.js",
@@ -10,7 +10,10 @@
   },
   "dependencies": {
     "autobahn": "^18.10.2",
+    "color": "^3.1.2",
+    "exceljs": "^2.0.1",
     "fluent-logger": "^3.2.1",
+    "fs-extra": "^8.1.0",
     "moment": "^2.22.2",
     "mongoose": "^5.3.9",
     "mssql": "^4.3.0",

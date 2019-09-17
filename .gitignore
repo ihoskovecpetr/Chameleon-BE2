@@ -17,3 +17,4 @@ dist_*
 !.gitattributes
 misc/db-backup
 misc/data
+data-backups

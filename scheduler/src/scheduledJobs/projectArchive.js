@@ -12,7 +12,7 @@ module.exports = async () => {
     logger.debug('Project Archive Job Fired - Skipped for now');
     return;
     const processTasks = await db.getProcessTasks();
-    processTasks.forEach(async task => {
+    for (const task of processTasks) {
         const reviewOpened = task.followed.some(reviewTask => reviewTask.resolved === null);
         if(!reviewOpened) {
             const someReviewCanceled = task.followed.some(reviewTask => reviewTask.dataTarget && reviewTask.dataTarget.canceled);
@@ -67,7 +67,7 @@ module.exports = async () => {
                 }
             }
         }
-    });
+    }
 };
 // *********************************************************************************************************************
 // HELPERS

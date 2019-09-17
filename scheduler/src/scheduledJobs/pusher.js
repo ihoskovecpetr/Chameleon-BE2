@@ -122,7 +122,7 @@ module.exports = async (conditionsOnly, regular) => {
                 }
             });
         });
-        vfxArchiveSupervisorTasks.forEach(async task => {
+        for (const task of vfxArchiveSupervisorTasks) {
             if(!task.found && !task.resolved) { //REMOVE TASK
                 try {
                     await db.removeTask(task.id);
@@ -133,7 +133,7 @@ module.exports = async (conditionsOnly, regular) => {
                     logger.warn(`PusherCheck:removeTask 'VFX_ARCHIVE_SUPERVISOR' error: ${e}`);
                 }
             }
-        });
+        }
         // *************************************************************************************************************
         // FEEDBACK SHOOT SUPERVISOR
         // *************************************************************************************************************
@@ -163,7 +163,7 @@ module.exports = async (conditionsOnly, regular) => {
                 }
             });
         });
-        feedbackShootSupervisorTasks.forEach(async task => {
+        for (const task of feedbackShootSupervisorTasks) {
             if(!task.found && !task.resolved) { //REMOVE TASK
                 try {
                     await db.removeTask(task.id);
@@ -174,7 +174,7 @@ module.exports = async (conditionsOnly, regular) => {
                     logger.warn(`PusherCheck:removeTask 'FEEDBACK_SHOOT_SUPERVISOR' error: ${e}`);
                 }
             }
-        });
+        }
     } catch (e) {
         logger.warn(`PusherCheck:shootProjects Error: ${e}`);
     }
@@ -191,7 +191,7 @@ module.exports = async (conditionsOnly, regular) => {
         // *************************************************************************************************************
         const SET_ONAIR_BEFORE_END_OF_PROJECT_DAYS = 10;
         const onAirSetTasks = allTasks['ONAIR_SET'] ? allTasks['ONAIR_SET'].map(task => {task.found = false; return task}) : [];
-        projects.forEach(async project => {
+        for (const project of projects) {
             const foundTask = findTaskForOnAirProject(project, onAirSetTasks);
             if(foundTask) {
                 foundTask.found = true;
@@ -236,17 +236,17 @@ module.exports = async (conditionsOnly, regular) => {
                     logger.warn(`PusherCheck:addTask 'ONAIR_SET' error: ${e}`);
                 }
             }
-        });
+        }
         // *************************************************************************************************************
         // PUBLISH
         // *************************************************************************************************************
         const PUBLISH_BEFORE_ON_AIR_DAYS = 15;
         const PUBLISH_BEFORE_LAST_BOOKED_DAY = 7;
         const publishManagerShowTasks = allTasks['PUBLISH_MANAGER_SHOW'] ? allTasks['PUBLISH_MANAGER_SHOW'] : [];
-        projects.forEach(async project => {
+        for (const project of projects) {
             const projectCloseToEnd = moment(project.lastDate).diff(today,'days') <= PUBLISH_BEFORE_LAST_BOOKED_DAY;
             const onAirFiltered = project.onair.filter(onair => onair.state != 'deleted' && onair.date && (projectCloseToEnd || moment(onair.date).diff(today,'days') <= PUBLISH_BEFORE_ON_AIR_DAYS) && (project.onair.length == 1 || onair.name));
-            onAirFiltered.forEach(async onair => {
+            for (const onair of onAirFiltered) {
                 // Does exists task for project and onair id?
                 if(!publishManagerShowTasks.some(task =>  task.project === project.id && (typeof task.dataOrigin.onAir === 'string' || onair._id.toString() == task.dataOrigin.onAir._id.toString()))) {
                     //CREATE NEW TASK - PUBLISH_MANAGER
@@ -272,8 +272,8 @@ module.exports = async (conditionsOnly, regular) => {
                         logger.warn(`PusherCheck:updateProjectOnairState 'PUBLISH_MANAGER_SHOW' error: ${e}`);
                     }
                 }
-            });
-            publishManagerShowTasks.forEach(async task => { //go through all publishManagerShowTasks and update dataOrigin.onAir if changed - do it for followed tasks as well
+            }
+            for (const task of publishManagerShowTasks) { //go through all publishManagerShowTasks and update dataOrigin.onAir if changed - do it for followed tasks as well
                 const changedOnair = getChangedOnair(task, projects); // return new onair from project if changed from the task.dataOrigin.onAir
                 if(changedOnair) {
                     try {
@@ -282,8 +282,8 @@ module.exports = async (conditionsOnly, regular) => {
                         logger.warn(`PusherCheck:updateFollowedTask 'PUBLISH_MANAGER_SHOW' error: ${e}`);
                     }
                 }
-            });
-        });
+            }
+        }
         // *************************************************************************************************************
         // MAKING OF
         // *************************************************************************************************************
@@ -335,7 +335,7 @@ module.exports = async (conditionsOnly, regular) => {
         // SHOWREEL SHOTS
         // *************************************************************************************************************
         const showreelShotsTasks = allTasks['SHOWREEL_SHOTS'] ? allTasks['SHOWREEL_SHOTS'] : [];
-        projects.filter(project => project.totalDuration > SMALL_PROJECT_HOURS && moment(project.lastDate).diff(today,'days') < 0).forEach(async project => {
+        for (const project of projects.filter(project => project.totalDuration > SMALL_PROJECT_HOURS && moment(project.lastDate).diff(today, 'days') < 0)) {
             if(!showreelShotsTasks.some(task => task.project === project.id)) { // Does exists a task for the project?
                 //CREATE NEW TASK - SHOWREEL_SHOTS
                 try {
@@ -354,12 +354,12 @@ module.exports = async (conditionsOnly, regular) => {
                     logger.warn(`PusherCheck:addTask 'SHOWREEL_SHOTS' error: ${e}`);
                 }
             }
-        });
+        }
         // *************************************************************************************************************
         // FEEDBACK SUPERVISOR
         // *************************************************************************************************************
         const feedbackSupervisorTasks = allTasks['FEEDBACK_SUPERVISOR'] ? allTasks['FEEDBACK_SUPERVISOR'] : [];
-        projects.filter(project => project.totalDuration > SMALL_PROJECT_HOURS && moment(project.lastDate).diff(today,'days') < 0).forEach(async project => {
+        for (const project of projects.filter(project => project.totalDuration > SMALL_PROJECT_HOURS && moment(project.lastDate).diff(today, 'days') < 0)) {
             if(!feedbackSupervisorTasks.some(task => task.project === project.id)) { // Does exists a task for the project?
                 //CREATE NEW TASK - FEEDBACK_SUPERVISOR
                 try {
@@ -378,12 +378,12 @@ module.exports = async (conditionsOnly, regular) => {
                     logger.warn(`PusherCheck:addTask 'FEEDBACK_SUPERVISOR' error: ${e}`);
                 }
             }
-        });
+        }
         // *************************************************************************************************************
         // FEEDBACK MANAGER
         // *************************************************************************************************************
         const feedbackManagerTasks = allTasks['FEEDBACK_MANAGER'] ? allTasks['FEEDBACK_MANAGER'] : [];
-        projects.filter(project => project.totalDuration > SMALL_PROJECT_HOURS && moment(project.lastDate).diff(today,'days') < 0).forEach(async project => {
+        for (const project of projects.filter(project => project.totalDuration > SMALL_PROJECT_HOURS && moment(project.lastDate).diff(today, 'days') < 0)) {
             if(!feedbackManagerTasks.some(task => task.project === project.id)) { // Does exists a task for the project?
                 //CREATE NEW TASK - FEEDBACK_MANAGER
                 try {
@@ -402,16 +402,16 @@ module.exports = async (conditionsOnly, regular) => {
                     logger.warn(`PusherCheck:addTask 'FEEDBACK_MANAGER' error: ${e}`);
                 }
             }
-        });
+        }
         // *************************************************************************************************************
         // FEEDBACK PR MANAGER CONTACT
         // *************************************************************************************************************
         const FEEDBACK_PR_MANAGER_CONTACT_DAYS_AFTER_LAST_ONAIR = 60;
         const feedbackPrManagerContactTasks = allTasks['FEEDBACK_PR_MANAGER_CONTACT'] ? allTasks['FEEDBACK_PR_MANAGER_CONTACT'] : [];
-        projects.filter(project => {
+        for (const project of projects.filter(project => {
             const lastOnair = project.onair.reduce((out, onair) => !out || moment(onair.date).isAfter(out) ? onair.date : out, null);
-            return lastOnair && moment().startOf('day').diff(lastOnair,'days') > FEEDBACK_PR_MANAGER_CONTACT_DAYS_AFTER_LAST_ONAIR;
-        }).forEach(async project => {
+            return lastOnair && moment().startOf('day').diff(lastOnair, 'days') > FEEDBACK_PR_MANAGER_CONTACT_DAYS_AFTER_LAST_ONAIR;
+        })) {
             if(!feedbackPrManagerContactTasks.some(task => task.project === project.id)) { // Does exists a task for the project?
                 //CREATE NEW TASK - FEEDBACK_PR_MANAGER_CONTACT
                 try {
@@ -430,7 +430,7 @@ module.exports = async (conditionsOnly, regular) => {
                     logger.warn(`PusherCheck:addTask 'FEEDBACK_PR_MANAGER_CONTACT' error: ${e}`);
                 }
             }
-        });
+        }
         // *************************************************************************************************************
         // ARCHIVE
         // *************************************************************************************************************
@@ -439,14 +439,14 @@ module.exports = async (conditionsOnly, regular) => {
         const archiveManagerPrepareTasks = allTasks['ARCHIVE_MANAGER_PREPARE'] ? allTasks['ARCHIVE_MANAGER_PREPARE'] : [];
         const makingOfProducerTasks = allTasks['MAKING_OF_PRODUCER'] ? allTasks['MAKING_OF_PRODUCER'] : [];
         const makingOfOperatorTasks = allTasks['MAKING_OF_OPERATOR'] ? allTasks['MAKING_OF_OPERATOR'] : [];
-        projects.filter(project => {
-            if(moment().startOf('day').diff(project.lastDate,'days') < ARCHIVE_DAYS_AFTER_LAST_BOOKED_DAY) return false;
-            if(project.onair && Array.isArray(project.onair) && project.onair.length > 0  && project.totalDuration > LARGE_PROJECT_HOURS && !makingOfSupervisorTasks.some(task => task.project === project.id)) return false; // MAKING_OF_SUPERVISOR should exist for large project and this time, probably just added, so skip for now
-            if(makingOfSupervisorTasks.some(task => task.project === project.id && !task.resolved)) return false; // some MAKING_OF_SUPERVISOR has not decided
-            if(makingOfProducerTasks.some(task => task.project === project.id && !task.resolved)) return false; // some MAKING_OF_PRODUCER has not decided
-            if(makingOfProducerTasks.filter(task => task.project === project.id && task.resolved && task.dataTarget).length !== makingOfOperatorTasks.filter(task => task.project === project.id && task.resolved).length) return false; // some making of are not finished yet or it has not been decided
+        for (const project of projects.filter(project => {
+            if (moment().startOf('day').diff(project.lastDate, 'days') < ARCHIVE_DAYS_AFTER_LAST_BOOKED_DAY) return false;
+            if (project.onair && Array.isArray(project.onair) && project.onair.length > 0 && project.totalDuration > LARGE_PROJECT_HOURS && !makingOfSupervisorTasks.some(task => task.project === project.id)) return false; // MAKING_OF_SUPERVISOR should exist for large project and this time, probably just added, so skip for now
+            if (makingOfSupervisorTasks.some(task => task.project === project.id && !task.resolved)) return false; // some MAKING_OF_SUPERVISOR has not decided
+            if (makingOfProducerTasks.some(task => task.project === project.id && !task.resolved)) return false; // some MAKING_OF_PRODUCER has not decided
+            if (makingOfProducerTasks.filter(task => task.project === project.id && task.resolved && task.dataTarget).length !== makingOfOperatorTasks.filter(task => task.project === project.id && task.resolved).length) return false; // some making of are not finished yet or it has not been decided
             return true;
-        }).forEach(async project => {
+        })) {
             if(!archiveManagerCleanVersionTasks.some(task => task.project === project.id)) {
                 //CREATE NEW TASK - ARCHIVE_MANAGER_CLEAN_VERSION
                 try {
@@ -483,14 +483,14 @@ module.exports = async (conditionsOnly, regular) => {
                     logger.warn(`PusherCheck:addTask 'ARCHIVE_MANAGER_PREPARE' error: ${e}`);
                 }
             }
-        });
+        }
         // *************************************************************************************************************
         // TEAM FEEDBACK 3D
         // *************************************************************************************************************
         const TEAM_3D_BOOKED_SIZE = 100;
         const TEAM_3D_DAYS = 5;
         const teamFeedback3DTasks = allTasks['TEAM_FEEDBACK_3D'] ? allTasks['TEAM_FEEDBACK_3D'] : [];
-        projects.filter(project => project.totalDuration3D > TEAM_3D_BOOKED_SIZE && moment(project.lastDate3D).diff(today,'days') < TEAM_3D_DAYS).forEach(async project => {
+        for (const project of projects.filter(project => project.totalDuration3D > TEAM_3D_BOOKED_SIZE && moment(project.lastDate3D).diff(today, 'days') < TEAM_3D_DAYS)) {
             if(project.lead3D && !teamFeedback3DTasks.some(task => task.project === project.id)) { // Does exists a task for the project?
                 //CREATE NEW TASK - TEAM_FEEDBACK_3D
                 let team;
@@ -517,14 +517,14 @@ module.exports = async (conditionsOnly, regular) => {
                     }
                 }
             }
-        });
+        }
         // *************************************************************************************************************
         // TEAM FEEDBACK 2D
         // *************************************************************************************************************
         const TEAM_2D_PROJECT_SIZE = 300;
         const TEAM_2D_DAYS = 5;
         const teamFeedback2DTasks = allTasks['TEAM_FEEDBACK_2D'] ? allTasks['TEAM_FEEDBACK_2D'] : [];
-        projects.filter(project => project.totalDuration2D > TEAM_2D_PROJECT_SIZE && moment(project.lastDate2D).diff(today,'days') < TEAM_2D_DAYS).forEach(async project => {
+        for (const project of projects.filter(project => project.totalDuration2D > TEAM_2D_PROJECT_SIZE && moment(project.lastDate2D).diff(today, 'days') < TEAM_2D_DAYS)) {
             if(project.lead2D && !teamFeedback2DTasks.some(task => task.project === project.id)) { // Does exists a task for the project?
                 //CREATE NEW TASK - TEAM_FEEDBACK_3D
                 let team;
@@ -551,14 +551,14 @@ module.exports = async (conditionsOnly, regular) => {
                     }
                 }
             }
-        });
+        }
         // *************************************************************************************************************
         // TEAM FEEDBACK SUPERVISOR
         // *************************************************************************************************************
         const TEAM_SUPERVISOR_PROJECT_SIZE = 400;
         const TEAM_SUPERVISOR_DAYS = 5;
         const teamFeedbackSupervisorTasks = allTasks['TEAM_FEEDBACK_SUPERVISOR'] ? allTasks['TEAM_FEEDBACK_SUPERVISOR'] : [];
-        projects.filter(project => project.totalDuration > TEAM_SUPERVISOR_PROJECT_SIZE && moment(project.lastDate).diff(today,'days') < TEAM_SUPERVISOR_DAYS).forEach(async project => {
+        for (const project of projects.filter(project => project.totalDuration > TEAM_SUPERVISOR_PROJECT_SIZE && moment(project.lastDate).diff(today, 'days') < TEAM_SUPERVISOR_DAYS)) {
             if(project.supervisor && !teamFeedbackSupervisorTasks.some(task => task.project === project.id)) { // Does exists a task for the project?
                 //CREATE NEW TASK - TEAM_FEEDBACK_SUPERVISOR
                 let team;
@@ -585,14 +585,14 @@ module.exports = async (conditionsOnly, regular) => {
                     }
                 }
             }
-        });
+        }
         // *************************************************************************************************************
         // INVOICE - SET
         // *************************************************************************************************************
         const INVOICE_SET_PROJECT_SIZE = 0;
         const INVOICE_SET_CUT_OFF_DATE = "2017-01-01";
         const invoiceSetTasks = allTasks['INVOICE_SET'] ? allTasks['INVOICE_SET'].map(task => {task.found = false; return task}) : [];
-        projects.filter(project => project.confirmed && (!project.invoice || project.invoice.length === 0) && project.totalDuration > INVOICE_SET_PROJECT_SIZE && moment(project.lastDate).diff(moment(INVOICE_SET_CUT_OFF_DATE,'YYYY-MM-DD'),'days') >= 0).forEach(async project => {
+        for (const project of projects.filter(project => project.confirmed && (!project.invoice || project.invoice.length === 0) && project.totalDuration > INVOICE_SET_PROJECT_SIZE && moment(project.lastDate).diff(moment(INVOICE_SET_CUT_OFF_DATE, 'YYYY-MM-DD'), 'days') >= 0)) {
             const index = invoiceSetTasks.reduce((out, task, i) => task.project === project.id ? i : out, -1);
             if(index < 0) {
                 try {
@@ -610,7 +610,7 @@ module.exports = async (conditionsOnly, regular) => {
                     logger.warn(`PusherCheck:addTask 'INVOICE_SET' error: ${e}`);
                 }
             }
-        });
+        }
         // *************************************************************************************************************
         // INVOICE - SEND + CHECK
         // *************************************************************************************************************
@@ -702,7 +702,7 @@ module.exports = async (conditionsOnly, regular) => {
         const CLOSE_TO_FINAL_DAYS = 7;
         const CLOSE_TO_FINAL_CUT_OFF_DATE = '2017-01-25';
         const closeToFinalTasks = allTasks['CLOSE_TO_FINAL'] ? allTasks['CLOSE_TO_FINAL'] : [];
-        projects.filter(project => moment(project.lastDate).diff(today,'days') <= CLOSE_TO_FINAL_DAYS  && moment(project.lastDate).diff(moment(CLOSE_TO_FINAL_CUT_OFF_DATE,'YYYY-MM-DD'),'days') >= 0).forEach(async project => {
+        for (const project of projects.filter(project => moment(project.lastDate).diff(today, 'days') <= CLOSE_TO_FINAL_DAYS && moment(project.lastDate).diff(moment(CLOSE_TO_FINAL_CUT_OFF_DATE, 'YYYY-MM-DD'), 'days') >= 0)) {
             if(!closeToFinalTasks.some(task => task.project === project.id)) { // Does exists a task for the project?
                 try {
                     const newTask = await db.addTask({
@@ -720,7 +720,7 @@ module.exports = async (conditionsOnly, regular) => {
                     logger.warn(`PusherCheck:addTask 'CLOSE_TO_FINAL' error: ${e}`);
                 }
             }
-            closeToFinalTasks.filter(task => task.resolved === null).forEach(async task => { //go through all unresolved closeToFinalTasks and update dataOrigin.onAir if changed - do it for followed tasks as well
+            for (const task of closeToFinalTasks.filter(task => task.resolved === null)) { //go through all unresolved closeToFinalTasks and update dataOrigin.onAir if changed - do it for followed tasks as well
                 const project = projects.find(project => project.id === task.project);
                 if(project) {
                     const noOnAir = project.onair.filter(onair => onair.state !== 'deleted' && onair.date && (project.onair.length === 1 || onair.name)).length === 0;
@@ -732,13 +732,13 @@ module.exports = async (conditionsOnly, regular) => {
                         }
                     }
                 }
-            });
-        });
+            }
+        }
         // *************************************************************************************************************
         // K2 PROJECT
         // *************************************************************************************************************
         const K2projectTasks = allTasks['K2_PROJECT'] ? allTasks['K2_PROJECT'].map(task => {task.found = false; return task}) : [];
-        projects.filter(project => project.confirmed).forEach(async project => {
+        for (const project of projects.filter(project => project.confirmed)) {
             const index = K2projectTasks.reduce((out, task, i) => task.project === project.id ? i : out, -1);
             if(index < 0) {
                 //CREATE NEW TASK - K2_PROJECT
@@ -760,7 +760,7 @@ module.exports = async (conditionsOnly, regular) => {
             } else {
                 K2projectTasks[index].found = true;
             }
-        });
+        }
         // REMOVE ALL NOT FOUND - PROBABLY SET BACK TO NOT CONFIRMED
         await Promise.all(K2projectTasks.filter(task => !task.found).map(async task => {
             try {
@@ -778,7 +778,7 @@ module.exports = async (conditionsOnly, regular) => {
         const BUDGET_LINK_PROJECT_SIZE = 0;
         const BUDGET_LINK_CUT_OFF_DATE = "2017-08-01";
         const budgetLinkTasks = allTasks['BUDGET_LINK'] ? allTasks['BUDGET_LINK'] : [];
-        projects.filter(project => project.confirmed && !project.budget && project.totalDuration > BUDGET_LINK_PROJECT_SIZE && moment(project.lastDate).diff(moment(BUDGET_LINK_CUT_OFF_DATE,'YYYY-MM-DD'),'days') >= 0).forEach(async project => {
+        for (const project of projects.filter(project => project.confirmed && !project.budget && project.totalDuration > BUDGET_LINK_PROJECT_SIZE && moment(project.lastDate).diff(moment(BUDGET_LINK_CUT_OFF_DATE, 'YYYY-MM-DD'), 'days') >= 0)) {
             const index = budgetLinkTasks.reduce((out,task, i) => task.project === project.id ? i : out, -1);
             if(index < 0) {
                 //CREATE NEW TASK - BUDGET_LINK
@@ -797,7 +797,7 @@ module.exports = async (conditionsOnly, regular) => {
                     logger.warn(`PusherCheck:addTask 'BUDGET_LINK' error: ${e}`);
                 }
             }
-        });
+        }
     } catch (e) {
         logger.warn(`PusherCheck:projects Error: ${e}`);
     }
@@ -809,7 +809,7 @@ module.exports = async (conditionsOnly, regular) => {
 async function updateFollowedTasks(taskIds, update) {
     if(!taskIds || !update) return;
     if(!Array.isArray(taskIds)) taskIds = [taskIds];
-    taskIds.forEach(async taskId => {
+    for (const taskId of taskIds) {
         const updatedData = await db.updateTask(taskId, update);
         const updatedTask = updatedData.updatedTask;
         if(updatedTask && updatedTask.valid) {
@@ -817,7 +817,7 @@ async function updateFollowedTasks(taskIds, update) {
             wamp.publish(updatedTask.target + '.task', [updatedTask.id], updatedTask);
         }
         await updateFollowedTasks(updatedData.followed.filter(t => ['000000000000000000000000', '000000000000000000000001'].indexOf(t.toString()) < 0), update);
-    });
+    }
 }
 // ---------------------------------------------------------------------------------------------------------------------
 function findTaskForEvent(project, event, tasks) {

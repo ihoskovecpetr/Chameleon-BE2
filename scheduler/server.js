@@ -15,6 +15,7 @@ const worklogUpdateJob = require('./src/scheduledJobs/worklogUpdate');
 const workRequestJob = require('./src/scheduledJobs/workRequest');
 const projectArchiveJob = require('./src/scheduledJobs/projectArchive');
 const freelancerReminderJob = require('./src/scheduledJobs/freelancerReminder');
+const dbBackupJob = require('./src/scheduledJobs/dbBackup');
 
 logger.info(`Chameleon Scheduler version: ${version}, (${process.env.NODE_ENV === 'production' ? 'production' : 'development'})`);
 
@@ -29,6 +30,7 @@ const scheduledJobs = {
     "work-request": {timing: process.env.SCHEDULER_TIMING_WORK_REQUEST, job: workRequestJob},
     "project-archive": {timing: process.env.SCHEDULER_TIMING_PROJECT_ARCHIVE, job: projectArchiveJob},
     "freelancer-reminder": {timing: process.env.SCHEDULER_TIMING_FREELANCER_REMINDER, job: freelancerReminderJob},
+    "db-backup": {timing: process.env.SCHEDULER_TIMING_DB_BACKUP, job: dbBackupJob}
 };
 
 for(const job of Object.keys(scheduledJobs)) {

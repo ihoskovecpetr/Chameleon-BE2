@@ -208,6 +208,8 @@ services:
   scheduler:
     image: ${SCHEDULER_IMAGE}
     container_name: scheduler
+    volumes:
+      - './data-backups:/opt/app/data-backups'
     networks:
       - net
     environment:
@@ -218,6 +220,7 @@ services:
       - SCHEDULER_TIMING_WORK_REQUEST
       - SCHEDULER_TIMING_PROJECT_ARCHIVE
       - SCHEDULER_TIMING_FREELANCER_REMINDER
+      - SCHEDULER_TIMING_DB_BACKUP
       - MONGO_DB_HOST
       - MONGO_DB_PORT
       - MONGO_DB_DATABASE
