@@ -20,7 +20,7 @@ router.get('/users/authenticated', validateToken,  async (req, res, next) => {
         } else {
             const user = await db.getUserByUid(req.remote_user, ['name', 'role', 'ssoId', 'access', 'email']);
             if(!user) {
-                next(new Error(''))
+                next(new Error(`Can't find user for authenticated user id: ${authenticatedUserId}`))
             }
             user.exp = req.token_expiration;
             res.status(200).json(user);
