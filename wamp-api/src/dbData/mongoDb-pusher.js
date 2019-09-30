@@ -356,13 +356,14 @@ exports.confirmMessage = async (id, answer, userIds) => {
             if(message.followed) { // notification about expired confirmation has been already sent => update status
                 const unanswered = message.target.filter((t, i) => message.confirmed[i] === null);
                 let update;
+                const users = await getUsers();
                 if(unanswered.length > 0) {
                     const details = unanswered.reduce((o, id, i) => { o += i > 0 ? `, ${users[id] ? users[id].name : 'Unknown User'}` : `${users[id] ? users[id].name : 'Unknown User'}`; return o}, '');
                     update = {details: details};
                 } else {
                     update = {details: '', confirmed: [Date.now()]};
                 }
-                const normalized = await taskHelper.normalizeMessage(await updateMessage(message.followed, update), await getUsers());
+                const normalized = await taskHelper.normalizeMessage(await updateMessage(message.followed, update), users);
                 return {message: message, update: normalized[0]};
             } else {
                 return {message: message};
