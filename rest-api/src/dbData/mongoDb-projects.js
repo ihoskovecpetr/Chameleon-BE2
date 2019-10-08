@@ -11,6 +11,44 @@ const Person = require('../models/contact-person');
 const Company = require('../models/contact-company');
 //const logger = require('../logger');
 
+
+// *******************************************************************************************
+// GET ALL DATA
+// *******************************************************************************************
+exports.getData = async () => {
+    //let histories = []
+    const projects = await Project.find({deleted: null, archived: null},{__v: false}).lean();
+    /*
+    histories = await Promise.all(projects.map(project => Project.getHistory(project._id, '/name', {unique: true, limit: 3})));
+    projects =  projects.map((project, i) => {
+        project.$name = histories[i];
+        return project;
+    });
+     */
+    const persons = await Person.find({deleted: null, archived: null},{__v: false}).lean();
+    /*
+    histories = await Promise.all(persons.map(person => Person.getHistory(person._id, '/name', {unique: true, limit: 3})));
+    persons = persons.map((person, i) => {
+        person.$name = histories[i];
+        return person;
+    });
+     */
+
+    const companies = await Company.find({deleted: null, archived: null},{__v: false}).lean();
+    /*
+    histories = await Promise.all(companies.map(company => Person.getHistory(company._id, '/name', {unique: true, limit: 3})));
+    companies = companies.map((company, i) => {
+        company.$name = histories[i];
+        return company;
+    });
+     */
+    const users = await User.find({}, {role: true, name: true, ssoId: true}).lean();
+
+    return {projects, persons, companies, users}
+
+};
+
+
 // *******************************************************************************************
 // PROJECTS CRUD
 // *******************************************************************************************

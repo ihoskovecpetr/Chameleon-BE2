@@ -13,6 +13,18 @@ const PROJECTS_ACCESS_FULL = ['projects:full'];
 module.exports = router;
 
 // *********************************************************************************************************************
+// PROJECTS ALL-DATA
+// *********************************************************************************************************************
+router.get('/data', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)],  async (req, res, next) => {
+    try {
+        const result = await db.getData();
+        res.status(200).json(result);
+    } catch(error) {
+        next(error);
+    }
+});
+
+// *********************************************************************************************************************
 // PROJECTS CRUD
 // *********************************************************************************************************************
 router.post('/', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)],  async (req, res, next) => {
