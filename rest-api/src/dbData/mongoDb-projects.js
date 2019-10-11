@@ -9,45 +9,20 @@ const User = require('../models/user');
 const Project = require('../models/project');
 const Person = require('../models/contact-person');
 const Company = require('../models/contact-company');
-//const logger = require('../logger');
+const Booking = require('../models/booking-project');
+const logger = require('../logger');
 
 
 // *******************************************************************************************
 // GET ALL DATA
 // *******************************************************************************************
 exports.getData = async () => {
-    //let histories = []
-    const projects = await Project.find({deleted: null, archived: null},{__v: false}).lean();
-    /*
-    histories = await Promise.all(projects.map(project => Project.getHistory(project._id, '/name', {unique: true, limit: 3})));
-    projects =  projects.map((project, i) => {
-        project.$name = histories[i];
-        return project;
-    });
-     */
-    const persons = await Person.find({deleted: null, archived: null},{__v: false}).lean();
-    /*
-    histories = await Promise.all(persons.map(person => Person.getHistory(person._id, '/name', {unique: true, limit: 3})));
-    persons = persons.map((person, i) => {
-        person.$name = histories[i];
-        return person;
-    });
-     */
-
-    const companies = await Company.find({deleted: null, archived: null},{__v: false}).lean();
-    /*
-    histories = await Promise.all(companies.map(company => Person.getHistory(company._id, '/name', {unique: true, limit: 3})));
-    companies = companies.map((company, i) => {
-        company.$name = histories[i];
-        return company;
-    });
-     */
-    const users = await User.find({}, {role: true, name: true, ssoId: true}).lean();
-
+    const projects = await exports.getProjects();
+    const persons = await exports.getPersons();
+    const companies = await exports.getCompanies();
+    const users = await exports.getUsersRole();
     return {projects, persons, companies, users}
-
 };
-
 
 // *******************************************************************************************
 // PROJECTS CRUD
@@ -55,33 +30,78 @@ exports.getData = async () => {
 exports.createProject = async (projectData, user) => {
     projectData.projectId = nanoid(NANOID_ALPHABET, NANOID_LENGTH);
     projectData._user = user;
+    if(projectData.booking) projectData = await linkBookingToProject(projectData);
     const project = await Project.create(projectData);
-    const result = project.toJSON();
-    delete result.__v;
-    return result;
+    return await normalizeProject(project);
 };
 
 exports.getProjects = async () => {
-    const projects = await Project.find({deleted: null, archived: null},{__v: false}).lean();
-    const histories = await Promise.all(projects.map(project => Project.getHistory(project._id, '/name', {unique: true, limit: 3})));
+    return Project.find({deleted: null, archived: null},{__v: false}).populate({path: 'booking', select: {_id: true, label: true}}).lean(); //due to populate await is not necessary????
+    /*const histories = await Promise.all(projects.map(project => Project.getHistory(project._id, '/name', {unique: true, limit: 3})));
     return projects.map((project, i) => {
         project.$name = histories[i];
         return project;
-    });
+    });*/
 };
 
-exports.updateProject = async (id, projectData, user) => {
+exports.updateProject = async (id, projectData, user) => { //TODO projectData is only update, not full project data !!!!!!!!!!!!!!
     projectData._user = user;
+    if(projectData.booking) projectData = await linkBookingToProject(projectData);
     const project = await Project.findOneAndUpdate({_id: id}, projectData, {new: true});
-    const result = project.toJSON();
-    delete result.__v;
-    result.$name = await Project.getHistory(project._id, '/name', {unique: true, limit: 3});
-    return result;
+    return await normalizeProject(project);
 };
 
 exports.removeProject = async (id, user) => {
     await Project.findOneAndUpdate({_id: id}, {deleted: new Date(), _user: user});
+    //TODO delete linked booking project as well? in case wamp update live
 };
+
+async function linkBookingToProject(projectSata) {
+    if(!projectSata.booking._id) {
+        //TODO create new booking from projectData and set _id to projectData.booking = booking._id, set at least team (manager)
+        const bookingData = {
+            label: projectSata.booking.label,
+            manager: null,
+            producer: null,
+            supervisor: null,
+            lead2D: null,
+            lead3D: null,
+            leadMP: null
+        };
+        if(projectSata.team) {
+            for(const member of projectSata.team) {
+                if(!bookingData.manager && member.role.indexOf('MANAGER') >= 0) bookingData.manager = member.id;
+                if(!bookingData.producer && member.role.indexOf('PRODUCER') >= 0) bookingData.producer = member.id;
+                if(!bookingData.supervisor && member.role.indexOf('SUPERVISOR') >= 0) bookingData.supervisor = member.id;
+                if(!bookingData.lead2D && member.role.indexOf('LEAD_2D') >= 0) bookingData.lead2D = member.id;
+                if(!bookingData.lead3D && member.role.indexOf('LEAD_3D') >= 0) bookingData.lead3D = member.id;
+                if(!bookingData.leadMP && member.role.indexOf('LEAD_MP') >= 0) bookingData.leadMP = member.id;
+            }
+        }
+        const booking = await Booking.create(bookingData);
+        //TODO wamp add project to live booking - booking normalized project
+        projectSata.booking = booking._id;
+    } else {
+        projectSata.booking = projectSata.booking._id;
+        //TODO synchronize data from projects and booking in case of linked
+    }
+    return projectSata;
+}
+
+async function normalizeProject(project) {
+    const result = project.toJSON();
+    delete result.__v;
+    //result.$name = await Project.getHistory(project._id, '/name', {unique: true, limit: 3});
+    if(result.booking) {
+        const booking = await Booking.findOne({_id: result.booking}, {_id: true, label: true}).lean();
+        if(booking) result.booking = booking;
+        else {
+            result.booking = null;
+            //TODO report that booking linked with project doesnt exists - should never happen => logger.warn()
+        }
+    }
+    return result;
+}
 
 // *******************************************************************************************
 // PERSONS CRUD
@@ -94,14 +114,15 @@ exports.createPerson = async (personData, user) => {
     delete result.__v;
     return result;
 };
-
 exports.getPersons = async () => {
-    const persons = await Person.find({deleted: null, archived: null},{__v: false}).lean();
+    return await Person.find({deleted: null, archived: null},{__v: false}).lean();
+    /*
     const histories = await Promise.all(persons.map(person => Person.getHistory(person._id, '/name', {unique: true, limit: 3})));
     return persons.map((person, i) => {
         person.$name = histories[i];
         return person;
     });
+    */
 };
 
 exports.updatePerson = async (id, personData, user) => {
@@ -118,7 +139,7 @@ exports.updatePerson = async (id, personData, user) => {
     const result = person.toJSON();
     delete result.__v;
     Object.assign(result, personData);
-    result.$name = await Person.getHistory(person._id, '/name', {unique: true, limit: 3});
+    //result.$name = await Person.getHistory(person._id, '/name', {unique: true, limit: 3});
     return result;
 };
 
@@ -140,12 +161,14 @@ exports.createCompany = async (companyData, user) => {
 };
 
 exports.getCompanies = async () => {
-    const companies = await Company.find({deleted: null, archived: null},{__v: false}).lean();
+    return await Company.find({deleted: null, archived: null},{__v: false}).lean();
+    /*
     const histories = await Promise.all(companies.map(company => Person.getHistory(company._id, '/name', {unique: true, limit: 3})));
     return companies.map((company, i) => {
         company.$name = histories[i];
         return company;
     });
+     */
 };
 
 exports.updateCompany = async (id, companyData, user) => {
@@ -162,7 +185,7 @@ exports.updateCompany = async (id, companyData, user) => {
     const result = company.toJSON();
     Object.assign(result, companyData);
     delete result.__v;
-    result.$name = await Company.getHistory(company._id, '/name', {unique: true, limit: 3});
+    //result.$name = await Company.getHistory(company._id, '/name', {unique: true, limit: 3});
     return result;
 };
 
@@ -176,4 +199,14 @@ exports.removeCompany = async (id, user) => {
 // *******************************************************************************************
 exports.getUsersRole = async () => {
     return await User.find({}, {role: true, name: true, ssoId: true}).lean();
+};
+
+// *******************************************************************************************
+// BOOKING TO LINK WITH
+// *******************************************************************************************
+exports.getBookings = async id => {
+    const projectsWithLinkedBooking = await Project.find({booking: {$ne: null}}, {booking: true}).lean();
+    const linkedBookings = projectsWithLinkedBooking.map(project => project.booking.toString());
+    const bookings = await Booking.find({deleted: null, offtime: false}, {label: true}).lean();
+    return bookings.filter(booking => linkedBookings.indexOf(booking._id.toString()) < 0).map(booking => ({value: booking._id.toString(), label: booking.label}));
 };

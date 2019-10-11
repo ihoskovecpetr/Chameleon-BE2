@@ -212,3 +212,15 @@ router.get('/users/role', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FUL
         next(error);
     }
 });
+
+// *********************************************************************************************************************
+// GET BOOKING TO LINK WITH
+// *********************************************************************************************************************
+router.get('/booking', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)],  async (req, res, next) => {
+    try {
+        const bookings = await db.getBookings();
+        res.status(200).json(bookings);
+    } catch(error) {
+        next(error);
+    }
+});
