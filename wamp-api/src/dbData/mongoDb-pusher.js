@@ -1121,7 +1121,7 @@ exports.getSsoIdsForUsers = async uid => {
         const users = await Promise.all(uid.map(id => User.findOne({_id: id}, {ssoId: true}).lean()));
         return users.map(u => u && u.ssoId ? u.ssoId : null);
     } else {
-        const user =  User.findOne({_id: uid}, {ssoId: true}).lean();
+        const user =  await User.findOne({_id: uid}, {ssoId: true}).lean();
         return user && user.ssoId ? user.ssoId : null;
     }
 };
@@ -1176,7 +1176,7 @@ exports.getBudgetPrice = async id => {
 // UPDATE PROJECT'S ONAIR STATE
 // *********************************************************************************************************************
 async function updateProjectOnairState(projectId, onairId, state) {
-    const project = BookingProject.findOne({_id: projectId});
+    const project = await BookingProject.findOne({_id: projectId});
     if(project) {
         const newOnair = [];
         project.onair.forEach(onair => {
@@ -1194,7 +1194,7 @@ async function updateProjectOnairState(projectId, onairId, state) {
 // DELETE ONAIR
 // *********************************************************************************************************************
 async function deleteOnair(projectId, onairId) {
-    const project = BookingProject.findOne({_id: projectId});
+    const project = await BookingProject.findOne({_id: projectId});
     if(project) {
         project.onair = project.onair.filter(onair => onair._id.toString() != onairId.toString() || onair.state != 'deleted');
         await project.save();
