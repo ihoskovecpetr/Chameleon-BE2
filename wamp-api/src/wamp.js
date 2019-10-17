@@ -30,6 +30,13 @@ const connection = new autobahn.Connection({
     autoping_interval: 3,
     autoping_timeout: 3,
     autoping_size: 4,
+
+    on_user_error: (error, customErrorMessage) => {
+        logger.warn(`Autobahn user error: ${error} || ${customErrorMessage}`);
+    },
+    on_internal_error: (error, customErrorMessage) => {
+        logger.warn(`Autobahn internal error: ${error} || ${customErrorMessage}`);
+    }
 });
 
 let wampWasConnectedBefore = false;

@@ -1,22 +1,22 @@
 'use strict';
 const mongoose = require('mongoose');
-const dataHelper = require('../lib/dataHelper');
+const dataHelper = require('../../_common/lib/dataHelper');
 //const logger = require('../logger');
 const crypto = require('crypto');
 
 //Collections
-const BookingGroup = require('../models/booking-group');
-const BookingResource = require('../models/booking-resource');
-const Holiday = require('../models/holiday');
-const BookingProject = require('../models/booking-project');
-const BookingEvent = require('../models/booking-event');
-const BookingWorkType = require('../models/booking-work-type');
-const User = require('../models/user');
-const BookingOplog = require('../models/booking-oplog');
+const BookingGroup = require('../../_common/models/booking-group');
+const BookingResource = require('../../_common/models/booking-resource');
+const Holiday = require('../../_common/models/holiday');
+const BookingProject = require('../../_common/models/booking-project');
+const BookingEvent = require('../../_common/models/booking-event');
+const BookingWorkType = require('../../_common/models/booking-work-type');
+const User = require('../../_common/models/user');
+const BookingOplog = require('../../_common/models/booking-oplog');
 
-const Budget = require('../models/budget');
-const BudgetClient = require('../models/budget-client');
-require('../models/budget-item');
+const Budget = require('../../_common/models/budget');
+const BudgetClient = require('../../_common/models/budget-client');
+require('../../_common/models/budget-item');
 
 exports = module.exports;
 // *********************************************************************************************************************

@@ -1,6 +1,6 @@
 'use strict';
 
-const connectDb = require('./src/mongodb-connect');
+const connectDb = require('./_common/mongodb-connect');
 const wamp = require('./src/wamp');
 const mongoose = require('mongoose');
 const schedule = require('node-schedule');
@@ -19,8 +19,7 @@ const dbBackupJob = require('./src/scheduledJobs/dbBackup');
 
 logger.info(`Chameleon Scheduler version: ${version}, (${process.env.NODE_ENV === 'production' ? 'production' : 'development'})`);
 
-wamp.open();
-connectDb();
+
 
 const scheduledJobs = {
     "maintenance": {timing: process.env.SCHEDULER_TIMING_MAINTENANCE, job: maintenanceJob},
@@ -33,14 +32,21 @@ const scheduledJobs = {
     "db-backup": {timing: process.env.SCHEDULER_TIMING_DB_BACKUP, job: dbBackupJob}
 };
 
-for(const job of Object.keys(scheduledJobs)) {
-    if(scheduledJobs[job].timing) {
-        scheduledJobs.timer = schedule.scheduleJob(scheduledJobs[job].timing, () => scheduledJobs[job].job.apply(this, scheduledJobs[job].args));
-        logger.debug(`Scheduling job '${job}' - timing ${scheduledJobs[job].timing}`);
-    } else {
-        logger.info(`Scheduled job '${job}' have not set timing - DISABLED.`);
+
+(async () => {
+    await wamp.open();
+    await connectDb();
+
+    for(const job of Object.keys(scheduledJobs)) {
+        if(scheduledJobs[job].timing) {
+            scheduledJobs.timer = schedule.scheduleJob(scheduledJobs[job].timing, () => scheduledJobs[job].job.apply(this, scheduledJobs[job].args));
+            logger.debug(`Scheduling job '${job}' - timing ${scheduledJobs[job].timing}`);
+        } else {
+            logger.info(`Scheduled job '${job}' have not set timing - DISABLED.`);
+        }
     }
-}
+
+})();
 
 // *********************************************************************************************************************
 // gracefully shutdown
@@ -52,15 +58,20 @@ const signals = {
 
 Object.keys(signals).forEach(signal => {
     process.on(signal, async () => {
-        logger.info(`Received Signal ${signal}, shutting down.`);
-        // WAMP
-        await wamp.close();
-        logger.info(`WAMP disconnected.`);
-        // Mongo DB
-        logger.info('Disconnecting MongoDb...');
-        await mongoose.connection.close();
-        logger.info(`MongoDb disconnected.`);
-        // Shutdown
-        process.exit(128 + signals[signal]);
+        try {
+            logger.info(`Received Signal ${signal}, shutting down.`);
+            // WAMP
+            await wamp.close();
+            logger.info(`WAMP disconnected.`);
+            // Mongo DB
+            logger.info('Disconnecting MongoDb...');
+            await mongoose.connection.close();
+            logger.info(`MongoDb disconnected.`);
+            // Shutdown
+            process.exit(128 + signals[signal]);
+        } catch(e) {
+            logger.warn(`Error during shutdown. ${e}`);
+            process.exit(1)
+        }
     });
 });

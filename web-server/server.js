@@ -6,7 +6,7 @@ const fs = require('fs');
 const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
 
-const connectDb = require('./src/mongodb-connect');
+const connectDb = require('./_common/mongodb-connect');
 const mongoose = require('mongoose');
 
 const version = require('./package.json').version;
@@ -165,13 +165,13 @@ function compareVersion(a, b) {
 // =====================================================================================================================
 
 // *********************************************************************************************************************
-const server = app.listen(PORT, HOST, (err) => {
+const server = app.listen(PORT, HOST, async (err) => {
     if (err) {
         logger.error(err);
         process.exit(1);
     } else {
         logger.info(`Server listening on port: ${PORT}`);
-        connectDb();
+        await connectDb();
     }
 });
 
@@ -183,16 +183,21 @@ const signals = {
 
 Object.keys(signals).forEach(signal => {
     process.on(signal, async () => {
-        logger.info(`Received Signal ${signal}, shutting down.`);
-        // Mongo DB
-        logger.info('Disconnecting MongoDb...');
-        await mongoose.connection.close();
-        logger.info(`MongoDb disconnected.`);
-        // Server
-        logger.info('Stopping server gracefully...');
-        await server.close();
-        logger.info(`Server stopped.`);
-        // Shutdown
-        process.exit(128 + signals[signal]);
+        try {
+            logger.info(`Received Signal ${signal}, shutting down.`);
+            // Mongo DB
+            logger.info('Disconnecting MongoDb...');
+            await mongoose.connection.close();
+            logger.info(`MongoDb disconnected.`);
+            // Server
+            logger.info('Stopping server gracefully...');
+            await server.close();
+            logger.info(`Server stopped.`);
+            // Shutdown
+            process.exit(128 + signals[signal]);
+        } catch(e) {
+            logger.warn(`Error during shutdown. ${e}`);
+            process.exit(1)
+        }
     });
 });

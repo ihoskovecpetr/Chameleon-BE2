@@ -37,7 +37,7 @@ const ProjectSchema = new Schema({
     }],
     status: {type: String, required: true},
     statusNote: {type: String, default: ''},
-    booking: {type: Schema.Types.ObjectId, ref: 'booking-project', default: null},
+    booking: {type: Date, default: null},
     budget: {
         booking: {type: Schema.Types.ObjectId, ref: 'budget', default: null},
         client: {type: Schema.Types.ObjectId, ref: 'budget', default: null},
@@ -54,14 +54,18 @@ const ProjectSchema = new Schema({
     category: [{type: String}],
     vipTag: [{type: String}],
     vipTagNote: {type: String, default: ''},
-    K2rid: {type: String, default : null},
+    K2: {
+        rid: {type: String, default: null},
+        client: {type: String, default: null},
+        name: {type: String, default: null},
+        projectId: {type: String, default: null}
+    },
     onair: [{
         date: {type: Date, default: null},
         name: {type: String, default: null},
-        state: {type: String, default: 'free'}, //free, used, deleted
-        _id: false
+        state: {type: String, default: 'free'} //free, used, deleted
     }],
-    invoices: [{
+    invoice: [{
         date: {type: Date, default: null},
         name: {type: String, default: null},
         _id: false
@@ -76,7 +80,17 @@ const ProjectSchema = new Schema({
     }],
     paymentChecked: {type: Boolean, default: false},
     deleted: {type: Date, default: null},
-    archived: {type: Date, default: null}
+    archived: {type: Date, default: null},
+    bookingType: {type: String, default: 'UNCONFIRMED'},
+    events: [{type: Schema.Types.ObjectId, ref: 'booking-event'}],
+    work: [{
+        type: {type: Schema.Types.ObjectId, ref: 'booking-work-type'},
+        plannedDuration: {type: Number, default : 0},
+        doneDuration: {type: Number, default : 0},
+        _id: false
+    }],
+    bookingNote: {type: String, default: ''},
+    kickBack: {type: Boolean, default: false}
 }, {timestamps : {createdAt: 'created', updatedAt: 'updated'}});
 
 

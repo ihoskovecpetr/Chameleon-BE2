@@ -1,6 +1,6 @@
 'use strict';
 
-const lockedEvent = require('../lib/lockedEvent');
+const lockedEvent = require('../lockedEvent');
 
 module.exports = {
     'lockEvent': lockEvent,

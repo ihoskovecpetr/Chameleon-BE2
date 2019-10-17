@@ -2,9 +2,9 @@
 const mongoose = require('mongoose');
 
 //Collections
-const User = require('../models/user');
-const PusherGroup = require('../models/pusher-group');
-const BookingResource = require('../models/booking-resource');
+const User = require('../../_common/models/user');
+const PusherGroup = require('../../_common/models/pusher-group');
+const BookingResource = require('../../_common/models/booking-resource');
 
 // *******************************************************************************************
 // get users

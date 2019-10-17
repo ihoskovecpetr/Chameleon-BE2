@@ -2,11 +2,11 @@
 const mongoose = require('mongoose');
 
 //Collections
-const User = require('../models/user');
-const BookingResource = require('../models/booking-resource');
-const BookingEvent = require('../models/booking-event');
-const BookingProject = require('../models/booking-project');
-const BookingOplog = require('../models/booking-oplog');
+const User = require('../../_common/models/user');
+const BookingResource = require('../../_common/models/booking-resource');
+const BookingEvent = require('../../_common/models/booking-event');
+const BookingProject = require('../../_common/models/booking-project');
+const BookingOplog = require('../../_common/models/booking-oplog');
 
 
 //const logger = require('../logger');

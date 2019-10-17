@@ -2,7 +2,7 @@
 const mongoose = require('mongoose');
 
 //Collections
-const User = require('../models/user');
+const User = require('../../_common/models/user');
 
 // *******************************************************************************************
 // get user's (uid) access for authorize API access

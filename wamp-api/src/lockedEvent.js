@@ -1,6 +1,6 @@
 'use strict';
 
-const wamp = require('../wamp');
+const wamp = require('./wamp');
 
 let lockedEvents = [];
 const LOCK_VALID_TIME = 1000;

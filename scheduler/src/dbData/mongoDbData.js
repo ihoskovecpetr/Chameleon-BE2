@@ -1,24 +1,24 @@
 'use strict';
 
 const mongoose = require('mongoose');
-const dataHelper = require('../lib/dataHelper');
-const dateHelper = require('../lib/dateHelper');
-const taskHelper = require('../lib/taskHelper');
+const dataHelper = require('../../_common/lib/dataHelper');
+const dateHelper = require('../../_common/lib/dateHelper');
+const taskHelper = require('../../_common/lib/taskHelper');
 const moment = require('moment');
 
 //Collections
-const BookingProject = require('../models/booking-project');
-const BookingResource = require('../models/booking-resource');
-const BookingWorkType = require('../models/booking-work-type');
-const User = require('../models/user');
-const BookingEvent = require('../models/booking-event');
-const BookingOplog = require('../models/booking-oplog');
-const PusherWorklog = require('../models/pusher-worklog');
-const PusherTask = require('../models/pusher-task');
-const PusherMessage = require('../models/pusher-message');
-const PusherWorkRequest = require('../models/pusher-work-request');
-const BookingGroup = require('../models/booking-group');
-const Holiday = require('../models/holiday');
+const BookingProject = require('../../_common/models/booking-project');
+const BookingResource = require('../../_common/models/booking-resource');
+const BookingWorkType = require('../../_common/models/booking-work-type');
+const User = require('../../_common/models/user');
+const BookingEvent = require('../../_common/models/booking-event');
+const BookingOplog = require('../../_common/models/booking-oplog');
+const PusherWorklog = require('../../_common/models/pusher-worklog');
+const PusherTask = require('../../_common/models/pusher-task');
+const PusherMessage = require('../../_common/models/pusher-message');
+const PusherWorkRequest = require('../../_common/models/pusher-work-request');
+const BookingGroup = require('../../_common/models/booking-group');
+const Holiday = require('../../_common/models/holiday');
 
 //const logger = require('../logger');
 

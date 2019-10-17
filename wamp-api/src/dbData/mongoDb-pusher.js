@@ -3,27 +3,27 @@
 const mongoose = require('mongoose');
 const moment = require('moment');
 //const logger = require('../logger');
-const dataHelper = require('../lib/dataHelper');
-const dateHelper = require('../lib/dateHelper');
-const taskHelper = require('../lib/taskHelper');
-const followTask = require('../lib/followTask');
+const dataHelper = require('../../_common/lib/dataHelper');
+const dateHelper = require('../../_common/lib/dateHelper');
+const taskHelper = require('../../_common/lib/taskHelper');
+const followTask = require('../followTask');
 
 //Collections
-const PusherWorklog = require('../models/pusher-worklog');
-const User = require('../models/user');
-const BookingResource = require('../models/booking-resource');
-const PusherWorkclock = require('../models/pusher-workclock');
-const PusherWorkclockNotify = require('../models/pusher-workclock-notify');
-const PusherWorkRequest = require('../models/pusher-work-request');
-const PusherTask = require('../models/pusher-task');
-const PusherMessage = require('../models/pusher-message');
-const BookingProject = require('../models/booking-project');
-const BookingEvent = require('../models/booking-event');
-const PusherGroup = require('../models/pusher-group');
-const Budget = require('../models/budget');
-require('../models/booking-project');
-require('../models/booking-work-type');
-require('../models/budget-item');
+const PusherWorklog = require('../../_common/models/pusher-worklog');
+const User = require('../../_common/models/user');
+const BookingResource = require('../../_common/models/booking-resource');
+const PusherWorkclock = require('../../_common/models/pusher-workclock');
+const PusherWorkclockNotify = require('../../_common/models/pusher-workclock-notify');
+const PusherWorkRequest = require('../../_common/models/pusher-work-request');
+const PusherTask = require('../../_common/models/pusher-task');
+const PusherMessage = require('../../_common/models/pusher-message');
+const BookingProject = require('../../_common/models/booking-project');
+const BookingEvent = require('../../_common/models/booking-event');
+const PusherGroup = require('../../_common/models/pusher-group');
+const Budget = require('../../_common/models/budget');
+require('../../_common/models/booking-project');
+require('../../_common/models/booking-work-type');
+require('../../_common/models/budget-item');
 
 const logger = require('../logger');
 

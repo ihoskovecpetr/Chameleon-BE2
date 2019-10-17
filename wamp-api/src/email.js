@@ -1,9 +1,9 @@
 const email = require('emailjs');
-const logger = require('../logger');
+const logger = require('./logger');
 require('mongoose');
 const moment = require('moment');
-const dataHelper = require('./dataHelper');
-const User = require('../models/user');
+const dataHelper = require('../_common/lib/dataHelper');
+const User = require('../_common/models/user');
 
 const mailServer = email.server.connect({
     user:     process.env['MAIL_USER'],

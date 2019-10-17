@@ -76,6 +76,10 @@ module.exports.notifyAboutUpdatedProject = project => {
     if(session && project) session.publish('updateProject', [], project);
 };
 
+module.exports.notifyAboutCreatedProject = project => {
+    if(session && project) session.publish('addProject', [], project);
+};
+
 module.exports.projectBudgetOfferChanged = data => {
     if(session && data) {
         const previous = data.oldProject && data.oldProject.id && data.oldBudget && data.oldBudget && data.oldPrice && data.oldPrice.offer ? {project: {id: data.oldProject.id, label: data.oldProject.project.label}, budget: data.oldBudget, price: data.oldPrice} : null;

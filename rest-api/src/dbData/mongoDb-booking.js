@@ -1,16 +1,16 @@
 'use strict';
 const mongoose = require('mongoose');
-const dataHelper = require('../lib/dataHelper');
+const dataHelper = require('../../_common/lib/dataHelper');
 //const logger = require('../logger');
 
 //Collections
-const BookingGroup = require('../models/booking-group');
-const BookingResource = require('../models/booking-resource');
-const Holiday = require('../models/holiday');
-const BookingProject = require('../models/booking-project');
-const BookingEvent = require('../models/booking-event');
-const BookingWorkType = require('../models/booking-work-type');
-const User = require('../models/user');
+const BookingGroup = require('../../_common/models/booking-group');
+const BookingResource = require('../../_common/models/booking-resource');
+const Holiday = require('../../_common/models/holiday');
+const BookingProject = require('../../_common/models/booking-project');
+const BookingEvent = require('../../_common/models/booking-event');
+const BookingWorkType = require('../../_common/models/booking-work-type');
+const User = require('../../_common/models/user');
 
 exports = module.exports;
 

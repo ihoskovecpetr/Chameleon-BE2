@@ -2,23 +2,23 @@
 const mongoose = require('mongoose');
 const moment = require('moment');
 const logger = require('../logger');
-const dataHelper = require('../lib/dataHelper');
+const dataHelper = require('../../_common/lib/dataHelper');
 
 //Collections
-const Budget = require('../models/budget');
-const BudgetClient = require('../models/budget-client');
-const Pricelist = require('../models/pricelist');
-const Template = require('../models/budget-template');
-const PricelistUnit = require('../models/pricelist-unit');
-const BookingWorkType = require('../models/booking-work-type');
-const PricelistGroup = require('../models/pricelist-group');
-const BookingProject = require('../models/booking-project');
-const PricelistItem = require('../models/pricelist-item');
-const BudgetCondition = require('../models/budget-condition');
-const BudgetItem = require('../models/budget-item');
-const PricelistSnapshot = require('../models/pricelist-snapshot');
+const Budget = require('../../_common/models/budget');
+const BudgetClient = require('../../_common/models/budget-client');
+const Pricelist = require('../../_common/models/pricelist');
+const Template = require('../../_common/models/budget-template');
+const PricelistUnit = require('../../_common/models/pricelist-unit');
+const BookingWorkType = require('../../_common/models/booking-work-type');
+const PricelistGroup = require('../../_common/models/pricelist-group');
+const BookingProject = require('../../_common/models/booking-project');
+const PricelistItem = require('../../_common/models/pricelist-item');
+const BudgetCondition = require('../../_common/models/budget-condition');
+const BudgetItem = require('../../_common/models/budget-item');
+const PricelistSnapshot = require('../../_common/models/pricelist-snapshot');
 
-const BookingOplog = require('../models/booking-oplog');
+const BookingOplog = require('../../_common/models/booking-oplog');
 
 // +++++  P R I C E L I S T S  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 

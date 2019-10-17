@@ -8,14 +8,14 @@ const ALGORITHM = 'aes128';
 //const SALT = 'ana1yt1c5_tariff_s41t';
 
 //Collections
-const User = require('../models/user');
-const BookingProject = require('../models/booking-project');
-const BookingWorkType = require('../models/booking-work-type');
-const BudgetItem = require('../models/budget-item');
-const AnalyticsOverhead = require('../models/analytics-overhead');
-const BookingResource = require('../models/booking-resource');
-require('../models/booking-event');
-require('../models/budget');
+const User = require('../../_common/models/user');
+const BookingProject = require('../../_common/models/booking-project');
+const BookingWorkType = require('../../_common/models/booking-work-type');
+const BudgetItem = require('../../_common/models/budget-item');
+const AnalyticsOverhead = require('../../_common/models/analytics-overhead');
+const BookingResource = require('../../_common/models/booking-resource');
+require('../../_common/models/booking-event');
+require('../../_common/models/budget');
 
 // *********************************************************************************************************************
 // MANAGERS AND SUPERVISORS UTILIZATION

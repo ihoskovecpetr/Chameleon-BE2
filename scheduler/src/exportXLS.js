@@ -2,7 +2,7 @@ const Excel = require('exceljs');
 const Color = require('color');
 const moment = require('moment');
 
-const Dates = require('../lib/dateHelper');
+const Dates = require('../_common/lib/dateHelper');
 
 const ROW_HEIGHT = 42;
 const COLUMN_WIDTH = 27;

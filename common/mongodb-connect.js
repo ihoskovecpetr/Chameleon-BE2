@@ -1,6 +1,6 @@
 'use strict';
 const mongoose = require('mongoose');
-const logger = require('./logger');
+const logger = require('../src/logger');
 
 const config = {
     host: process.env.MONGO_DB_HOST,
@@ -35,6 +35,10 @@ const dbOptions = {
 };
 
 module.exports = async () => {
+    const connect = async function() {
+        await mongoose.connect(dbURI, dbOptions);
+    };
+
     mongoose.connection.on('connected', function () {
         if(disconnectTimer) {
             clearTimeout(disconnectTimer);
@@ -65,5 +69,5 @@ module.exports = async () => {
         mongoWasConnectedBefore = true;
     });
 
-    await mongoose.connect(dbURI, dbOptions);
+    await connect()
 };

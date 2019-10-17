@@ -6,7 +6,7 @@ const wamp = require('../wamp');
 const k2 = require('../k2-mssql');
 const mongoose = require('mongoose');
 const db = require('../dbData/mongoDbData');
-const dataHelper = require('../lib/dataHelper');
+const dataHelper = require('../../_common/lib/dataHelper');
 
 module.exports = async projectId => {
     const dbConnected = mongoose.connection.readyState === 1; //0: disconnected, 1: connected, 2: connecting, 3: disconnecting

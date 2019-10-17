@@ -5,7 +5,7 @@ const fs = require('fs-extra');
 const logger = require('../logger');
 const db = require('../dbData/mongoDbData');
 
-const exportXLS = require('../lib/exportXLS');
+const exportXLS = require('../exportXLS');
 const BACKUP_FILE_NAME_BASE = 'booking_backup';
 const BACKUP_PATH = '../../data-backups';
 

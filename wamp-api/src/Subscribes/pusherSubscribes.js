@@ -6,7 +6,7 @@ const db = require('../dbData/mongoDb-pusher');
 
 const wamp = require('../wamp');
 
-const pusherClient = require('../lib/pusherClient');
+const pusherClient = require('../pusherClient');
 
 module.exports = {
     'pusher.ping': onPusherPing,

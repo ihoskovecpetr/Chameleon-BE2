@@ -3,7 +3,7 @@
 const logger = require('../logger');
 const wamp = require('../wamp');
 const db = require('../dbData/mongoDbData');
-const dateHelper = require('../lib/dateHelper');
+const dateHelper = require('../../_common/lib/dateHelper');
 const moment = require('moment');
 
 module.exports = async () => {

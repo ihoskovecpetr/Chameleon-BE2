@@ -43,6 +43,13 @@ async function normalizeTask(taskData, users) {
                     label: users[taskData.project.lead2D].name
                 };
             }
+            if(taskData.project.lead3D) {
+                if (!task.data) task.data = {};
+                task.data.operator3D = {
+                    id: taskData.project.lead3D,
+                    label: users[taskData.project.lead3D].name
+                };
+            }
             break;
         case 'ARCHIVE_MANAGER_PREPARE':
             // Add lead2D, lead3D and leadMP as default operators if they exists
@@ -69,6 +76,8 @@ async function normalizeTask(taskData, users) {
             }
             break;
         case 'ARCHIVE_MANAGER':
+        case 'MAKING_OF_OPERATOR_2D':
+        case 'MAKING_OF_OPERATOR_3D':
             if(taskData.dataOrigin && (taskData.dataOrigin.operator2D || taskData.dataOrigin.operator3D || taskData.dataOrigin.operatorMP)) {
                 if (!task.data) task.data = {};
                 if(taskData.dataOrigin.operator2D) task.data.operator2D = users[taskData.dataOrigin.operator2D].name;
@@ -87,6 +96,7 @@ async function normalizeTask(taskData, users) {
     }
     task = addCurrentTarget(taskData, task, users);
     task = addArchiveCheckList(taskData, task);
+    task = addUppTeam(taskData, task, users);
     const archiveTasks = ['ARCHIVE_2D_LEAD', 'ARCHIVE_2D_OPERATOR', 'ARCHIVE_2D_BIG', 'ARCHIVE_3D_LEAD', 'ARCHIVE_3D_BIG', 'ARCHIVE_MP_LEAD', 'ARCHIVE_MP_OPERATOR', 'ARCHIVE_MP_BIG'];
     if(archiveTasks.indexOf(taskData.type) >= 0) task = await addArchiveMembersAndBigStatus(taskData, task, users);
     return task;
@@ -104,6 +114,19 @@ function addArchiveCheckList(taskData, task) {
             }
         });
     }
+    return task;
+}
+
+function addUppTeam(taskData, task, users) {
+    if(!task.data) task.data = {};
+    task.data.projectTeam = {
+        producer: taskData.project.producer ? users[taskData.project.producer].name : null,
+        manager: taskData.project.manager ? users[taskData.project.manager].name : null,
+        supervisor: taskData.project.supervisor ? users[taskData.project.supervisor].name : null,
+        lead2D: taskData.project.lead2D ? users[taskData.project.lead2D].name : null,
+        lead3D: taskData.project.lead3D ? users[taskData.project.lead3D].name : null,
+        leadMP: taskData.project.leadMP ? users[taskData.project.leadMP].name : null
+    };
     return task;
 }
 

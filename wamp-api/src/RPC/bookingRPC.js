@@ -4,7 +4,7 @@ const db = require('../dbData/mongoDb-booking');
 const k2 = require('../dbData/mssqlK2-data');
 const logger = require('../logger');
 const wamp = require('../wamp');
-const lockedEvent = require('../lib/lockedEvent');
+const lockedEvent = require('../lockedEvent');
 
 module.exports = {
     //'getData': getData,

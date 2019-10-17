@@ -1,8 +1,8 @@
 'use strict';
-const pusherClient = require('../lib/pusherClient');
+const pusherClient = require('../pusherClient');
 const db = require('../dbData/mongoDb-pusher');
 const wamp = require('../wamp');
-const email = require('../lib/email');
+const email = require('../email');
 const logger = require('../logger');
 const moment = require('moment');
 
