@@ -37,7 +37,8 @@ const ProjectSchema = new Schema({
     }],
     status: {type: String, required: true},
     statusNote: {type: String, default: ''},
-    booking: {type: Date, default: null},
+    booking: {type: Boolean, default: false},
+    bookingId: {type: Schema.Types.ObjectId, ref: 'booking-project', default: null},
     budget: {
         booking: {type: Schema.Types.ObjectId, ref: 'budget', default: null},
         client: {type: Schema.Types.ObjectId, ref: 'budget', default: null},

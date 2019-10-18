@@ -25,6 +25,12 @@ mongo_eval 'db["projects"].updateMany({}, {$rename: {K2rid: "K2", invoices: "inv
 echo -- add bookingType field to projects - default UNCONFIRMED
 mongo_eval 'db["projects"].updateMany({}, {$set: {bookingType: "UNCONFIRMED"}})'
 
+echo -- add bookingId field to projects - default null
+mongo_eval 'db["projects"].updateMany({}, {$set: {bookingId: null}})'
+
+echo -- add mergedToProject field to booking-project - default null
+mongo_eval 'db["booking-projects"].updateMany({}, {$set: {mergedToProject: null}})'
+
 echo -- add events field to projects - default []
 mongo_eval 'db["projects"].updateMany({}, {$set: {events: []}})'
 
