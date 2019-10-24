@@ -1,6 +1,7 @@
 'use strict';
 // >>>>>> SHARED BETWEEN WEB-SERVER AND REST-API SERVER <<<<<<<
 const jwt = require('jsonwebtoken');
+//const logger = require('./logger');
 
 const AUTHENTICATION_COOKIE_NAME = process.env.AUTH_COOKIE_NAME;
 const AUTH_TOKEN_SECRET = process.env.AUTH_TOKEN_SECRET;

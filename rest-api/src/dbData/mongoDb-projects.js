@@ -10,11 +10,13 @@ const Project = require('../../_common/models/project');
 const Person = require('../../_common/models/contact-person');
 const Company = require('../../_common/models/contact-company');
 const BookingProject = require('../../_common/models/booking-project');
+const BookingEvent = require('../../_common/models/booking-event');
 const logger = require('../logger');
 
-const wamp = require('../wamp');
+
 const dataHelper = require('../../_common/lib/dataHelper');
-const moment = require('moment');
+const projectToBooking = require('../../_common/lib/projectToBooking');
+//const moment = require('moment');
 
 // *******************************************************************************************
 // GET ALL DATA
@@ -33,13 +35,18 @@ exports.getData = async () => {
 exports.createProject = async (projectData, user) => {
     projectData.projectId = nanoid(NANOID_ALPHABET, NANOID_LENGTH);
     projectData._user = user;
-    if(projectData.booking && mongoose.Types.ObjectId.isValid(projectData.booking)) projectData = await linkBookingToProject(projectData);
+    if(projectData.bookingId && projectData.bookingId._id) projectData.bookingId = projectData.bookingId._id;
     const project = await Project.create(projectData);
-    return await normalizeProject(project);
+    let booking = null;
+    if(projectData.bookingId) {
+        booking = await BookingProject.findOneAndUpdate({_id: projectData.bookingId}, {mergedToProject: project._id});
+        await BookingEvent.updateMany({project: projectData.bookingId}, {$set: {project: project._id}});
+    }
+    return {project: await normalizeProject(project), booking: booking};
 };
 
 exports.getProjects = async () => {
-    return await Project.find({deleted: null, archived: null},{__v: false}).lean(); //due to populate await is not necessary????
+    return Project.find({deleted: null, archived: null}, {__v: false}).populate({path: 'bookingId', select: {_id: true, label: true}}).lean(); //due to populate await is not necessary????
     /*const histories = await Promise.all(projects.map(project => Project.getHistory(project._id, '/name', {unique: true, limit: 3})));
     return projects.map((project, i) => {
         project.$name = histories[i];
@@ -49,78 +56,30 @@ exports.getProjects = async () => {
 
 exports.updateProject = async (id, updateData, user) => {
     updateData._user = user;
-    if('booking' in updateData && mongoose.Types.ObjectId.isValid(updateData.booking)) updateData = await linkBookingToProject(updateData, true);
+    if(updateData.bookingId && updateData.bookingId._id) updateData.bookingId = updateData.bookingId._id;
     const project = await Project.findOneAndUpdate({_id: id}, updateData, {new: true});
-    return await normalizeProject(project);
+    let booking = null;
+    if(updateData.bookingId) {
+        booking = await BookingProject.findOneAndUpdate({_id: updateData.bookingId}, {mergedToProject: id});
+        await BookingEvent.updateMany({project: updateData.bookingId}, {$set: {project: id}});
+    } else if(updateData.budget && project.bookingId) { //needed only for budget to get previous state of budget.booking - so far
+        booking = await BookingProject.findOne({_id: project.bookingId}).lean();
+    }
+    return {project: await normalizeProject(project), booking: booking};
 };
 
 exports.removeProject = async (id, user) => {
     const project = await Project.findOneAndUpdate({_id: id}, {deleted: new Date(), _user: user});
+    return await normalizeProject(project);
 };
-
-async function linkBookingToProject(data, isUpdate) {
-    let projectData;
-    if(isUpdate) projectData = Object.assign(await Project.findOne({_id: isUpdate}).lean(), data);
-    else projectData = data;
-
-    if(!data.booking) { // Booking unlinked ============================================================================
-        //TODO update booking clients? (in case of link from booking to projects)
-    } else if(data.booking._id) { // Link already exists booking =======================================================
-        data.booking = data.booking._id;
-        //get project's upp team and compare to booking team. if diff merge/update both
-        //TODO synchronize data from projects and booking in case of linked - which have preference? Booking or Project?
-        //TODO for now: upp team - merge, timing - 1x fix - to add to booking from project?
-        //TODO wamp update project to live booking - booking normalized project in case of change after synchronization
-    } else { // Create new booking =====================================================================================
-        const bookingData = {
-            label: projectData.booking.label,
-            manager: null,
-            producer: null,
-            supervisor: null,
-            lead2D: null,
-            lead3D: null,
-            leadMP: null
-        };
-        if(projectData.team) {
-            for(const member of projectData.team) {
-                if(!bookingData.manager && member.role.indexOf('MANAGER') >= 0) bookingData.manager = member.id;
-                if(!bookingData.producer && member.role.indexOf('PRODUCER') >= 0) bookingData.producer = member.id;
-                if(!bookingData.supervisor && member.role.indexOf('SUPERVISOR') >= 0) bookingData.supervisor = member.id;
-                if(!bookingData.lead2D && member.role.indexOf('LEAD_2D') >= 0) bookingData.lead2D = member.id;
-                if(!bookingData.lead3D && member.role.indexOf('LEAD_3D') >= 0) bookingData.lead3D = member.id;
-                if(!bookingData.leadMP && member.role.indexOf('LEAD_MP') >= 0) bookingData.leadMP = member.id;
-            }
-        }
-        if(projectData.timing && projectData.timing.length > 0) {
-            bookingData.timing = [];
-            for(const timing of projectData.timing) {
-                bookingData.timing.push({
-                    type: timing.type,
-                    text: timing.label,
-                    category: timing.category, //>100 fix - no edit
-                    date: moment(timing.date).format('YYYY-MM-DD'),
-                    dateTo: null
-                });
-            }
-        }
-        const booking = await BookingProject.create(bookingData);
-        data.booking = booking._id;
-        wamp.notifyAboutCreatedProject({id: booking._id, project: dataHelper.normalizeDocument(booking, true)});
-    }
-    return data;
-}
 
 async function normalizeProject(project) {
     const result = project.toJSON();
     delete result.__v;
     //result.$name = await Project.getHistory(project._id, '/name', {unique: true, limit: 3});
-    if(result.booking) {
-        const booking = await BookingProject.findOne({_id: result.booking}, {_id: true, label: true}).lean();
-        if(booking) result.booking = booking;
-        else {
-            result.booking = null;
-            logger.warn(`Project '${result.name}' [${result._id}] is linked with booking [${result.booking}] which doesn't exist.`);
-        }
+    if(result.bookingId) {
+        const booking = await BookingProject.findOne({_id: result.bookingId}, {_id: true, label: true}).lean();
+        if(booking) result.bookingId = booking;
     }
     return result;
 }
@@ -224,11 +183,36 @@ exports.getUsersRole = async () => {
 };
 
 // *******************************************************************************************
+// GET BOOKING DATA
+// *******************************************************************************************
+exports.getBooking = async id => {
+    const booking = await BookingProject.findOne({_id: id}, {created: false, deleted: false, mergedToProject: false, __v: false}).lean();
+    return dataHelper.normalizeDocument(booking);
+};
+
+// *******************************************************************************************
 // BOOKING TO LINK WITH
 // *******************************************************************************************
-exports.getBookings = async id => {
-    const projectsWithLinkedBooking = await Project.find({booking: {$ne: null}}, {booking: true}).lean();
-    const linkedBookings = projectsWithLinkedBooking.map(project => project.booking.toString());
-    const bookings = await BookingProject.find({deleted: null, offtime: false}, {label: true}).lean();
-    return bookings.filter(booking => linkedBookings.indexOf(booking._id.toString()) < 0).map(booking => ({value: booking._id.toString(), label: booking.label}));
+exports.getBookings = async () => {
+    return await BookingProject.find({deleted: null, offtime: false, mergedToProject: null}, {label: true}).lean();
+};
+
+// *********************************************************************************************************************
+// get normalized project for wamp (booking)
+// *********************************************************************************************************************
+exports.getNormalizedBookingProject = source => {
+    const project = dataHelper.normalizeDocument(projectToBooking(source));
+    const id = project._id.toString();
+    delete project._id;
+    return {id: id, project: project};
+};
+
+// *********************************************************************************************************************
+// GET BOOKING EVENTS FOR ARRAY OF IDs
+// *********************************************************************************************************************
+exports.getBookingEvents = async ids => {
+    if(!ids) ids = [];
+    if(!Array.isArray(ids)) ids = [ids];
+    const events = await BookingEvent.find({_id: {$in: ids}}, {__v: false, 'days.__v': false, 'days._id': false, archived: false}).lean();
+    return dataHelper.getObjectOfNormalizedDocs(events);
 };

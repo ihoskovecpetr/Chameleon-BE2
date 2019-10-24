@@ -21,7 +21,6 @@ const BookingProject = require('../../_common/models/booking-project');
 const BookingEvent = require('../../_common/models/booking-event');
 const PusherGroup = require('../../_common/models/pusher-group');
 const Budget = require('../../_common/models/budget');
-require('../../_common/models/booking-project');
 require('../../_common/models/booking-work-type');
 require('../../_common/models/budget-item');
 

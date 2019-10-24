@@ -100,3 +100,17 @@ function generateUserName(uid) {
         return `${uid[0].toUpperCase()}${uid.substr(1)}*`;
     }
 }
+/*
+function adAuthenticateTest(user, password) {
+    const ad = new ActiveDirectory({
+        url: `ldaps://Srv-UPP01.global.upp.cz:636`,
+        baseDN: 'dc=global,dc=upp,dc=cz',
+        tlsOptions: {rejectUnauthorized: false}
+    });
+    ad.authenticate(`${user}@upp.cz`, password, (err, auth) => {
+        if(err || !auth) console.log({error: err ? `${JSON.stringify(err)}` : 'Not Authenticated'});
+        else console.log('ok');
+    })
+}
+adAuthenticateTest('miroslav.kozel', '')
+ */

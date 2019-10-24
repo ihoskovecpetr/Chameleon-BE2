@@ -72,19 +72,43 @@ function onchallenge(session, method, extra) {
 // *********************************************************************************************************************
 // PUBLISH
 // *********************************************************************************************************************
-module.exports.notifyAboutUpdatedProject = project => {
+module.exports.notifyAboutUpdatedProject = project => { //called from budget
     if(session && project) session.publish('updateProject', [], project);
 };
 
-module.exports.notifyAboutCreatedProject = project => {
+
+module.exports.publish = (topic, args, kwargs, option) => {
+    if(session) session.publish(topic, args, kwargs, option);
+};
+/*
+module.exports.notifyAboutCreatedProject = project => { // not used so far
     if(session && project) session.publish('addProject', [], project);
 };
-
+*/
 module.exports.projectBudgetOfferChanged = data => {
     if(session && data) {
         const previous = data.oldProject && data.oldProject.id && data.oldBudget && data.oldBudget && data.oldPrice && data.oldPrice.offer ? {project: {id: data.oldProject.id, label: data.oldProject.project.label}, budget: data.oldBudget, price: data.oldPrice} : null;
         const current = data.newProject && data.newProject.id && data.newBudget && data.newBudget && data.newPrice && data.newPrice.offer ? {project: {id: data.newProject.id, label: data.newProject.project.label}, budget: data.newBudget, price: data.newPrice} : null;
         if(previous || current) session.publish('notifyOfferChanged', [], {previous: previous, current: current, op: data.op});
+    }
+};
+//**********************************************************************************************************************
+module.exports.addBookingProject = data => {
+    if(session) {
+        session.publish('addProject', [], data);
+
+    }
+};
+
+module.exports.updateBookingProject = data => {
+    if(session) {
+        session.publish('updateProject', [], data);
+    }
+};
+
+module.exports.removeBookingProject = data => {
+    if(session) {
+        session.publish('removeProject', [], data);
     }
 };
 

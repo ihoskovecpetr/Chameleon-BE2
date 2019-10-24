@@ -2,10 +2,12 @@
 
 const express = require('express');
 const router = express.Router();
-const mongoose = require('mongoose');
+//const mongoose = require('mongoose');
 const db = require('../dbData/mongoDb-chameleon');
 
 const validateToken = require('../validateToken');
+
+//const logger = require('../logger');
 
 module.exports = router;
 

@@ -7,6 +7,11 @@ const db = require('../dbData/mongoDb-projects');
 
 const validateToken = require('../validateToken');
 const authoriseApiAccess = require('./authoriseApiAccess');
+const shouldUpdateBooking = require('../shouldUpdateBooking');
+
+const dataHelper = require('../../_common/lib/dataHelper');
+const wamp = require('../wamp');
+const logger = require('../logger');
 
 const PROJECTS_ACCESS_FULL = ['projects:full'];
 
@@ -28,17 +33,32 @@ router.get('/data', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)],  
 // PROJECTS CRUD
 // *********************************************************************************************************************
 router.post('/', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)],  async (req, res, next) => {
+    let result;
     try {
         if(!req.body) {
             const error = new Error('Projects - create. Missing project data.');
             error.statusCode = 400;
             next(error);
         } else {
-            const result = await db.createProject(req.body, req.remote_user);
-            res.status(201).json(result);
+            result = await db.createProject(req.body, req.remote_user);
+            res.status(201).json(result.project);
         }
     } catch(error) {
         next(error);
+    }
+    try {
+        if (result.project.booking || result.project.bookingId) {
+            if (result.project.booking && result.project.bookingId) {//update project
+                wamp.publish('exchangeProject', [], {new: db.getNormalizedBookingProject(result.project), old: {id: result.booking._id, project: dataHelper.normalizeDocument(result.booking, true)}});
+            } else if (result.project.booking) {//create project
+                wamp.publish('addProject', [], db.getNormalizedBookingProject(result.project));
+            } else if (result.project.bookingId) {//remove project
+                wamp.publish('removeProject', [], {id: result.booking._id, project: dataHelper.normalizeDocument(result.booking, true)});
+            }
+            //todo publish K2check, updatePusherData, pusherCheck, projectBudgetChanged
+        }
+    } catch(error) {
+        logger.warn(`Create project - update booking error: ${error}`);
     }
 });
 
@@ -52,6 +72,7 @@ router.get('/', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)],  asyn
 });
 
 router.put('/:id', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)],  async (req, res, next) => {
+    let result;
     try {
         const id = req.params.id && mongoose.Types.ObjectId.isValid(req.params.id) ? req.params.id : null;
         if(!id || !req.body || (req.body._id && req.body._id !== id)) {
@@ -59,11 +80,32 @@ router.put('/:id', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)],  a
             error.statusCode = 400;
             next(error);
         } else {
-            const result = await db.updateProject(id, req.body, req.remote_user);
-            res.status(200).json(result);
+            result = await db.updateProject(id, req.body, req.remote_user);
+            res.status(200).json(result.project);
         }
     } catch(error) {
         next(error);
+    }
+    try {
+        switch (shouldUpdateBooking(req.body, result.booking)) {
+            case 'add':
+                const data = db.getNormalizedBookingProject(result.project);
+                data.events = await db.getBookingEvents(result.project.events);
+                wamp.publish('addProject', [], data);
+                break;
+            case 'remove':
+                wamp.publish('removeProject', [], db.getNormalizedBookingProject(result.project));
+                break;
+            case 'update':
+                wamp.publish('updateProject', [], db.getNormalizedBookingProject(result.project));
+                break;
+            case 'exchange':
+                wamp.publish('exchangeProject', [], {new: db.getNormalizedBookingProject(result.project), old: {id: result.booking._id, project: dataHelper.normalizeDocument(result.booking, true)}});
+                break;
+        }
+        //todo publish K2check, updatePusherData, pusherCheck, projectBudgetChanged
+    } catch(error) {
+        logger.warn(`Update project - update booking error: ${error}`);
     }
 });
 
@@ -75,8 +117,9 @@ router.delete('/:id', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)],
             error.statusCode = 400;
             next(error);
         } else {
-            await db.removeProject(id, req.remote_user);
+            const result = await db.removeProject(id, req.remote_user);
             res.status(204).end();
+            //TODO if project.booking - notify live booking client about deleted project!
         }
     } catch(error) {
         next(error);
@@ -214,7 +257,30 @@ router.get('/users/role', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FUL
 });
 
 // *********************************************************************************************************************
-// GET BOOKING TO LINK WITH
+// GET BOOKING DATA
+// *********************************************************************************************************************
+router.get('/booking/:id', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)],  async (req, res, next) => {
+    try {
+        const id = req.params.id && mongoose.Types.ObjectId.isValid(req.params.id) ? req.params.id : null;
+        if(!id) {
+            const error = new Error('Projects/booking - get data. Wrong booking id.');
+            error.statusCode = 400;
+            next(error);
+        } else {
+            const booking = await db.getBooking(id);
+            if(!booking) {
+                const error = new Error(`Projects/booking - get data. Booking id [${id}] not found.`);
+                error.statusCode = 400;
+                next(error);
+            } else res.status(200).json(booking);
+        }
+    } catch(error) {
+        next(error);
+    }
+});
+
+// *********************************************************************************************************************
+// GET BOOKINGS TO LINK WITH
 // *********************************************************************************************************************
 router.get('/booking', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)],  async (req, res, next) => {
     try {
