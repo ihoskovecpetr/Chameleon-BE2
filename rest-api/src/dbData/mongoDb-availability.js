@@ -45,7 +45,7 @@ exports.getUserBySsoIdOrNull = async id => {
 exports.addEvent = async (id, event) => {
     event._id = id;
     await BookingEvent.create(event);
-    await BookingProject.findOneAndUpdate({_id: event.project}, {$push: {events: id}});
+    await BookingProject.findOneAndUpdate({_id: event.project}, {$push: {events: id}}); //project is '0000...' time-off - so no it is BookingProject
 };
 
 // *******************************************************************************************
@@ -53,7 +53,7 @@ exports.addEvent = async (id, event) => {
 // *******************************************************************************************
 exports.removeAvbEvent = async avbId => {
     const event = await BookingEvent.findOneAndRemove({avbEvent: avbId});
-    if(event) await BookingProject.findOneAndUpdate({_id: event.project}, {$pull: {events: event._id}});
+    if(event) await BookingProject.findOneAndUpdate({_id: event.project}, {$pull: {events: event._id}}); //project is '0000...' time-off - so no it is BookingProject
     return event;
 };
 

@@ -45,8 +45,8 @@ exports.getHolidays = async () => {
     const holidays = await Holiday.find().lean();
     return holidays.length > 0 ? holidays[0].days : holidays
 };
-
-exports.getProjects = async () => { //TODO Projects??? not used now - rest-api
+/*
+exports.getProjects = async () => { //TODO xBPx -  Projects??? not used now - rest-api
     const projects = await BookingProject.find({deleted: null, archived: false},{__v: false, 'jobs.__v': false, 'jobs._id': false, 'timing.__v': false, 'timing._id': false, 'invoice.__v': false, 'invoice._id': false, 'onair.__v': false, deleted: false, archived: false }).lean();
     return dataHelper.getObjectOfNormalizedDocs(projects);
 };
@@ -57,7 +57,7 @@ exports.getEvents = async () => {
     const events = await BookingEvent.find({project: {$in: projectIds}, archived: false},{__v: false, 'days.__v': false, 'days._id': false, archived: false}).lean();
     return dataHelper.getObjectOfNormalizedDocs(events);
 };
-
+*/
 exports.getJobs = async () => {
     const jobs = await BookingWorkType.find({bookable: true},{__v: false, K2ids: false, tariff: false}).lean();
     return dataHelper.getObjectOfNormalizedDocs(jobs);
@@ -71,45 +71,45 @@ exports.getUsers = async () => {
 // *******************************************************************************************
 // EVENTS
 // *******************************************************************************************
-exports.addEvent = async (id, event, noAddToProject) => {
+exports.addEvent = async (id, event, noAddToProject) => { //TODO xBPx
     event._id = id;
     await BookingEvent.create(event);
     if(!noAddToProject) {
         await BookingProject.findOneAndUpdate({_id: event.project}, {$push: {events: id}});
-        await Project.findOneAndUpdate({_id: event.project}, {$push: {events: id}}); //first try to find in bookingProject then in Project TODO
+        await Project.findOneAndUpdate({_id: event.project}, {$push: {events: id}}); //first try to find in bookingProject then in Project
     }
 };
 
-exports.updateEvent = async (id, event) => {
+exports.updateEvent = async (id, event) => { //TODO xBPx
     const oldEvent = await BookingEvent.findOneAndUpdate({_id: id}, {$set: event});
     if(oldEvent.project && oldEvent.project.toString() !== event.project) await Promise.all([
         BookingProject.findOneAndUpdate({_id: oldEvent.project}, {$pull: {events: id}}),
         BookingProject.findOneAndUpdate({_id: event.project}, {$push: {events: id}}),
-        Project.findOneAndUpdate({_id: oldEvent.project}, {$pull: {events: id}}), //first try to find in bookingProject then in Project TODO
-        Project.findOneAndUpdate({_id: event.project}, {$push: {events: id}}) //first try to find in bookingProject then in Project TODO
+        Project.findOneAndUpdate({_id: oldEvent.project}, {$pull: {events: id}}), //first try to find in bookingProject then in Project
+        Project.findOneAndUpdate({_id: event.project}, {$push: {events: id}}) //first try to find in bookingProject then in Project
     ]);
     return dataHelper.normalizeDocument(oldEvent, true);
 };
 
-exports.removeEvent = async id => {
+exports.removeEvent = async id => { //TODO xBPx
     const event = await BookingEvent.findByIdAndRemove(id);
     await BookingProject.findOneAndUpdate({_id: event.project}, {$pull: {events: id}});
-    await Project.findOneAndUpdate({_id: event.project}, {$pull: {events: id}}); //first try to find in bookingProject then in Project TODO
+    await Project.findOneAndUpdate({_id: event.project}, {$pull: {events: id}}); //first try to find in bookingProject then in Project
 };
 
-exports.splitEvent = async (id, event, id2, event2) => {
+exports.splitEvent = async (id, event, id2, event2) => { //TODO xBPx
     event2._id = id2;
     await BookingEvent.create(event2);
     await BookingProject.findOneAndUpdate({_id: event.project}, {$push: {events: id2}}); //add second part to the project
-    await Project.findOneAndUpdate({_id: event.project}, {$push: {events: id2}}); //add second part to the project - first try to find in bookingProject then in Project TODO
+    await Project.findOneAndUpdate({_id: event.project}, {$push: {events: id2}}); //add second part to the project - first try to find in bookingProject then in Project
     await BookingEvent.findOneAndUpdate({_id: id}, {$set: event}); //update first part - changed length
 };
 
-exports.joinEvents = async (id, event, id2) => {
+exports.joinEvents = async (id, event, id2) => { //TODO xBPx
     await BookingEvent.findOneAndUpdate({_id: id}, {$set: event}); //update first part by joined data
     await BookingEvent.findOneAndRemove({_id: id2}); //remove second part
     await BookingProject.findOneAndUpdate({_id: event.project}, {$pull: {events: id2}});
-    await Project.findOneAndUpdate({_id: event.project}, {$pull: {events: id2}}); //first try to find in bookingProject then in Project TODO
+    await Project.findOneAndUpdate({_id: event.project}, {$pull: {events: id2}}); //first try to find in bookingProject then in Project
 };
 
 // *******************************************************************************************
@@ -118,12 +118,11 @@ exports.joinEvents = async (id, event, id2) => {
 exports.addProject = async (id, project) => {
     project._id = id;
     const updatedProject = await updateBudgetMinutes(project);
-    const createdProject = await BookingProject.create(updatedProject); //Create from booking - just r&d project
+    const createdProject = await BookingProject.create(updatedProject); //!!!!! Create from booking - so just r&d project TODO test if it is R&D
     return dataHelper.normalizeDocument(createdProject, true);
 };
 
-//TODO PROJECT IS BOOKING PROJECT - SO MAP FROM BOOKING TO PROJECTS - probably read, update and then save
-exports.updateProject = async (id, project) => {
+exports.updateProject = async (id, project) => { //TODO xBPx
     const newProject = await updateBudgetMinutes(project);
     if(project.version === 2) {
         const oldProject = await Project.findOne({_id: id});
@@ -146,7 +145,7 @@ exports.updateProject = async (id, project) => {
 };
 
 exports.removeProject = async id => {
-    await BookingProject.findOneAndUpdate({_id: id}, {$set : {deleted: new Date()}});//Remove from booking - just r&d project
+    await BookingProject.findOneAndUpdate({_id: id}, {$set : {deleted: new Date()}});//!!!!! Remove from booking - so just r&d project TODO test if it is R&D
 };
 
 // *******************************************************************************************
@@ -233,9 +232,9 @@ exports.reorderGroups = async order => {
 // *******************************************************************************************
 // K2
 // *******************************************************************************************
-exports.getK2linkedProjects = async () => {
-    const bookingProjects = await BookingProject.find({deleted: null, mergedToProject: null, K2rid: { $ne: null}}, {K2rid: true, _id: false}).lean(); //TODO
-    const projects = await Project.find({deleted: null, 'K2.rid': {$ne: null}}, {K2: true, _id: false}).lean();
+exports.getK2linkedProjects = async () => { //TODO xBPx
+    const bookingProjects = await BookingProject.find({deleted: null, mergedToProject: null, K2rid: { $ne: null}}, {K2rid: true, _id: false}).lean();
+    const projects = await Project.find({deleted: null, booking: true, 'K2.rid': {$ne: null}}, {K2: true, _id: false}).lean();
     return bookingProjects.map(project => project.K2rid).concat(projects.map(project => project.K2.rid));
 };
 
@@ -298,9 +297,9 @@ exports.getBudgetLabel = async budgetId => {
     } else return '';
 };
 
-exports.getAvailableBudgets = async projectId => {
-    const bookingProjects = await BookingProject.find({budget: {$ne: null}, deleted: null, mergedToProject: null}, {budget: true}).lean(); //TODO
-    const projects = await Project.find({'budget.booking': {$ne: null}, deleted: null}, {budget: true}).lean();
+exports.getAvailableBudgets = async projectId => { //TODO xBPx
+    const bookingProjects = await BookingProject.find({budget: {$ne: null}, deleted: null, mergedToProject: null}, {budget: true}).lean();
+    const projects = await Project.find({booking: true, 'budget.booking': {$ne: null}, deleted: null}, {budget: true}).lean();
     const linkedBudgets = bookingProjects.filter(project => project._id != projectId).map(project => project.budget).concat(projects.filter(project => project._id != projectId).map(project => project.budget.booking));
     const budgets = await Budget.find({deleted: null, _id: {$nin: linkedBudgets}}, {label: true, version: true}).lean();
     return budgets.map(budget => ({id: budget._id, label: `${budget.label}${budget.version ? ` - ${budget.version}` : ''}`})).sort(dataHelper.sortByLabel)

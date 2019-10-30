@@ -8,6 +8,7 @@ const moment = require('moment');
 
 //Collections
 const BookingProject = require('../../_common/models/booking-project');
+const Project = require('../../_common/models/project');
 const BookingResource = require('../../_common/models/booking-resource');
 const BookingWorkType = require('../../_common/models/booking-work-type');
 const User = require('../../_common/models/user');
@@ -19,6 +20,8 @@ const PusherMessage = require('../../_common/models/pusher-message');
 const PusherWorkRequest = require('../../_common/models/pusher-work-request');
 const BookingGroup = require('../../_common/models/booking-group');
 const Holiday = require('../../_common/models/holiday');
+
+const projectToBooking = require('../../_common/lib/projectToBooking');
 
 //const logger = require('../logger');
 
@@ -36,12 +39,20 @@ exports.logOp = async (type, user, data, err) => {
 //----------------------------------------------------------------------------------------------------------------------
 
 // *********************************************************************************************************************
-// Get K2 linked projects
+// Get K2 linked projects //TODO xBPx
 // *********************************************************************************************************************
 exports.getK2linkedProjects = async projectId => {
-    const query = {deleted: null, $and: [{K2rid : {$ne: null}}, {K2rid: {$ne: '0'}}]};
+    let query = {deleted: null, mergedToProject: null, $and: [{K2rid : {$ne: null}}, {K2rid: {$ne: '0'}}]};
     if(projectId) query._id = projectId;
-    return await BookingProject.find(query, {__v:false, 'jobs.__v':false, 'jobs._id':false, 'timing.__v':false, 'timing._id':false, 'invoice.__v': false, 'invoice._id': false, 'onair.__v':false, deleted:false }).lean();
+    const bookingProjects =  await BookingProject.find(query, {__v:false, 'jobs.__v':false, 'jobs._id':false, 'timing.__v':false, 'timing._id':false, 'invoice.__v': false, 'invoice._id': false, 'onair.__v':false, deleted:false }).lean();
+    if(projectId && bookingProjects.length > 0) {
+        return bookingProjects;
+    } else {
+        query = {deleted: null, booking: true, K2: {$ne: null}, $and: [{'K2.rid': {$ne: null}}, {'K2.rid': {$ne: '0'}}]};
+        if(projectId) query._id = projectId;
+        const projects = await Project.find(query, {_id: true, name: true, team: true, budget: true, K2: true, onair: true, invoice: true, timing: true, bookingType: true, events: true, work: true, bookingNote: true, kickBack: true, created: true}).lean();
+        return bookingProjects.concat(projects.map(projectToBooking));
+    }
 };
 
 // *********************************************************************************************************************
@@ -70,10 +81,23 @@ exports.getProjectOperatorsEfficiency = async eventIds => {
 };
 
 // *********************************************************************************************************************
-// Update booking project
+// Update booking project //TODO xBPx
 // *********************************************************************************************************************
 exports.updateProject = async (id, project) => {
-    await BookingProject.findOneAndUpdate({_id: id}, {$set: project});
+    if(project.version && project.version === 2) {
+        const projectData = await Project.findOne({_id: id});
+        if(projectData) {
+            if(project.label !== undefined) projectData.name = project.label;
+            if(project.jobs !== undefined) projectData.work = project.jobs.map(job => ({type: job.job, plannedDuration: job.plannedDuration, doneDuration: job.doneDuration}));
+            if(project.timing !== undefined) projectData.timing = project.timing.map(t => ({type: t.type, text: t.label, date: t.date, dateTo: t.dateTo, category: t.category}));
+            if(project.onair !== undefined) projectData.onair = project.onair;
+            if(project.invoice !== undefined) projectData.invoice = project.invoice;
+            if(project.bookingNotes !== undefined) projectData.bookingNote = project.bookingNotes;
+            await projectData.save();
+        }
+    } else {
+        await BookingProject.findOneAndUpdate({_id: id}, {$set: project});
+    }
 };
 
 // *********************************************************************************************************************
@@ -191,13 +215,14 @@ exports.getTasks = async project => {
     }));
 };
 // *********************************************************************************************************************
-// Get Projects With Shoot Events
+// Get Projects With Shoot Events //TODO xBPx
 // *********************************************************************************************************************
 exports.getProjectsWithShootEvent = async () => {
-    const projects = await BookingProject.find({deleted: null, offtime: false, external: false, confirmed: true},{events: true, label: true, manager: true, supervisor: true}).populate('events').lean();
+    const bookingProjects = await BookingProject.find({deleted: null, mergedToProject: null, offtime: false, external: false, confirmed: true},{events: true, label: true, manager: true, supervisor: true}).populate('events').lean();
+    const projects = await Project.find({deleted: null, booking: true, bookingType: 'CONFIRMED'}, {events: true, name: true, team: true}).populate('events').lean();
     const users = await exports.getUsers();
     const today = moment().startOf('day');
-    return projects.reduce((out, project) => {
+    return bookingProjects.concat(projects.map(projectToBooking)).reduce((out, project) => {
         let eventsWithShoot = project.events.filter(event => event.isShooting).map(event => {return {
             firstDate: moment(event.startDate).startOf('day'),
             lastDate: moment(event.startDate).startOf('day').add(event.days.length - 1,'days')
@@ -216,15 +241,19 @@ exports.getProjectsWithShootEvent = async () => {
     },[]);
 };
 // *********************************************************************************************************************
-// Get Projects and On-Air
+// Get Projects and On-Air //TODO xBPx
 // *********************************************************************************************************************
 const CUT_OF_DAY = '2016-08-31'; //projects ended before cut_of_day are not returned
 exports.getProjectAndOnAir = async projectId => {
-    const query = {deleted: null, internal: false, offtime: false, confirmed: true};
+    let query = {deleted: null, mergedToProject: null, internal: false, offtime: false, confirmed: true};
     if(projectId) query._id = projectId;
+    const bookingProjects = await BookingProject.find(query, {events: true, label:true, manager: true, supervisor: true, lead2D: true, lead3D:true, leadMP: true, producer: true, onair: true, confirmed: true, invoice: true, budget: true}).populate('events').lean();
+    query = {deleted: null, booking: true, bookingType: 'CONFIRMED'};
+    if(projectId) query._id = projectId;
+    const projects = await Project.find(query, {events: true, name: true, team: true, onair: true, bookingType: true, invoice: true, budget: true}, {}).populate('events').lean();
+    const users = await exports.getUsers();
     const jobs = await  BookingWorkType.find({},{type:true}).lean();
-    const projects = await BookingProject.find(query, {events: true, label:true, manager: true, supervisor: true, lead2D: true, lead3D:true, leadMP: true, producer: true, onair: true, confirmed: true, invoice: true, budget: true}).populate('events manager supervisor lead2D lead3D leadMP producer').lean();
-    const result = projects.map(project => {
+    const result = bookingProjects.concat(projects.map(projectToBooking)).map(project => {
         let lastDate = null;
         let lastDate2D = null;
         let lastDate3D = null;
@@ -248,12 +277,14 @@ exports.getProjectAndOnAir = async projectId => {
         return {
             id: project._id.toString(),
             label: project.label,
-            manager: project.manager ? {id: project.manager._id, ssoId: project.manager.ssoId} : null,
-            supervisor: project.supervisor ? {id: project.supervisor._id, ssoId: project.supervisor.ssoId} : null,
-            lead2D: project.lead2D ? {id: project.lead2D._id, ssoId: project.lead2D.ssoId} : null,
-            lead3D: project.lead3D ? {id: project.lead3D._id, ssoId: project.lead3D.ssoId} : null,
-            leadMP: project.leadMP ? {id: project.leadMP._id, ssoId: project.leadMP.ssoId} : null,
-            producer: project.producer ? {id: project.producer._id, ssoId: project.producer.ssoId} : null,
+
+            manager: project.manager && users[project.manager] ? {id: project.manager, ssoId: users[project.manager].ssoId} : null,
+            supervisor: project.supervisor && users[project.supervisor] ? {id: project.supervisor, ssoId: users[project.supervisor].ssoId} : null,
+            lead2D: project.lead2D && users[project.lead2D] ? {id: project.lead2D, ssoId: users[project.lead2D].ssoId} : null,
+            lead3D: project.lead3D && users[project.lead3D] ? {id: project.lead3D, ssoId: users[project.lead3D].ssoId} : null,
+            leadMP: project.leadMP && users[project.leadMP] ? {id: project.leadMP, ssoId: users[project.leadMP].ssoId} : null,
+            producer: project.producer && users[project.producer] ? {id: project.producer, ssoId: users[project.producer].ssoId} : null,
+
             totalDuration: Math.round(totalDuration / 60),
             totalDuration2D: Math.round(totalDuration2D / 60),
             totalDuration3D: Math.round(totalDuration3D / 60),
@@ -270,7 +301,7 @@ exports.getProjectAndOnAir = async projectId => {
     return result.filter(project => cutOfDay.isBefore(moment(project.lastDate)));
 };
 // *********************************************************************************************************************
-// Add Task
+// Add Task //TODO xBPx
 // *********************************************************************************************************************
 exports.addTask = async task => {
     const allTasks = await PusherTask.find({},{dataOrigin: true, dataTarget: true, project: true, resolved: true, type: true, timestamp:true}).lean();
@@ -284,16 +315,18 @@ exports.addTask = async task => {
         if(targets.length > 0) task.target = targets[0].id; // get first user by role if more of them
     }
     const newTask = await PusherTask.create(task);
-    newTask.project = await BookingProject.findOne({_id: newTask.project});
+    //if not found in booking-projects, so try to find it in projects
+    newTask.project = await BookingProject.findOne({_id: newTask.project}).lean() || projectToBooking(await Project.findOne({_id: newTask.project}).lean());
     return await taskHelper.normalizeTask(newTask, await exports.getUsers());
 };
 // *********************************************************************************************************************
-// Update Task
+// Update Task //TODO xBPx
 // *********************************************************************************************************************
 exports.updateTask = async (id, data) => {
     const task = await PusherTask.findOneAndUpdate({_id: id}, {$set: data}, { new: true });
     if(!task) return new Error(`UpdateTask - Can't find task id: "${id}"`);
-    task.project = await BookingProject.findOne({_id: task.project}).lean();
+    //if not found in booking-projects, so try to find it in projects
+    task.project = await BookingProject.findOne({_id: task.project}).lean() || projectToBooking(await Project.findOne({_id: task.project}).lean());
     const normalizedTask = await taskHelper.normalizeTask(task, await exports.getUsers());
     return {updatedTask: normalizedTask, followed: task.followed.filter(t => t.toString() != '000000000000000000000000' && t.toString() != '000000000000000000000001')};
 };
@@ -304,10 +337,10 @@ exports.removeTask = async id => {
     await PusherTask.findOneAndRemove({_id: id});
 };
 // *********************************************************************************************************************
-// Update Project's On-Air state
+// Update Project's On-Air state //TODO xBPx
 // *********************************************************************************************************************
 exports.updateProjectOnairState = async (projectId, onairId, state) => {
-    const project = await BookingProject.findOne({_id: projectId});
+    const project = await BookingProject.findOne({_id: projectId}) || await Project.findOne({_id: projectId});
     if(project) {
         const newOnair = [];
         project.onair.forEach(onair => {
@@ -316,7 +349,8 @@ exports.updateProjectOnairState = async (projectId, onairId, state) => {
         });
         project.onair = newOnair;
         const updatedProject = await project.save();
-        return await dataHelper.normalizeDocument(updatedProject.toJSON());
+        // if project is doc of project instead of booking-project
+        return await dataHelper.normalizeDocument(project.projectId === undefined ? updatedProject : projectToBooking(updatedProject));
     } else throw new Error(`updateProjectOnairState:can't find project '${projectId}'`);
 };
 // *********************************************************************************************************************
@@ -524,15 +558,16 @@ exports.updateArchiveTask = async (id, data) => {
 //----------------------------------------------------------------------------------------------------------------------
 
 // *********************************************************************************************************************
-// Set Archive Flag (Project/events)
+// Set Archive Flag (Project/events) //TODO xBPx
 // *********************************************************************************************************************
 exports.setArchiveFlag = async age => {
     const result = {project: 0, event: 0};
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const latestDayToArchive = new Date(today.getTime() - (age * 24 * 60 * 60 * 1000));
-    const projects = await BookingProject.find({archived: false, deleted: null}).lean();
-    for(const project of projects) {
+    const bookingProjects = await BookingProject.find({archived: false, mergedToProject: null, deleted: null}).lean();
+    const projects = await Project.find({deleted: null, booking: true, archived: false}).lean();
+    for(const project of bookingProjects.concat(projects.map(projectToBooking))) {
         const projectEvents = await BookingEvent.find({project: project._id, archived: false}, {_id: true, startDate: true, days: true}).lean();
         let latestProjectDay = 0;
         for(const event of projectEvents) {
@@ -545,7 +580,8 @@ exports.setArchiveFlag = async age => {
             }
         }
         if(!project.offtime && latestDayToArchive - latestProjectDay > 0 && latestProjectDay > 0) {
-            await BookingProject.updateOne({_id: project._id}, {$set: {archived: true}});
+            if(project.version && project.version === 2) await Project.updateOne({_id: project._id}, {$set: {archived: true}});
+            else await BookingProject.updateOne({_id: project._id}, {$set: {archived: true}});
             result.project += 1;
         }
     }
@@ -581,21 +617,33 @@ exports.getHolidays = async () => {
 };
 
 // *********************************************************************************************************************
-// Get Projects
+// Get Projects //TODO xBPx
 // *********************************************************************************************************************
 exports.getProjects = async () => {
-    const projects = await BookingProject.find({deleted: null, archived: false},{__v: false, 'jobs.__v': false, 'jobs._id': false, 'timing.__v': false, 'timing._id': false, 'invoice.__v': false, 'invoice._id': false, 'onair.__v': false, deleted: false, archived: false }).lean();
-    return dataHelper.getObjectOfNormalizedDocs(projects);
+    //const projects = await BookingProject.find({deleted: null, archived: false},{__v: false, 'jobs.__v': false, 'jobs._id': false, 'timing.__v': false, 'timing._id': false, 'invoice.__v': false, 'invoice._id': false, 'onair.__v': false, deleted: false, archived: false }).lean();
+    //return dataHelper.getObjectOfNormalizedDocs(projects);
+    const bookingProjects = await BookingProject.find({deleted: null, archived: false, mergedToProject: null},{__v: false, 'jobs.__v': false, 'jobs._id': false, 'timing.__v': false, 'timing._id': false, 'invoice.__v': false, 'invoice._id': false, 'onair.__v': false, deleted: false, archived: false, checked: false, mergedToProject: false }).lean();
+    const projects = await Project.find({deleted: null, archived: null, booking: true}, {_id: true, name: true, team: true, budget: true, K2: true, onair: true, invoice: true, timing: true, bookingType: true, events: true, work: true, bookingNote: true, kickBack: true, created: true}).lean();
+    return dataHelper.getObjectOfNormalizedDocs(bookingProjects.concat(projects.map(projectToBooking)));
 };
 
 // *********************************************************************************************************************
-// Get Events
+// Get Events //TODO xBPx
 // *********************************************************************************************************************
 exports.getEvents = async () => {
-    const projects = await BookingProject.find({deleted: null, archived: false}, {_id: true}).lean();
-    const projectIds = projects.map(project => project._id);
-    const events = await BookingEvent.find({project: {$in: projectIds}, archived: false},{__v: false, 'days.__v': false, 'days._id': false, archived: false}).lean();
-    return dataHelper.getObjectOfNormalizedDocs(events);
+    //const projects = await BookingProject.find({deleted: null, archived: false}, {_id: true}).lean();
+    //const projectIds = projects.map(project => project._id);
+    //const events = await BookingEvent.find({project: {$in: projectIds}, archived: false},{__v: false, 'days.__v': false, 'days._id': false, archived: false}).lean();
+    //return dataHelper.getObjectOfNormalizedDocs(events);
+
+    const bookingProjects = await BookingProject.find({deleted: null, archived: false, mergedToProject: null}, {_id: true}).lean();
+    const bookingProjectIds = bookingProjects.map(bookingProject => bookingProject._id);
+
+    const projects = await Project.find({deleted: null, archived: null, booking: true}, {_id: true, bookingId: true}).lean();
+    const projectsIds = projects.map(project => project._id);
+
+    const events = await BookingEvent.find({project: {$in: bookingProjectIds.concat(projectsIds)}, archived: false},{__v: false, 'days.__v': false, 'days._id': false, archived: false}).lean();
+    return  dataHelper.getObjectOfNormalizedDocs(events);
 };
 
 // *********************************************************************************************************************

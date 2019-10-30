@@ -73,7 +73,7 @@ exports.timingReduce = timings => {
     }, {});
     return Object.keys(projects).map(p => {return {project:p, timings: projects[p]}});
 };
-
+/*
 exports.evaluateTaskConditions = (task, projectId, onairId, allTasks) => {
     if(!task.conditions) return true;
     let result = true;
@@ -187,3 +187,4 @@ function evaluateSingleCondition(task, condition, projectId, onairId, allTasks) 
     }
     return result;
 }
+ */

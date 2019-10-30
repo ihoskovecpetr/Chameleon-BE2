@@ -1,6 +1,7 @@
 'use strict';
 
 module.exports = (project, update) => {
+    if(!project) return null;
     if(project.toJSON) project = project.toJSON();
     const team = {
         producer: update ? undefined : null,

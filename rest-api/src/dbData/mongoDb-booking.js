@@ -35,13 +35,13 @@ exports.getHolidays = async () => {
     return holidays.length > 0 ? holidays[0].days : holidays
 };
 
-exports.getProjects = async () => {
+exports.getProjects = async () => { //TODO xBPx
     const bookingProjects = await BookingProject.find({deleted: null, archived: false, mergedToProject: null},{__v: false, 'jobs.__v': false, 'jobs._id': false, 'timing.__v': false, 'timing._id': false, 'invoice.__v': false, 'invoice._id': false, 'onair.__v': false, deleted: false, archived: false, checked: false, mergedToProject: false }).lean();
     const projects = await Project.find({deleted: null, archived: null, booking: true}, {_id: true, name: true, team: true, budget: true, K2: true, onair: true, invoice: true, timing: true, bookingType: true, events: true, work: true, bookingNote: true, kickBack: true, created: true}).lean();
     return dataHelper.getObjectOfNormalizedDocs(bookingProjects.concat(projects.map(projectToBooking)));
 };
 
-exports.getEvents = async () => {
+exports.getEvents = async () => { //TODO xBPx
     const bookingProjects = await BookingProject.find({deleted: null, archived: false, mergedToProject: null}, {_id: true}).lean();
     const bookingProjectIds = bookingProjects.map(bookingProject => bookingProject._id);
 

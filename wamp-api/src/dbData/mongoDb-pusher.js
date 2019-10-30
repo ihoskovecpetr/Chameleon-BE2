@@ -18,11 +18,14 @@ const PusherWorkRequest = require('../../_common/models/pusher-work-request');
 const PusherTask = require('../../_common/models/pusher-task');
 const PusherMessage = require('../../_common/models/pusher-message');
 const BookingProject = require('../../_common/models/booking-project');
+const Project = require('../../_common/models/project');
 const BookingEvent = require('../../_common/models/booking-event');
 const PusherGroup = require('../../_common/models/pusher-group');
 const Budget = require('../../_common/models/budget');
 require('../../_common/models/booking-work-type');
 require('../../_common/models/budget-item');
+
+const projectToBooking = require('../../_common/lib/projectToBooking');
 
 const logger = require('../logger');
 
@@ -33,21 +36,23 @@ exports.getPusherBookingTimeSpan = () => PUSHER_BOOKING_TIME_SPAN;
 // ---------------------------------------------------------------------------------------------------------------------
 
 // *********************************************************************************************************************
-// GET TASK BY ID
+// GET TASK BY ID //TODO xBPx
 // *********************************************************************************************************************
 exports.getTaskById = async id => {
-    const task = await PusherTask.findOne({_id: id}).populate('project').lean();
-    return taskHelper.normalizeTask(task, await getUsers());
+    const task = await PusherTask.findOne({_id: id}).lean();
+    if(!task) return null;
+    task.project = await BookingProject.findOne({_id: task.project}).lean() || projectToBooking(await Project.findOne({_id: task.project}).lean());
+    return await taskHelper.normalizeTask(task, await getUsers());
 };
 // *********************************************************************************************************************
-// GET TASKS FOR USER
+// GET TASKS FOR USER //TODO xBPx
 // *********************************************************************************************************************
 exports.getTasksForUser = async user => {
     const userData = await User.findOne({ssoId: user}, {_id: true}).lean();
     if(userData) {
         const users = await getUsers(); //for normalization
         const allTasks = await PusherTask.find({},{dataOrigin: true, dataTarget: true, project: true, resolved: true, type: true, timestamp:true}).lean(); //for conditions
-        const userTasks = await PusherTask.find({target: userData._id, resolved: null},{__v: false, resolved: false, dataTarget: false}).populate('project');
+        const userTasks = await PusherTask.find({target: userData._id, resolved: null},{__v: false, resolved: false, dataTarget: false});//.populate('project');
         for(const task of userTasks) { //update conditionsMet
             const currentConditionsMet = taskHelper.evaluateTaskConditions(task, task.project ? task.project._id : null, (task.dataOrigin && task.dataOrigin.onAir && task.dataOrigin.onAir._id ? task.dataOrigin.onAir._id : null), allTasks);
             if(task.conditionsMet !== currentConditionsMet) {
@@ -56,7 +61,13 @@ exports.getTasksForUser = async user => {
             }
         }
         const activeTasks =  userTasks.filter(task => task.conditionsMet);
-        return await Promise.all(activeTasks.map(task => taskHelper.normalizeTask(task, users)));
+        const tasks = [];
+        for(const task of activeTasks) {
+            const taskObject = task.toJSON();
+            taskObject.project = await BookingProject.findOne({_id: task.project}).lean() || projectToBooking(await Project.findOne({_id: task.project}).lean());
+            tasks.push(await taskHelper.normalizeTask(taskObject, users))
+        }
+        return tasks;
     } else throw new Error(`Can't find user ${user}`);
 };
 // *********************************************************************************************************************
@@ -100,7 +111,7 @@ exports.postponeTask = async (id, days) => {
     return await PusherTask.findOneAndUpdate({_id: id}, {$inc: {postpone: days}}, {new : true});
 };
 // *********************************************************************************************************************
-// COMPLETE TASK
+// COMPLETE TASK //TODO xBPx 3x ***********
 // *********************************************************************************************************************
 exports.completeTask = async (id, data) => {
     const task = await PusherTask.findOne({_id: id});
@@ -167,7 +178,7 @@ exports.followTaskCompleted = async id => {
     return result;
 };
 // *********************************************************************************************************************
-// ADD TASK
+// ADD TASK //TODO xBPx
 // *********************************************************************************************************************
 exports.addTask = async task => {
     const allTasks = await PusherTask.find({},{dataOrigin: true, dataTarget: true, project: true, resolved: true, type: true, timestamp:true}).lean(); //for conditions and onair status
@@ -183,26 +194,28 @@ exports.addTask = async task => {
         } else throw new Error("Add task. Can\'t find any user for the role: " + task.target.role)
     }
     task = await PusherTask.create(task);
-    task.project = await BookingProject.findOne({_id: task.project});
-    return taskHelper.normalizeTask(task, await getUsers());
+    //if not found in booking-projects, so try to find it in projects
+    task.project = await BookingProject.findOne({_id: task.project}).lean() || projectToBooking(await Project.findOne({_id: task.project}).lean());
+    return await taskHelper.normalizeTask(task, await getUsers());
 };
 // *********************************************************************************************************************
-// UPDATE TASK
+// UPDATE TASK //TODO xBPx
 // *********************************************************************************************************************
 exports.updateTask = async (id, data) => {
     const task = await PusherTask.findOneAndUpdate({_id: id}, {$set: data}, {new: true});
     if(task) {
-        task.project = await BookingProject.findOne({_id: task.project});
-        return {updatedTask: taskHelper.normalizeTask(task, await getUsers()), followed: task.followed.filter(t => t.toString() != '000000000000000000000000' && t.toString() != '000000000000000000000001')};
+        //if not found in booking-projects, so try to find it in projects
+        task.project = await BookingProject.findOne({_id: task.project}).lean() || projectToBooking(await Project.findOne({_id: task.project}).lean());
+        return {updatedTask: await taskHelper.normalizeTask(task, await getUsers()), followed: task.followed.filter(t => t.toString() != '000000000000000000000000' && t.toString() != '000000000000000000000001')};
     } else throw new Error(`UpdateTask - Can't find task id: "${id}"`);
 };
 // *********************************************************************************************************************
-// FORWARD TASK
+// FORWARD TASK //TODO xBPx
 // *********************************************************************************************************************
 exports.forwardTask = async (id, targetId) => {
     const task = await PusherTask.findOneAndUpdate({_id: id}, {target: targetId}, { new: true });
     if(task) {
-        task.project = await BookingProject.findOne({_id: task.project});
+        task.project = await BookingProject.findOne({_id: task.project}).lean() || projectToBooking(await Project.findOne({_id: task.project}).lean());
         return await taskHelper.normalizeTask(task, await getUsers());
     } else throw new Error(`ForwardTask - Can't find task id: ${id}`);
 };
@@ -263,12 +276,19 @@ exports.createBigArchiveTask = async (taskId, work) => {
     }
 };
 // *********************************************************************************************************************
-// CREATE FREELANCER TASK
+// CREATE FREELANCER TASK  //TODO xBPx
 // *********************************************************************************************************************
 exports.createFreelancerTask = async data => {
     if(data) {
-        const project = await BookingProject.findOne({_id: data.project}, {label: true, manager: true}).populate({path: 'manager', select: 'name'}).lean();
+        const project =  await BookingProject.findOne({_id: data.project}, {manager: true}).lean() || await Project.findOne({_id: data.project}, {team: true}).lean();
         if(!project) throw new Error(`No project '${data.project}' found.`);
+        let manager = project.manager;
+        if(manager === undefined && project.team !== undefined) { //Project instead of BookingProject
+            manager = project.team.find(member => member.role.indexOf('MANAGER') >= 0);
+            if(manager) manager = manager.id;
+        }
+        manager = await User.findOne({_id: manager}, {_id: true, name: true}).lean();
+        if(!manager) throw new Error(`Can't find manager for project '${data.project}'.`);
         const freelancer = await BookingResource.findOne({_id: data.freelancer}, {label: true, virtual: true, freelancer: true, confirmed: true}).lean();
         if(!freelancer) throw new Error(`No freelancer '${data.freelancer}' found.`);
         if(!freelancer.virtual && !freelancer.freelancer) throw new Error(`Resource '${freelancer.label}' is not set as freelancer.`);
@@ -280,10 +300,10 @@ exports.createFreelancerTask = async data => {
             const task = await exports.addTask({
                 project: data.project,
                 type: data.type === 'ask' ? 'FREELANCER_REQUEST' : 'FREELANCER_CONFIRM',
-                origin: project.manager._id,
+                origin: manager._id,
                 target: {role: 'booking:hr-manager'},
                 deadline: moment().startOf('day'),
-                dataOrigin: {key: taskKey, manager: project.manager.name, freelancer: {label: freelancer.label, remote: freelancer.virtual, dates: {from: from, to: to}}}
+                dataOrigin: {key: taskKey, manager: manager.name, freelancer: {label: freelancer.label, remote: freelancer.virtual, dates: {from: from, to: to}}}
             });
             delete task.valid;
             return task;
@@ -802,15 +822,17 @@ async function getWorkClockRequestedByUser(subject, user) { //get requests for s
     return requests.length > 0;
 }
 // *********************************************************************************************************************
-// GET PROJECT TEAM FOR USER
+// GET PROJECT TEAM FOR USER  //TODO xBPx
 // *********************************************************************************************************************
 exports.getProjectTeamForUser = async user => {
     const today = moment().startOf('day');
     const days = []; //array for every day in time span of {date, timings [], projects []}
     for(let i = 0; i < PUSHER_BOOKING_TIME_SPAN; i++) days.push({date: today.clone().add(i, 'days'), timings: [], projects: []});
     const userIds = await exports.getUserBySsoId(user);
-    const projects = await BookingProject.find({timing: {$gt: []}, $or: [{manager: userIds.id}, {supervisor: userIds.id}, {lead2D: userIds.id}, {lead3D: userIds.id}, {leadMP: userIds.id}], deleted: null, offtime: {$ne: true}, internal: {$ne: true}, confirmed: true}, {label:true, timing:true, lead2D: true, lead3D: true, leadMP: true, manager: true, supervisor: true, producer: true}).lean();
-    projects.forEach(project => {
+    const bookingProjects = await BookingProject.find({timing: {$gt: []}, $or: [{manager: userIds.id}, {supervisor: userIds.id}, {lead2D: userIds.id}, {lead3D: userIds.id}, {leadMP: userIds.id}], mergetToProject: null, deleted: null, offtime: {$ne: true}, internal: {$ne: true}, confirmed: true}, {label:true, timing:true, lead2D: true, lead3D: true, leadMP: true, manager: true, supervisor: true, producer: true}).lean();
+    const projects = (await Project.find({timing: {$gt: []}, team: {$gt: []}, booking: true, deleted: null, bookingType: 'CONFIRMED'}, {name: true, timing: true, team: true}).lean()).map(project => projectToBooking(project, true)).filter(project => project.manager == userIds.id || project.supervisor == userIds.id || project.lead2D == userIds.id || project.lead3D == userIds.id || project.leadMP == userIds.id);
+
+    bookingProjects.concat(projects).forEach(project => {
         const isManagerOrSupervisor = (project.manager && project.manager.toString() === userIds.id) || (project.supervisor && project.supervisor.toString() === userIds.id);
         project.timing.forEach(timing => {
             if(isManagerOrSupervisor || timing.type === 'UPP') {
@@ -1057,12 +1079,30 @@ exports.getManagerSsoIdForResourceOfNotInternalProjects = async (resourceId, cut
     }, []);
 };
 // *********************************************************************************************************************
-// GET MANAGER'S SSO-ID FOR PROJECT-IDs OF NOT INTERNAL PROJECTS
+// GET MANAGER'S SSO-ID FOR PROJECT-IDs OF NOT INTERNAL PROJECTS //TODO xBPx
 // *********************************************************************************************************************
 exports.getManagerSsoIdOfNotInternalProjects = async projectIds => {
     if(!Array.isArray(projectIds)) projectIds = [projectIds];
-    const projects = await BookingProject.find({_id: {$in: projectIds}}).populate('manager').lean();
-    return projects.filter(project => !project.deleted && !project.internal && project.manager).map(project => project.manager.ssoId);
+    const bookingProjects = await BookingProject.find({_id: {$in: projectIds}, deleted: null, internal: false, mergedToProject: false}, {manager: true}).lean();
+    const projects =  await Project.find({_id: {$in: projectIds}, booking: true, deleted: null, bookingType: {$in: ['CONFIRMED', 'UNCONFIRMED', 'RND']}}, {team: true}).lean();
+    const managerIds = [];
+    bookingProjects.forEach(project => {
+        if(project.manager) {
+            const id = project.manager.toString();
+            if(managerIds.indexOf(id) < 0) managerIds.push(id);
+        }
+    });
+    projects.forEach(project => {
+        if(project.team && project.team.length > 0) {
+            const manager = project.team.find(member => member.role.indexOf('MANAGER') >= 0);
+            if(manager) {
+                const id = manager.id;
+                if(managerIds.indexOf(id) < 0) managerIds.push(id);
+            }
+        }
+    });
+    const managers = await User.find({_id: {$in: managerIds}}, {ssoId: true}).lean();
+    return managers.map(manager => manager.ssoId);
 };
 // *********************************************************************************************************************
 // GET HR-NOTIFY MANAGERS
@@ -1074,22 +1114,30 @@ exports.getHrNotifyManagers = async outputId => {
     } else return [];
 };
 // *********************************************************************************************************************
-// GET USERS FOR PROJECT-ID
+// GET USERS FOR PROJECT-ID //TODO xBPx
 // *********************************************************************************************************************
 exports.getUsersForProjectId = async ids => {
     if(!ids || !Array.isArray(ids)) return [];
-    const projects = await Promise.all(ids.map(id => BookingProject.findOne({_id: id}, {manager: true, supervisor: true, lead2D: true, lead3D: true, leadMP: true, producer: true}).lean()));
-    const userIds = projects.reduce((out, project) => {
-        if(project.manager && out.indexOf(project.manager.toString()) < 0) out.push(project.manager.toString());
-        if(project.supervisor && out.indexOf(project.supervisor.toString()) < 0) out.push(project.supervisor.toString());
-        if(project.lead2D && out.indexOf(project.lead2D.toString()) < 0) out.push(project.lead2D.toString());
-        if(project.lead3D && out.indexOf(project.lead3D.toString()) < 0) out.push(project.lead3D.toString());
-        if(project.leadMP && out.indexOf(project.leadMP.toString()) < 0) out.push(project.leadMP.toString());
-        if(project.producer && out.indexOf(project.producer.toString()) < 0) out.push(project.producer.toString());
-        return out;
-    }, []);
-    const users = await Promise.all(userIds.map(user => User.findOne({_id: user}, {ssoId: true}).lean()));
-    return users.map(u => u.ssoId);
+    const bookingProjects = await BookingProject.find({_id: {$in: ids}}, {manager: true, supervisor: true, lead2D: true, lead3D: true, leadMP: true, producer: true}).lean();
+    const projects = await Project.find({_id: {$in: ids}}, {team: true}).lean();
+    const userIds = [];
+    bookingProjects.forEach(project => {
+        if(project.producer) if(userIds.indexOf(project.producer.toString()) < 0) userIds.push(project.producer.toString());
+        if(project.manager) if(userIds.indexOf(project.manager.toString()) < 0) userIds.push(project.manager.toString());
+        if(project.supervisor) if(userIds.indexOf(project.supervisor.toString()) < 0) userIds.push(project.supervisor.toString());
+        if(project.lead2D) if(userIds.indexOf(project.lead2D.toString()) < 0) userIds.push(project.lead2D.toString());
+        if(project.lead3D) if(userIds.indexOf(project.lead3D.toString()) < 0) userIds.push(project.lead3D.toString());
+        if(project.leadMP) if(userIds.indexOf(project.leadMP.toString()) < 0) userIds.push(project.leadMP.toString());
+    });
+    projects.forEach(project => {
+        if(project.team && project.team.length > 0) {
+            project.team.forEach(member => {
+                if(userIds.indexOf(member.id.toString()) < 0 && (member.role.indexOf('PRODUCER') > 0 || member.role.indexOf('MANAGER') > 0 || member.role.indexOf('SUPERVISOR') > 0 || member.role.indexOf('LEAD_2D') > 0 || member.role.indexOf('LEAD_3D') > 0 || member.role.indexOf('LEAD_MP') > 0)) userIds.push(member.id.toString());
+            });
+        }
+    });
+    const users = await User.find({_id: {$in: userIds}}, {ssoId: true}).lean();
+    return users.map(user => user.ssoId);
 };
 // *********************************************************************************************************************
 // GET SSO-IDs FOR RESOURCE-IDs
@@ -1133,15 +1181,16 @@ exports.isAnyOperatorFreelancer = async ids => {
     return operators.some(operator => operator.virtual || operator.freelancer);
 };
 // *********************************************************************************************************************
-// HAS PROJECT BOOKED FREELANCER
+// HAS PROJECT BOOKED FREELANCER //TODO xBPx
 // *********************************************************************************************************************
 exports.hasProjectBookedFreelancer = async (id, cutDay) => {
-    const project = await BookingProject.findOne({_id: id}, {events: true}).populate({path: 'events', select: {_id: true, operator: true, startDate: true, days: true}, populate: {path: 'operator', select: {virtual: true, freelancer: true}}}).lean();
-    if(project) {
-        const events = project.events.filter(event => event.operator !== null && (event.operator.virtual || event.operator.freelancer) && (!cutDay || moment(event.startDate, 'YYYY-MM-DD').add(event.days.length - 1, 'days').diff(cutDay, 'days') >= 0));
+    const project = await BookingProject.findOne({_id: id}, {events: true}).lean() || Project.findOne({_id: id}, {events: true}).lean();
+    if(project && project.events && project.events.length > 0) {
+        const projectEvents = await BookingEvent.find({_id: {$in: project.events}}, {_id: true, operator: true, startDate: true, days: true}).populate({path: 'operator', select: {virtual: true, freelancer: true}}).lean();
+        const events = projectEvents.filter(event => event.operator !== null && (event.operator.virtual || event.operator.freelancer) && (!cutDay || moment(event.startDate, 'YYYY-MM-DD').add(event.days.length - 1, 'days').diff(cutDay, 'days') >= 0));
         return events.length > 0;
     } else return false;
-}
+};
 // *********************************************************************************************************************
 // GET BUDGET PRICE
 // *********************************************************************************************************************
@@ -1172,10 +1221,10 @@ exports.getBudgetPrice = async id => {
     return result;
 };
 // *********************************************************************************************************************
-// UPDATE PROJECT'S ONAIR STATE
+// UPDATE PROJECT'S ONAIR STATE //TODO xBPx
 // *********************************************************************************************************************
 async function updateProjectOnairState(projectId, onairId, state) {
-    const project = await BookingProject.findOne({_id: projectId});
+    const project = await BookingProject.findOne({_id: projectId}) || await Project.findOne({_id: projectId});
     if(project) {
         const newOnair = [];
         project.onair.forEach(onair => {
@@ -1184,20 +1233,20 @@ async function updateProjectOnairState(projectId, onairId, state) {
         });
         project.onair = newOnair;
         await project.save();
-        return dataHelper.normalizeDocument(project);
+        return dataHelper.normalizeDocument(project.projectId ? projectToBooking(project) : project);
     } else {
         throw new Error('updateProjectOnairState - can\'t find project ID: ' + projectId);
     }
 }
 // *********************************************************************************************************************
-// DELETE ONAIR
+// DELETE ONAIR //TODO xBPx
 // *********************************************************************************************************************
 async function deleteOnair(projectId, onairId) {
-    const project = await BookingProject.findOne({_id: projectId});
+    const project = await BookingProject.findOne({_id: projectId}) || await Project.findOne({_id: projectId});
     if(project) {
         project.onair = project.onair.filter(onair => onair._id.toString() != onairId.toString() || onair.state != 'deleted');
         await project.save();
-        return dataHelper.normalizeDocument(project);
+        return dataHelper.normalizeDocument(project.projectId ? projectToBooking(project) : project);
     } else {
         throw new Error('deleteOnair: - can\'t find project ID: ' + projectId);
     }
