@@ -112,7 +112,7 @@ exports.addOrUpdateWorklog = async worklog => {
 //----------------------------------------------------------------------------------------------------------------------
 
 // *********************************************************************************************************************
-// Update Tasks ConditionsMet
+// Update Tasks ConditionsMet //TODO xBPx ******** *********
 // *********************************************************************************************************************
 exports.updateTasksConditionsMet = async () => {
     const users = await  exports.getUsers();
@@ -218,8 +218,8 @@ exports.getTasks = async project => {
 // Get Projects With Shoot Events //TODO xBPx
 // *********************************************************************************************************************
 exports.getProjectsWithShootEvent = async () => {
-    const bookingProjects = await BookingProject.find({deleted: null, mergedToProject: null, offtime: false, external: false, confirmed: true},{events: true, label: true, manager: true, supervisor: true}).populate('events').lean();
-    const projects = await Project.find({deleted: null, booking: true, bookingType: 'CONFIRMED'}, {events: true, name: true, team: true}).populate('events').lean();
+    const bookingProjects = await BookingProject.find({deleted: null, mergedToProject: null, offtime: false, external: false, confirmed: true},{events: true, label: true, manager: true, supervisor: true}).lean().populate('events');
+    const projects = await Project.find({deleted: null, booking: true, bookingType: 'CONFIRMED'}, {events: true, name: true, team: true}).lean().populate('events');
     const users = await exports.getUsers();
     const today = moment().startOf('day');
     return bookingProjects.concat(projects.map(projectToBooking)).reduce((out, project) => {
@@ -247,10 +247,10 @@ const CUT_OF_DAY = '2016-08-31'; //projects ended before cut_of_day are not retu
 exports.getProjectAndOnAir = async projectId => {
     let query = {deleted: null, mergedToProject: null, internal: false, offtime: false, confirmed: true};
     if(projectId) query._id = projectId;
-    const bookingProjects = await BookingProject.find(query, {events: true, label:true, manager: true, supervisor: true, lead2D: true, lead3D:true, leadMP: true, producer: true, onair: true, confirmed: true, invoice: true, budget: true}).populate('events').lean();
+    const bookingProjects = await BookingProject.find(query, {events: true, label:true, manager: true, supervisor: true, lead2D: true, lead3D:true, leadMP: true, producer: true, onair: true, confirmed: true, invoice: true, budget: true}).lean().populate('events');
     query = {deleted: null, booking: true, bookingType: 'CONFIRMED'};
     if(projectId) query._id = projectId;
-    const projects = await Project.find(query, {events: true, name: true, team: true, onair: true, bookingType: true, invoice: true, budget: true}, {}).populate('events').lean();
+    const projects = await Project.find(query, {events: true, name: true, team: true, onair: true, bookingType: true, invoice: true, budget: true}, {}).lean().populate('events');
     const users = await exports.getUsers();
     const jobs = await  BookingWorkType.find({},{type:true}).lean();
     const result = bookingProjects.concat(projects.map(projectToBooking)).map(project => {
@@ -378,7 +378,7 @@ exports.getTeamFromWorkLog = async (projectId, job, me) => {
 // Get Open Work Requests
 // *********************************************************************************************************************
 exports.getOpenWorkRequests = async stageStepMin => { //requests which are ready for next stage
-    const requests = await PusherWorkRequest.find({closed: null, stage: {$lt: 4}}).populate('messages user').lean();
+    const requests = await PusherWorkRequest.find({closed: null, stage: {$lt: 4}}).lean().populate('messages user');
     return requests.filter(request => {
         const someFindMe = request.messages.length > 0 ? request.messages.reduce((someFindMe, message) => someFindMe || message.answer.some(item => item === 'find-me'), false) : false;
         const allConfirmedNoStage3 = !someFindMe && request.stage === 3 && request.messages.reduce((allNo, message) => allNo && message.answer.every(item => item === 'no'), true);
@@ -388,11 +388,11 @@ exports.getOpenWorkRequests = async stageStepMin => { //requests which are ready
     }).map(request => ({id: request._id, user: {id: request.user._id, name: request.user.name}, stage: request.stage}));
 };
 // *********************************************************************************************************************
-// GET USER'S LEADS FOR TODAY
+// GET USER'S LEADS FOR TODAY //TODO xBPx *************** *******
 // *********************************************************************************************************************
 exports.getTodayUserLeads = async userId => { //mongo db _id
     const result = {stage1: [], stage2: [], stage3: []};
-    let user = await User.findOne({_id: userId}, {_id: true, resource: true, name: true}).populate({path: 'resource', populate: {path: 'job'}, select: 'job'}).lean();
+    let user = await User.findOne({_id: userId}, {_id: true, resource: true, name: true}).lean().populate({path: 'resource', populate: {path: 'job'}, select: 'job'});
     if(user && user.resource) {
         user = {id: user._id.toString(), resource: user.resource._id, job: user.resource.job ? user.resource.job.type : null};
         const todayStart = moment.utc().startOf('day').valueOf();
@@ -437,7 +437,7 @@ exports.addWorkRequestMessageAndStage = async (id, messageId, stage) => {
 //----------------------------------------------------------------------------------------------------------------------
 
 // *********************************************************************************************************************
-// Get Managers with Freelancers
+// Get Managers with Freelancers //TODO xBPx ******** ********
 // *********************************************************************************************************************
 exports.getManagersWithFreelancers = async () => {
     const today = moment().startOf('day');
@@ -526,7 +526,7 @@ async function getHrNotifyManagers(outputId) {
 //----------------------------------------------------------------------------------------------------------------------
 
 // *********************************************************************************************************************
-// Get Process Tasks
+// Get Process Tasks //TODO xBPx ****** *******
 // *********************************************************************************************************************
 exports.getProcessTasks = async () => {
     return await PusherTask.find({type: 'ARCHIVE_PROCESS', resolved: null}, {project: true, dataOrigin: true, followed: true, origin: true}).populate([{path: 'project', select: 'projectId'}, {path: 'followed', select: 'dataTarget resolved'}]).lean();

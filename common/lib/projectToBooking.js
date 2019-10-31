@@ -37,7 +37,7 @@ module.exports = (project, update) => {
             }
         }
     }
-    return {
+    const out = {
         _id: update && typeof project._id === 'undefined' ? undefined : project._id,
         label: update && typeof project.name === 'undefined' ? undefined : project.name,
         producer: team.producer,
@@ -63,6 +63,12 @@ module.exports = (project, update) => {
         jobs: update && typeof project.work === 'undefined' ? undefined : project.work && project.work.length > 0 ? project.work.map(w => ({job: w.type, plannedDuration: w.plannedDuration, doneDuration: w.doneDuration})) : [],
         bookingNotes: update && typeof project.bookingNote === 'undefined' ? undefined : project.bookingNote,
         kickBack: update && typeof project.kickBack === 'undefined' ? undefined : project.kickBack,
-        version: update ? undefined : 2
+        version: 2
+    };
+    if(update) {
+        for(const key in out) {
+            if(out[key] === undefined) delete out[key];
+        }
     }
+    return out;
 };

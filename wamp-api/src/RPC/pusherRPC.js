@@ -101,8 +101,9 @@ async function completeTask(args, kwargs, details) {
         //tasks - index 0 - original normalized task to remove on other clients of the user, index > 0 - updated tasks affected by original one. (PUBLISH, ARCHIVE, ...)
         for(const [i, task] of tasks.entries()) {
             if(task.target) {
-                if(i === 0 && pusherClient.numOfClientsForUser(task.target) > 1) wamp.publish(`${task.target}.task`, [task.id], {}, {exclude: [details.caller]}); //remove on other clients
-                else wamp.publish(`${task.target}.task`, [task.id], task); //send affected tasks
+                if(i === 0) { //remove on other clients
+                    if(pusherClient.numOfClientsForUser(task.target) > 1) wamp.publish(`${task.target}.task`, [task.id], {}, {exclude: [details.caller]});
+                } else wamp.publish(`${task.target}.task`, [task.id], task); //send affected tasks
             }
         }
         const data = await db.followTaskCompleted(kwargs.id);

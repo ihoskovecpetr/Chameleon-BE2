@@ -52,7 +52,7 @@ exports.getTasksForUser = async user => {
     if(userData) {
         const users = await getUsers(); //for normalization
         const allTasks = await PusherTask.find({},{dataOrigin: true, dataTarget: true, project: true, resolved: true, type: true, timestamp:true}).lean(); //for conditions
-        const userTasks = await PusherTask.find({target: userData._id, resolved: null},{__v: false, resolved: false, dataTarget: false});//.populate('project');
+        const userTasks = await PusherTask.find({target: userData._id, resolved: null},{__v: false, resolved: false, dataTarget: false});
         for(const task of userTasks) { //update conditionsMet
             const currentConditionsMet = taskHelper.evaluateTaskConditions(task, task.project ? task.project._id : null, (task.dataOrigin && task.dataOrigin.onAir && task.dataOrigin.onAir._id ? task.dataOrigin.onAir._id : null), allTasks);
             if(task.conditionsMet !== currentConditionsMet) {
@@ -111,43 +111,61 @@ exports.postponeTask = async (id, days) => {
     return await PusherTask.findOneAndUpdate({_id: id}, {$inc: {postpone: days}}, {new : true});
 };
 // *********************************************************************************************************************
-// COMPLETE TASK //TODO xBPx 3x ***********
+// COMPLETE TASK //TODO xBPx
 // *********************************************************************************************************************
 exports.completeTask = async (id, data) => {
     const task = await PusherTask.findOne({_id: id});
+    if(!task) throw new Error(`Can't find task id: ${id}, data: ${JSON.stringify(data)}`);
     if(data) task.dataTarget = data;
     task.resolved = Date.now();
-    let tasks = [task];
+    let tasks = [];
     await task.save();
-    if(task.type === 'ONAIR_CONFIRM' && data && data.confirmed) {
-        const publishTasks = await PusherTask.find({project: task.project, resolved: null, type: {$in: ['PUBLISH_FACEBOOK', 'PUBLISH_WEB']}, "dataOrigin.onAir._id": mongoose.Types.ObjectId(task.dataOrigin.onAir._id)}).populate('project');
-        tasks = publishTasks.map(task => {task.dataOrigin.onAirConfirmed = true; return task});
-        for(const t of tasks) {
-            t.markModified('dataOrigin.onAirConfirmed');
-            await t.save();
-        }
+
+    switch (task.type) {
+        case 'ONAIR_CONFIRM':
+            if(data && data.confirmed) {
+                tasks = await PusherTask.find({project: task.project, resolved: null, type: {$in: ['PUBLISH_FACEBOOK', 'PUBLISH_WEB']}, "dataOrigin.onAir._id": mongoose.Types.ObjectId(task.dataOrigin.onAir._id)});
+                tasks = tasks.map(task => {task.dataOrigin.onAirConfirmed = true; return task});
+                for(const t of tasks) {
+                    t.markModified('dataOrigin.onAirConfirmed');
+                    await t.save();
+                }
+            }
+            break;
+        case 'ARCHIVE_2D_BIG':
+        case 'ARCHIVE_3D_BIG':
+        case 'ARCHIVE_MP_BIG':
+            const work = task.type.substr(8, 2);
+            tasks = await PusherTask.find({project: task.project, resolved: null, type: {$in: [`ARCHIVE_${work}_OPERATOR`, `ARCHIVE_${work}_LEAD`]}, target: task.origin}).lean();
+            break;
+        case 'ARCHIVE_2D_OPERATOR':
+        case 'ARCHIVE_MP_OPERATOR':
+            tasks = await PusherTask.find({project: task.project, resolved: null, type: `ARCHIVE_${task.type.substr(8, 2)}_LEAD`, target: task.origin}).lean();
+            break;
     }
-    if(task.type === 'ARCHIVE_2D_BIG' || task.type === 'ARCHIVE_3D_BIG' || task.type === 'ARCHIVE_MP_BIG') {
-        const work = task.type.substr(8, 2);
-        const archive1Tasks = await  PusherTask.find({project: task.project, resolved: null, type: {$in: [`ARCHIVE_${work}_OPERATOR`, `ARCHIVE_${work}_LEAD`]}, target: task.origin}).populate('project').lean();
-        tasks = tasks.concat(archive1Tasks);
-    }
-    if(task.type === 'ARCHIVE_2D_OPERATOR' || task.type === 'ARCHIVE_MP_OPERATOR') {
-        const work = task.type.substr(8, 2);
-        const archive2Tasks = await PusherTask.find({project: task.project, resolved: null, type: `ARCHIVE_${work}_LEAD`, target: task.origin}).populate('project').lean();
-        tasks = tasks.concat(archive2Tasks);
-    }
+    tasks.unshift(task);
     const users = await getUsers();
-    return await Promise.all(tasks.map(task => taskHelper.normalizeTask(task, users)));
+    const populatedTasks = [];
+    for(const task of tasks) {
+        const taskObject = task.toJSON ? task.toJSON() : task;
+        taskObject.project = await BookingProject.findOne({_id: task.project}).lean() || projectToBooking(await Project.findOne({_id: task.project}).lean());
+        populatedTasks.push(await taskHelper.normalizeTask(taskObject, users))
+    }
+    return populatedTasks;
 };
 // *********************************************************************************************************************
-// FOLLOW TASK COMPLETED
+// FOLLOW TASK COMPLETED //TODO xBPx
 // *********************************************************************************************************************
 exports.followTaskCompleted = async id => {
+    const task = await PusherTask.findOne({_id: id}).populate('target');
+    if(!task) throw new Error(`Can't find task id: ${id}`);
+    const project = await BookingProject.findOne({_id: task.project}).lean() || projectToBooking(await Project.findOne({_id: task.project}).lean());
+    if(!project) throw new Error(`Can't find project for task id: ${id}`);
     const result = {tasks: [], messages: [], updateProjects: []};
-    const task = await PusherTask.findOne({_id: id}).populate('project target');
     task.followed = [];
-    const followers = followTask(task);
+    const taskObject = task.toJSON ? task.toJSON() : task;
+    taskObject.project = project;
+    const followers = followTask(taskObject);
     if(followers.tasks) {
         for(const followedTask of followers.tasks) {
             const newTask = await exports.addTask(followedTask);
@@ -253,10 +271,10 @@ exports.createOrModifySubTask = async data => { //data.status - create new - tru
     } else throw new Error(`Can't find master task id: ${data.task}`);
 };
 // *********************************************************************************************************************
-// CREATE BIG ARCHIVE TASK
+// CREATE BIG ARCHIVE TASK //TODO xBPx
 // *********************************************************************************************************************
 exports.createBigArchiveTask = async (taskId, work) => {
-    const task = await PusherTask.findOne({_id: taskId});
+    const task = await PusherTask.findOne({_id: taskId}).lean();
     if(task) {
         const bigTask = await exports.addTask({
             project: task.project,
@@ -267,8 +285,11 @@ exports.createBigArchiveTask = async (taskId, work) => {
         });
         let parentTask = null;
         if(task.origin) {
-            const parent = await PusherTask.findOne({type: `ARCHIVE_${work}_LEAD`, project: task.project, target: task.origin, resolved: null}).populate('project').lean();
-            if(parent) parentTask = await taskHelper.normalizeTask(parent, await getUsers());
+            const parent = await PusherTask.findOne({type: `ARCHIVE_${work}_LEAD`, project: task.project, target: task.origin, resolved: null}).lean();
+            if(parent) {
+                parent.project = await BookingProject.findOne({_id: parent.project}).lean() || projectToBooking(await Project.findOne({_id: parent.project}).lean());
+                parentTask = await taskHelper.normalizeTask(parent, await getUsers());
+            }
         }
         return {bigTask: bigTask, parentTask: parentTask}
     } else {
@@ -525,11 +546,11 @@ exports.cancelWorkClockRequest = async (userSsoId, subjectSsoId) => {
     return !!result && result.nModified > 0;
 };
 // *********************************************************************************************************************
-// GET USER'S LEADS FOR TODAY
+// GET USER'S LEADS FOR TODAY //TODO xBPx (lean)
 // *********************************************************************************************************************
 exports.getTodayUserLeads = async userId => {
     const result = {stage1: [], stage2: [], stage3: []};
-    let user = await User.findOne({ssoId: userId}, {_id: true, resource: true, name: true}).populate({path: 'resource', populate: {path: 'job'}, select: 'job'}).lean();
+    let user = await User.findOne({ssoId: userId}, {_id: true, resource: true, name: true}).lean().populate({path: 'resource', populate: {path: 'job'}, select: 'job'});
     if(user && user.resource) {
         user = {id: user._id.toString(), resource: user.resource._id, job: user.resource.job ? user.resource.job.type : null};
         const todayStart = moment.utc().startOf('day').valueOf();
@@ -540,7 +561,9 @@ exports.getTodayUserLeads = async userId => {
             operator: user.resource,
             offtime: {$ne: true}
         };
-        const eventProjectData = await BookingEvent.find(eventsQuery, {project: true}).populate({path: 'project', select: 'deleted lead2D lead3D leadMP supervisor manager producer', match: {deleted: null}}).lean();
+        const eventProjectData = await BookingEvent.find(eventsQuery, {project: true}).lean();
+        for(const event of eventProjectData) event.project = await BookingProject.findOne({_id: event.project, deleted: null}, 'producer manager supervisor lead2D lead3D leadMP').lean() || projectToBooking(await Project.findOne({_id: event.project, deleted: null}, 'team').lean(), true);
+
         eventProjectData.filter(event => event.project !== null).forEach(event => {
             if((user.job === null || user.job === '2D') && event.project.lead2D && user.id !== event.project.lead2D.toString() && result.stage1.indexOf(event.project.lead2D.toString()) < 0) result.stage1.push(event.project.lead2D.toString());
             if((user.job === null || user.job === '3D') && event.project.lead3D && user.id !== event.project.lead3D.toString() && result.stage1.indexOf(event.project.lead3D.toString()) < 0) result.stage1.push(event.project.lead3D.toString());
@@ -622,11 +645,12 @@ exports.updateMessageDetails = async (messageIds, details) => {
 // ---------------------------------------------------------------------------------------------------------------------
 
 // *********************************************************************************************************************
-// GET WORK-LOGS FOR USER
+// GET WORK-LOGS FOR USER //TODO xBPx (lean)
 // *********************************************************************************************************************
 exports.getWorklogsForUser = async (user, full) => {
     const userIds = await exports.getUserBySsoId(user);
-    const logs = await PusherWorklog.find({approved: false}).populate('project job operatorJob').lean();
+    const logs = await PusherWorklog.find({approved: false}).lean().populate('job operatorJob');
+    for(const log of logs) log.project = await BookingProject.findOne({_id: log.project}).lean() || projectToBooking(await Project.findOne({_id: log.project}).lean());
     const projectsWithLogs = logs.reduce((output, log) => {
         const logK2id = log.operatorName.toLowerCase() + '.' + log.operatorSurname.toLowerCase();
 
@@ -713,10 +737,11 @@ exports.getWorklogsForUser = async (user, full) => {
     return result.sort((a, b) => {return (a.label < b.label) ? -1 : (a.label > b.label) ? 1 : 0});
 };
 // *********************************************************************************************************************
-// CONFIRM WORK-LOG
+// CONFIRM WORK-LOG //TODO xBPx
 // *********************************************************************************************************************
 exports.confirmWorkLog = async (id, kind, value) => {
-    const log = await PusherWorklog.findOne({_id: id}).populate('project job operatorJob');
+    const log = await PusherWorklog.findOne({_id: id}).populate('job operatorJob');
+    const logProject = await BookingProject.findOne({_id: log.project}, 'manager').lean() || projectToBooking(await Project.findOne({_id: log.project}, 'team').lean(), true);
     if(log) {
         if(!Array.isArray(kind)) kind = [kind];
         let updateResolver = false;
@@ -770,7 +795,7 @@ exports.confirmWorkLog = async (id, kind, value) => {
                 updateManager = true;
             }
         }
-        await log.save();
+        //await log.save();
         const update = [];
         if(updateResolver) {
             const users = await User.find({role: 'booking:worklog-resolver'}, {ssoId: true, _id: false}).lean();
@@ -779,7 +804,7 @@ exports.confirmWorkLog = async (id, kind, value) => {
             });
         }
         if(updateManager) {
-            const users = await User.find({_id: log.project.manager}, {ssoId: true, _id: false}).lean();
+            const users = await User.find({_id: logProject.manager}, {ssoId: true, _id: false}).lean();
             users.forEach(u => {
                 if(update.indexOf(u.ssoId) < 0 && u.ssoId !== value) update.push(u.ssoId)
             });
@@ -822,7 +847,7 @@ async function getWorkClockRequestedByUser(subject, user) { //get requests for s
     return requests.length > 0;
 }
 // *********************************************************************************************************************
-// GET PROJECT TEAM FOR USER  //TODO xBPx
+// GET PROJECT TEAM FOR USER  //TODO xBPx (lean)
 // *********************************************************************************************************************
 exports.getProjectTeamForUser = async user => {
     const today = moment().startOf('day');
@@ -852,32 +877,46 @@ exports.getProjectTeamForUser = async user => {
     const eventEnd = '(this.startDate.getTime() + (this.days.length * 24 * 3600000))';
 
     const query = {$where : `(${eventStart} <= ${regionEnd}) && (${eventEnd} > ${regionStart})`, operator: {$ne: null}, offtime: {$ne: true}};
-    const events = await BookingEvent.find(query, {__v: false, efficiency: false, notes: false, offtime: false, label: false})
-        .populate('operator facility job')
-        .populate({path: 'project', populate: {path: 'manager supervisor lead2D lead3D leadMP producer', select: 'name'}, select: 'label manager supervisor lead2D lead3D leadMP producer deleted internal confirmed'})
-        .lean();
+    const events = await BookingEvent.find(query, {__v: false, efficiency: false, notes: false, offtime: false, label: false}).lean().populate('operator facility job');
+    const projectIds = events.map(event => event.project);
+    const projects1 = await BookingProject.find({_id: {$in: projectIds}}, 'label manager producer supervisor lead2D lead3D leadMP deleted internal rnd confirmed').lean().populate({path: 'manager supervisor lead2D lead3D leadMP producer', select: 'name'});
+    const users = await getUsers();
+    const projects2 = (await Project.find({_id: {$in: projectIds}}, 'name team bookingType').lean()).map(project => projectToBooking(project, true)).map(project => {
+        if(project.manager && users[project.manager]) project.manager = {_id: project.manager, name: users[project.manager].name};
+        if(project.producer && users[project.producer]) project.producer = {_id: project.producer, name: users[project.producer].name};
+        if(project.supervisor && users[project.supervisor]) project.supervisor = {_id: project.supervisor, name: users[project.supervisor].name};
+        if(project.lead2D && users[project.lead2D]) project.lead2D = {_id: project.lead2D, name: users[project.lead2D].name};
+        if(project.lead3D && users[project.lead3D]) project.lead3D = {_id: project.lead3D, name: users[project.lead3D].name};
+        if(project.leadMP && users[project.leadMP]) project.leadMP = {_id: project.leadMP, name: users[project.leadMP].name};
+        return project;
+    });
+    const projectsMap = projects1.concat(projects2).reduce((map, project) => {map[project._id.toString()] = project; return map}, {});
 
-    const activeProjects = events.filter(event => !event.project.deleted && !event.project.internal &&!event.project.rnd).reduce((projects, event) => {
-        const projectId = event.project._id.toString();
+    const activeProjects = events.filter(event => {
+        const projectId = event.project ? event.project.toString() : null;
+        return projectId && projectsMap[projectId] && !projectsMap[projectId].deleted && !projectsMap[projectId].internal && !projectsMap[projectId].rnd;
+    }).reduce((projects, event) => {
+        const projectId = event.project ? event.project.toString() : null;
+        const project = projectsMap[projectId];
         const isEventOperator = userIds.resource && event.operator ? event.operator._id.toString() === userIds.resource : false;
-        if(!projects[projectId]) {
+        if(!projects[projectId] && project) {
             const role = {
-                manager: event.project.manager ? event.project.manager._id.toString() === userIds.id : false,
-                supervisor: event.project.supervisor ? event.project.supervisor._id.toString() === userIds.id : false,
-                lead2D: event.project.lead2D ? event.project.lead2D._id.toString() === userIds.id : false,// && event.job && ['2D', 'MP'].indexOf(event.job.type) >= 0 : false, //lead - team only if job is...
-                lead3D: event.project.lead3D ? event.project.lead3D._id.toString() === userIds.id : false, //&& event.job && ['3D', 'MP'].indexOf(event.job.type) >= 0 : false,
-                leadMP: event.project.leadMP ? event.project.leadMP._id.toString() === userIds.id : false, //&& event.job && event.job.type === 'MP' : false
-                producer: event.project.producer ? event.project.producer._id.toString() === userIds.id : false
+                manager: project.manager ? project.manager._id.toString() === userIds.id : false,
+                supervisor: project.supervisor ? project.supervisor._id.toString() === userIds.id : false,
+                lead2D: project.lead2D ? project.lead2D._id.toString() === userIds.id : false,// && event.job && ['2D', 'MP'].indexOf(event.job.type) >= 0 : false, //lead - team only if job is...
+                lead3D: project.lead3D ? project.lead3D._id.toString() === userIds.id : false, //&& event.job && ['3D', 'MP'].indexOf(event.job.type) >= 0 : false,
+                leadMP: project.leadMP ? project.leadMP._id.toString() === userIds.id : false, //&& event.job && event.job.type === 'MP' : false
+                producer: project.producer ? project.producer._id.toString() === userIds.id : false
             };
             projects[projectId] = {
                 role: (role.supervisor || role.manager || role.leadMP || role.lead3D || role.lead2D /*|| role.producer*/) ? role : null,
-                label: event.project.label,
-                manager: event.project.manager ? {id: event.project.manager._id.toString(), label: event.project.manager.name} : null,
-                supervisor: event.project.supervisor ? {id: event.project.supervisor._id.toString(), label: event.project.supervisor.name} : null,
-                lead2D: event.project.lead2D ? {id: event.project.lead2D._id.toString(), label: event.project.lead2D.name} : null,
-                lead3D: event.project.lead3D ? {id: event.project.lead3D._id.toString(), label: event.project.lead3D.name} : null,
-                leadMP: event.project.leadMP ? {id: event.project.leadMP._id.toString(), label: event.project.leadMP.name} : null,
-                producer: event.project.producer ? {id: event.project.producer._id.toString(), label: event.project.producer.name} : null,
+                label: project.label,
+                manager: project.manager ? {id: project.manager._id.toString(), label: project.manager.name} : null,
+                supervisor: project.supervisor ? {id: project.supervisor._id.toString(), label: project.supervisor.name} : null,
+                lead2D: project.lead2D ? {id: project.lead2D._id.toString(), label: project.lead2D.name} : null,
+                lead3D: project.lead3D ? {id: project.lead3D._id.toString(), label: project.lead3D.name} : null,
+                leadMP: project.leadMP ? {id: project.leadMP._id.toString(), label: project.leadMP.name} : null,
+                producer: project.producer ? {id: project.producer._id.toString(), label: project.producer.name} : null,
                 id: projectId,
                 events: []
             }
@@ -903,7 +942,7 @@ exports.getProjectTeamForUser = async user => {
                 facility: event.facility ? event.facility.label : null,
                 facilityTlf: event.facility && event.facility.tlf ? event.facility.tlf : null,
                 isShooting: event.isShooting,
-                confirmed: event.confirmedAsProject ? event.project.confirmed : event.confirmed
+                confirmed: event.confirmedAsProject ? project.confirmed : event.confirmed
             });
         }
         return projects;
@@ -957,16 +996,17 @@ exports.getProjectTeamForUser = async user => {
     return {myDay, nextDay};
 };
 // *********************************************************************************************************************
-// GET FREELANCERS
+// GET FREELANCERS //TODO xBPx
 // *********************************************************************************************************************
 exports.getFreelancers = async userSsoId => {
     const user = userSsoId ? await User.findOne({ssoId: userSsoId}, {_id: true, role: true}).lean() : null;
     const isHR = user && (user.role.indexOf('booking:hr-manager') >= 0 || user.role.indexOf('booking:main-manager') >= 0);
     const userId = user ? user._id.toString() : null;
-
-    const events = await BookingEvent.find({offtime: false}, {startDate: true, days: true, project: true, operator: true}).populate({path: 'project', select: 'label manager internal deleted'}).populate({path: 'operator', select: 'virtual freelancer confirmed label'}).lean();
-
-
+    const events = await BookingEvent.find({offtime: false}, {startDate: true, days: true, project: true, operator: true}).lean().populate({path: 'operator', select: 'virtual freelancer confirmed label'});
+    const projectIds = events.map(event => event.project);
+    const projects1 = await BookingProject.find({_id: {$in: projectIds}}, 'label manager deleted internal rnd').lean();
+    const projects2 = (await Project.find({_id: {$in: projectIds}}, 'name team deleted bookingType').lean()).map(project => projectToBooking(project, true));
+    const projectsMap = projects1.concat(projects2).reduce((map, project) => {map[project._id.toString()] = project; return map}, {});
     const resources = isHR ? await BookingResource.find({type: 'OPERATOR', $or: [{virtual: true}, {freelancer: true}], confirmed:{$exists: true, $ne: []}}, {virtual: true, freelancer: true, label: true, confirmed: true}).lean() : [];
     const freelancers = resources.map(resource => {
         return {
@@ -982,7 +1022,6 @@ exports.getFreelancers = async userSsoId => {
             })
         }
     });
-
     const unconfirmedFreelancers = {};
     const confirmedFreelancers = {};
 
@@ -1012,19 +1051,21 @@ exports.getFreelancers = async userSsoId => {
     }
 
     const activeEvents = events.filter(event => {
-        if(event.project.internal || event.project.rnd || event.project.deleted) return false; // no internal, r&d or deleted projects
-        if(userId && !isHR && (!event.project.manager || event.project.manager.toString() !== userId)) return false; //only if user is manager or HR
+        const project = event.project ? projectsMap[event.project.toString()] : null;
+        if(!project) return false;
+        if(project.internal || project.rnd || project.deleted) return false; // no internal, r&d or deleted projects
+        if(userId && !isHR && (!project.manager || project.manager.toString() !== userId)) return false; //only if user is manager or HR
         if(!event.operator || (!event.operator.virtual && !event.operator.freelancer)) return false;// event operator is not freelancer or virtual
         const endDay = moment(event.startDate, 'YYYY-MM-DD').add((event.days.length - 1), 'days').startOf('day');
         if(endDay.diff(moment().startOf('day'), 'days') < 0) return false; //only event having any day equal today and late
         return true;
     });
-
     for(const event of activeEvents) {
         const day = moment(event.startDate, 'YYYY-MM-DD').startOf('day');
-        const projectId = event.project._id.toString();
+        const projectId = event.project.toString();
+        const project = projectId ? projectsMap[projectId] : null;
         const operatorId = event.operator._id.toString();
-        const isManager = event.project.manager && event.project.manager.toString() === userId;
+        const isManager = project.manager && project.manager.toString() === userId;
         for(let i = 0; i < event.days.length; i++) {
             if(day.diff(today, 'days') >= 0 /*&& event.days[i].duration > 0*/) { //event day from today and duration > 0
                 if (isFreelancerConfirmed(event.operator.confirmed, day)) {
@@ -1036,7 +1077,7 @@ exports.getFreelancers = async userSsoId => {
                     if(!unconfirmedFreelancers[`${projectId}-${operatorId}`]) unconfirmedFreelancers[`${projectId}-${operatorId}`]= {
                         project: {
                             id: projectId,
-                            label: event.project.label,
+                            label: project.label,
                         },
                         freelancer: {
                             id: operatorId,
@@ -1069,12 +1110,21 @@ exports.getFreelancers = async userSsoId => {
     };
 };
 // *********************************************************************************************************************
-// GET MANAGER'S SSO-ID FOR RESOURCE-IDs OF NOT INTERNAL PROJECTS
+// GET MANAGER'S SSO-ID FOR RESOURCE-IDs OF NOT INTERNAL PROJECTS //TODO xBPx
 // *********************************************************************************************************************
 exports.getManagerSsoIdForResourceOfNotInternalProjects = async (resourceId, cutDay) => {
-    const events = await BookingEvent.find({operator: resourceId, offtime: false}, {project: true, startDate: true, days: true}).populate({path: 'project', select: 'manager deleted', populate: {path: 'manager', select: 'ssoId'}}).lean();
-    return events.filter(event => !event.project.deleted && !event.project.internal && !event.project.rnd && (!cutDay || moment(event.startDate, 'YYYY-MM-DD').startOf('day').add(event.days.length - 1, 'day').diff(cutDay, 'days') >= 0)).reduce((managers, event) => {
-        if(managers.indexOf(event.project.manager.ssoId) < 0) managers.push(event.project.manager.ssoId);
+    const events = await BookingEvent.find({operator: resourceId, offtime: false}, {project: true, startDate: true, days: true}).lean();
+    const projectIds = events.map(event => event.project);
+    const projects1 = await BookingProject.find({_id: {$in: projectIds}}, 'manager deleted internal rnd').lean().populate({path: 'manager', select: 'ssoId'});
+    const users = await getUsers();
+    const projects2 = (await Project.find({_id: {$in: projectIds}}, 'team deleted bookingType').lean()).map(project => projectToBooking(project, true)).map(project => {
+        if(project.manager && users[project.manager]) project.manager = {_id: project.manager, ssoId: users[project.manager].ssoId};
+        return project;
+    });
+    const projectsMap = projects1.concat(projects2).reduce((map, project) => {map[project._id.toString()] = project; return map}, {});
+
+    return events.filter(event => event.project && projectsMap[event.project] && projectsMap[event.project].manager && projectsMap[event.project].manager.ssoId && !projectsMap[event.project].deleted && !projectsMap[event.project].internal && !projectsMap[event.project].rnd && (!cutDay || moment(event.startDate, 'YYYY-MM-DD').startOf('day').add(event.days.length - 1, 'day').diff(cutDay, 'days') >= 0)).reduce((managers, event) => {
+        if(managers.indexOf(projectsMap[event.project].manager.ssoId) < 0) managers.push(projectsMap[event.project].manager.ssoId);
         return managers;
     }, []);
 };
@@ -1186,7 +1236,7 @@ exports.isAnyOperatorFreelancer = async ids => {
 exports.hasProjectBookedFreelancer = async (id, cutDay) => {
     const project = await BookingProject.findOne({_id: id}, {events: true}).lean() || Project.findOne({_id: id}, {events: true}).lean();
     if(project && project.events && project.events.length > 0) {
-        const projectEvents = await BookingEvent.find({_id: {$in: project.events}}, {_id: true, operator: true, startDate: true, days: true}).populate({path: 'operator', select: {virtual: true, freelancer: true}}).lean();
+        const projectEvents = await BookingEvent.find({_id: {$in: project.events}}, {_id: true, operator: true, startDate: true, days: true}).lean().populate({path: 'operator', select: {virtual: true, freelancer: true}});
         const events = projectEvents.filter(event => event.operator !== null && (event.operator.virtual || event.operator.freelancer) && (!cutDay || moment(event.startDate, 'YYYY-MM-DD').add(event.days.length - 1, 'days').diff(cutDay, 'days') >= 0));
         return events.length > 0;
     } else return false;
@@ -1196,7 +1246,7 @@ exports.hasProjectBookedFreelancer = async (id, cutDay) => {
 // *********************************************************************************************************************
 exports.getBudgetPrice = async id => {
     if(!id) return null;
-    const budget = await Budget.findOne({_id: id}).populate('parts').lean();
+    const budget = await Budget.findOne({_id: id}).lean().populate('parts');
     if(!budget) {
         logger.warn(`getBudgetPrice: can't find budget id: ${id}`);
         return null;
