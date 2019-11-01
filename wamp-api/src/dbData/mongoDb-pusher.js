@@ -841,7 +841,7 @@ exports.getProjectTeamForUser = async user => {
     const days = []; //array for every day in time span of {date, timings [], projects []}
     for(let i = 0; i < PUSHER_BOOKING_TIME_SPAN; i++) days.push({date: today.clone().add(i, 'days'), timings: [], projects: []});
     const userIds = await exports.getUserBySsoId(user);
-    const bookingProjects = await BookingProject.find({timing: {$gt: []}, $or: [{manager: userIds.id}, {supervisor: userIds.id}, {lead2D: userIds.id}, {lead3D: userIds.id}, {leadMP: userIds.id}], mergetToProject: null, deleted: null, offtime: {$ne: true}, internal: {$ne: true}, confirmed: true}, {label:true, timing:true, lead2D: true, lead3D: true, leadMP: true, manager: true, supervisor: true, producer: true}).lean();
+    const bookingProjects = await BookingProject.find({timing: {$gt: []}, $or: [{manager: userIds.id}, {supervisor: userIds.id}, {lead2D: userIds.id}, {lead3D: userIds.id}, {leadMP: userIds.id}], mergedToProject: null, deleted: null, offtime: {$ne: true}, internal: {$ne: true}, confirmed: true}, {label:true, timing:true, lead2D: true, lead3D: true, leadMP: true, manager: true, supervisor: true, producer: true}).lean();
     const projects = (await Project.find({timing: {$gt: []}, team: {$gt: []}, booking: true, deleted: null, bookingType: 'CONFIRMED'}, {name: true, timing: true, team: true}).lean()).map(project => projectToBooking(project, true)).filter(project => project.manager == userIds.id || project.supervisor == userIds.id || project.lead2D == userIds.id || project.lead3D == userIds.id || project.leadMP == userIds.id);
 
     bookingProjects.concat(projects).forEach(project => {
@@ -1120,7 +1120,7 @@ exports.getManagerSsoIdForResourceOfNotInternalProjects = async (resourceId, cut
 // *********************************************************************************************************************
 exports.getManagerSsoIdOfNotInternalProjects = async projectIds => {
     if(!Array.isArray(projectIds)) projectIds = [projectIds];
-    const bookingProjects = await BookingProject.find({_id: {$in: projectIds}, deleted: null, internal: false, mergedToProject: false}, {manager: true}).lean();
+    const bookingProjects = await BookingProject.find({_id: {$in: projectIds}, deleted: null, internal: false, mergedToProject: null}, {manager: true}).lean();
     const projects =  await Project.find({_id: {$in: projectIds}, booking: true, deleted: null, bookingType: {$in: ['CONFIRMED', 'UNCONFIRMED', 'RND']}}, {team: true}).lean();
     const managerIds = [];
     bookingProjects.forEach(project => {

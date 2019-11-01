@@ -10,21 +10,25 @@ const ALGORITHM = 'aes128';
 //Collections
 const User = require('../../_common/models/user');
 const BookingProject = require('../../_common/models/booking-project');
+const Project = require('../../_common/models/project');
 const BookingWorkType = require('../../_common/models/booking-work-type');
 const BudgetItem = require('../../_common/models/budget-item');
 const AnalyticsOverhead = require('../../_common/models/analytics-overhead');
 const BookingResource = require('../../_common/models/booking-resource');
+
+const projectToBooking = require('../../_common/lib/projectToBooking');
+
 require('../../_common/models/booking-event');
 require('../../_common/models/budget');
 
 // *********************************************************************************************************************
-// MANAGERS AND SUPERVISORS UTILIZATION
+// MANAGERS AND SUPERVISORS UTILIZATION //TODO xBPx
 // *********************************************************************************************************************
 exports.getManagersAndSupervisorsUtilization = async (from, to) => {
     const today = moment().startOf('day');
     const users = await User.find({},{role: true, name: true}).lean();
-    const projects = await BookingProject.find({deleted: null, internal: {$ne: true}, offtime: {$ne: true}}, {manager:true, supervisor:true, events:true, _id:false, label:true}).lean().populate('manager supervisor events');
-
+    const bookingProjects = await BookingProject.find({mergedToProject: null, deleted: null, internal: {$ne: true}, offtime: {$ne: true}, rnd: {$ne: true}}, {manager:true, supervisor:true, events:true, _id:false, label:true}).lean().populate('events');
+    const projects = (await Project.find({booking: true, deleted: null}, 'bookingType events name team').lean().populate('events')).map(project => projectToBooking(project, true)).filter(project => !project.internal && !project.offtime && !project.rnd);
     const usersPrepared = users.reduce((out, user) => {
         if(user.role.indexOf('booking:manager') >= 0) {
             out.managers[user._id] = {name: user.name, projects: 0, projectsList: [], hours: 0, remains: 0};
@@ -34,8 +38,7 @@ exports.getManagersAndSupervisorsUtilization = async (from, to) => {
         }
         return out;
     }, {managers: {}, supervisors: {}});
-
-    const result = projects.reduce((out, project) => {
+    const result = projects.concat(bookingProjects).reduce((out, project) => {
         const events = project.events.filter(event => {
             const eventStart = moment(event.startDate);
             const eventEnd = eventStart.clone().add(event.days.length,'days');
@@ -56,19 +59,19 @@ exports.getManagersAndSupervisorsUtilization = async (from, to) => {
                 return sum;
             }, {duration: 0, remains: 0});
             if(project.manager) {
-                if(out.managers[project.manager._id]) {
-                    out.managers[project.manager._id].projects += 1;
-                    out.managers[project.manager._id].projectsList.push({label: project.label, hours: projectMinutes.duration / 60, remains: projectMinutes.remains / 60});
-                    out.managers[project.manager._id].hours += projectMinutes.duration / 60;
-                    out.managers[project.manager._id].remains += projectMinutes.remains / 60;
+                if(out.managers[project.manager]) {
+                    out.managers[project.manager].projects += 1;
+                    out.managers[project.manager].projectsList.push({label: project.label, hours: projectMinutes.duration / 60, remains: projectMinutes.remains / 60});
+                    out.managers[project.manager].hours += projectMinutes.duration / 60;
+                    out.managers[project.manager].remains += projectMinutes.remains / 60;
                 }
             }
             if(project.supervisor) {
-                if(out.supervisors[project.supervisor._id]) {
-                    out.supervisors[project.supervisor._id].projects += 1;
-                    out.supervisors[project.supervisor._id].projectsList.push({label: project.label, hours: projectMinutes.duration / 60, remains: projectMinutes.remains / 60});
-                    out.supervisors[project.supervisor._id].hours += projectMinutes.duration / 60;
-                    out.supervisors[project.supervisor._id].remains += projectMinutes.remains / 60;
+                if(out.supervisors[project.supervisor]) {
+                    out.supervisors[project.supervisor].projects += 1;
+                    out.supervisors[project.supervisor].projectsList.push({label: project.label, hours: projectMinutes.duration / 60, remains: projectMinutes.remains / 60});
+                    out.supervisors[project.supervisor].hours += projectMinutes.duration / 60;
+                    out.supervisors[project.supervisor].remains += projectMinutes.remains / 60;
                 }
             }
         }
@@ -79,12 +82,13 @@ exports.getManagersAndSupervisorsUtilization = async (from, to) => {
 };
 
 // *********************************************************************************************************************
-// MANAGERS AND SUPERVISORS EFFICIENCY
+// MANAGERS AND SUPERVISORS EFFICIENCY //TODO xBPx
 // *********************************************************************************************************************
 exports.getManagersAndSupervisorsEfficiency = async (from, to) => {
     const today = moment().startOf('day');
     const users = await User.find({},{role: true, name: true}).lean();
-    const projects = await BookingProject.find({deleted: null, internal: {$ne: true}, offtime: {$ne: true}},{manager: true, supervisor: true, events: true, jobs: true, _id:false}).lean().populate('manager supervisor events');
+    const bookingProjects = await BookingProject.find({mergedToProject: null, deleted: null, internal: {$ne: true}, offtime: {$ne: true}, rnd: {$ne: true}},{manager: true, supervisor: true, events: true, jobs: true, _id:false}).lean().populate('events');
+    const projects = (await Project.find({booking: true, deleted: null}, 'events bookingType work').lean().populate('events')).map(project => projectToBooking(project, true)).filter(project => !project.internal && !project.rnd && !project.offtime);
 
     const usersPrepared = users.reduce((out, user) => {
         if(user.role.indexOf('booking:manager') >= 0) {
@@ -96,7 +100,7 @@ exports.getManagersAndSupervisorsEfficiency = async (from, to) => {
         return out;
     }, {managers: {}, supervisors: {}});
 
-    const result = projects.reduce((out, project) => {
+    const result = bookingProjects.concat(projects).reduce((out, project) => {
         const events = project.events.filter(event => {
             const eventStart = moment(event.startDate);
             const eventEnd = eventStart.clone().add(event.days.length,'days');
@@ -122,18 +126,18 @@ exports.getManagersAndSupervisorsEfficiency = async (from, to) => {
             }, 0);
 
             if (project.manager) {
-                if (out.managers[project.manager._id]) {
-                    out.managers[project.manager._id].budget += durations.planned / 60;
-                    out.managers[project.manager._id].spent += durations.done / 60;
-                    out.managers[project.manager._id].remains += remains / 60;
+                if (out.managers[project.manager]) {
+                    out.managers[project.manager].budget += durations.planned / 60;
+                    out.managers[project.manager].spent += durations.done / 60;
+                    out.managers[project.manager].remains += remains / 60;
                 }
             }
 
             if (project.supervisor) {
-                if (out.supervisors[project.supervisor._id]) {
-                    out.supervisors[project.supervisor._id].budget += durations.planned / 60;
-                    out.supervisors[project.supervisor._id].spent += durations.done / 60;
-                    out.supervisors[project.supervisor._id].remains += remains / 60;
+                if (out.supervisors[project.supervisor]) {
+                    out.supervisors[project.supervisor].budget += durations.planned / 60;
+                    out.supervisors[project.supervisor].spent += durations.done / 60;
+                    out.supervisors[project.supervisor].remains += remains / 60;
                 }
             }
         }
@@ -154,11 +158,13 @@ exports.getManagersAndSupervisorsEfficiency = async (from, to) => {
 };
 
 // *********************************************************************************************************************
-// BOOKING NOTIFICATIONS
+// BOOKING NOTIFICATIONS //TODO xBPx
 // *********************************************************************************************************************
 exports.getNotifications = async () => {
-    const projects = await BookingProject.find({confirmed: true, manager: {$ne: null}, events: {$gt: []}, deleted: null, internal: {$ne: true}, offtime: {$ne: true}},{events:true, timing:true, label:true, jobs:true, manager:true, K2rid:true, _id:false, onair: true, budget: true}).lean().populate('manager events');
-    return projects.map(project => ({
+    const bookingProjects = await BookingProject.find({mergedToProject: null, confirmed: true, manager: {$ne: null}, events: {$gt: []}, deleted: null, internal: {$ne: true}, offtime: {$ne: true}, rnd: {$ne: true}},{events:true, timing:true, label:true, jobs:true, manager:true, K2rid:true, _id:false, onair: true, budget: true}).lean().populate('events');
+    const projects = (await Project.find({booking: true, events: {$gt: []}}, 'events timing name work team K2 onair budget').lean().populate('events')).map(project => projectToBooking(project, true)).filter(project => !project.internal && !project.offtime && !project.rnd && project.events.length > 0 && project.manager);
+    const managersMap = (await User.find({_id: {$in: bookingProjects.concat(projects).map(project => project.manager)}}, 'name').lean()).reduce((out, user) => {out[user._id] = {name: user.name}; return out;}, {});
+    return bookingProjects.concat(projects).map(project => ({
         label: project.label,
         K2: project.K2rid !== null,
         budgetSum: Math.round(project.jobs.reduce((sum, item) => sum + item.plannedDuration, 0) / 60),
@@ -176,7 +182,7 @@ exports.getNotifications = async () => {
             else if(lastDate.isAfter(out.last)) out.last = lastDate;
             return out;
         },{first: null, last: null}),
-        manager: project.manager.name,
+        manager: managersMap[project.manager] ? managersMap[project.manager].name : 'Unknown Manager',
         onair: onAirSet(project.onair),
         budgetLink : !!project.budget
     })).sort((a, b) => {
@@ -238,7 +244,7 @@ exports.getNotifications = async () => {
 };
 
 // *********************************************************************************************************************
-// BOOKING PROJECTS STATUS
+// BOOKING PROJECTS STATUS //TODO xBPx *****************
 // *********************************************************************************************************************
 exports.getProjects = async (from, to, underBooked) => {
     const workTypeMap = (await BookingWorkType.find().lean()).reduce((o, workType) => {o[workType._id.toString()] = workType.label; return o}, {});
