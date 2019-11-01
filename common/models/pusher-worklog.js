@@ -3,7 +3,7 @@ const Schema = mongoose.Schema;
 
 const PusherWorklogSchema = new Schema({
     _id: String,
-    project: {type: Schema.Types.ObjectId, ref: 'booking-project'},
+    project: {type: Schema.Types.ObjectId},
     job: {type: Schema.Types.ObjectId, ref: 'booking-work-type'},
     operatorJob: {type: Schema.Types.ObjectId, ref: 'booking-work-type', default: null},
     operatorSurname: String,

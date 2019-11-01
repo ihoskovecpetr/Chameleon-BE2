@@ -112,15 +112,16 @@ exports.addOrUpdateWorklog = async worklog => {
 //----------------------------------------------------------------------------------------------------------------------
 
 // *********************************************************************************************************************
-// Update Tasks ConditionsMet //TODO xBPx ******** *********
+// Update Tasks ConditionsMet //TODO xBPx
 // *********************************************************************************************************************
 exports.updateTasksConditionsMet = async () => {
     const users = await  exports.getUsers();
     const allTasks = await PusherTask.find({},{dataOrigin: true, dataTarget: true, project: true, resolved: true, type: true, timestamp:true}).lean();
-    const tasks = await PusherTask.find({resolved: null, "conditions.0" : { "$exists": true }},{__v: false, resolved: false, /*origin: false,*/ dataTarget: false}).populate('project').lean(); //all not resolved tasks with some conditions
-    const changedTasks = tasks.filter(task => taskHelper.evaluateTaskConditions(task, task.project ? task.project._id : null, (task.dataOrigin && task.dataOrigin.onAir && task.dataOrigin.onAir._id ? task.dataOrigin.onAir._id : null), allTasks) != task.conditionsMet); // tasks with conditionsMet has been changed
+    const tasks = await PusherTask.find({resolved: null, "conditions.0" : { "$exists": true }},{__v: false, resolved: false, dataTarget: false}).lean(); //all not resolved tasks with some conditions
+    //populate project not necessary
+    const changedTasks = tasks.filter(task => task.project == "5d80aca08c8eace2d7866785")//tasks.filter(task => taskHelper.evaluateTaskConditions(task, task.project ? task.project : null, (task.dataOrigin && task.dataOrigin.onAir && task.dataOrigin.onAir._id ? task.dataOrigin.onAir._id : null), allTasks) !== task.conditionsMet); // tasks with conditionsMet has been changed
     const updatedTasks = await Promise.all(changedTasks.map(task => PusherTask.findOneAndUpdate({_id: task._id}, {$set: {conditionsMet: !task.conditionsMet}}, { new: true })));
-    return await Promise.all(updatedTasks.map(task => taskHelper.normalizeTask(task, users)));
+    return await Promise.all(updatedTasks.map(task => taskHelper.normalizeTask(task, users))); //task should have populated project ????????
 };
 // *********************************************************************************************************************
 // Get Users
@@ -316,7 +317,7 @@ exports.addTask = async task => {
     }
     const newTask = await PusherTask.create(task);
     //if not found in booking-projects, so try to find it in projects
-    newTask.project = await BookingProject.findOne({_id: newTask.project}).lean() || projectToBooking(await Project.findOne({_id: newTask.project}).lean());
+    //newTask.project = await BookingProject.findOne({_id: newTask.project}).lean() || projectToBooking(await Project.findOne({_id: newTask.project}).lean());
     return await taskHelper.normalizeTask(newTask, await exports.getUsers());
 };
 // *********************************************************************************************************************
@@ -326,7 +327,7 @@ exports.updateTask = async (id, data) => {
     const task = await PusherTask.findOneAndUpdate({_id: id}, {$set: data}, { new: true });
     if(!task) return new Error(`UpdateTask - Can't find task id: "${id}"`);
     //if not found in booking-projects, so try to find it in projects
-    task.project = await BookingProject.findOne({_id: task.project}).lean() || projectToBooking(await Project.findOne({_id: task.project}).lean());
+    //task.project = await BookingProject.findOne({_id: task.project}).lean() || projectToBooking(await Project.findOne({_id: task.project}).lean());
     const normalizedTask = await taskHelper.normalizeTask(task, await exports.getUsers());
     return {updatedTask: normalizedTask, followed: task.followed.filter(t => t.toString() != '000000000000000000000000' && t.toString() != '000000000000000000000001')};
 };
@@ -388,7 +389,7 @@ exports.getOpenWorkRequests = async stageStepMin => { //requests which are ready
     }).map(request => ({id: request._id, user: {id: request.user._id, name: request.user.name}, stage: request.stage}));
 };
 // *********************************************************************************************************************
-// GET USER'S LEADS FOR TODAY //TODO xBPx *************** *******
+// GET USER'S LEADS FOR TODAY //TODO xBPx
 // *********************************************************************************************************************
 exports.getTodayUserLeads = async userId => { //mongo db _id
     const result = {stage1: [], stage2: [], stage3: []};
@@ -403,14 +404,19 @@ exports.getTodayUserLeads = async userId => { //mongo db _id
             operator: user.resource,
             offtime: {$ne: true}
         };
-        const eventProjectData = await BookingEvent.find(eventsQuery, {project: true}).populate({path: 'project', select: 'deleted lead2D lead3D leadMP supervisor manager producer', match: {deleted: null}}).lean();
-        eventProjectData.filter(event => event.project !== null).forEach(event => {
-            if((user.job === null || user.job === '2D') && event.project.lead2D && user.id !== event.project.lead2D.toString() && result.stage1.indexOf(event.project.lead2D.toString()) < 0) result.stage1.push(event.project.lead2D.toString());
-            if((user.job === null || user.job === '3D') && event.project.lead3D && user.id !== event.project.lead3D.toString() && result.stage1.indexOf(event.project.lead3D.toString()) < 0) result.stage1.push(event.project.lead3D.toString());
-            if((user.job === null || user.job === 'MP') && event.project.leadMP && user.id !== event.project.leadMP.toString() && result.stage1.indexOf(event.project.leadMP.toString()) < 0) result.stage1.push(event.project.leadMP.toString());
-            if(event.project.manager && user.id !== event.project.manager.toString() && result.stage2.indexOf(event.project.manager.toString()) < 0 && result.stage1.indexOf(event.project.manager.toString()) < 0) result.stage2.push(event.project.manager.toString());
-            if(event.project.supervisor && user.id !== event.project.supervisor.toString() && result.stage2.indexOf(event.project.supervisor.toString()) < 0 && result.stage1.indexOf(event.project.supervisor.toString()) < 0) result.stage2.push(event.project.supervisor.toString());
-            //if(event.project.producer && user.id !== event.project.producer.toString() && result.stage2.indexOf(event.project.producer.toString()) < 0 && result.stage1.indexOf(event.project.producer.toString()) < 0) result.stage2.push(event.project.producer.toString());
+        const eventProjectData = await BookingEvent.find(eventsQuery, {project: true}).lean();
+
+        const projectIds = eventProjectData.map(event => event.project);
+        const projects1 = await BookingProject.find({_id: {$in: projectIds}, deleted: null, mergedToProject: null}, 'manager producer supervisor lead2D lead3D leadMP').lean();
+        const projects2 = (await Project.find({_id: {$in: projectIds}, deleted: null, booking: true}, 'team').lean()).map(project => projectToBooking(project, true));
+        const projectsMap = projects1.concat(projects2).reduce((map, project) => {map[project._id.toString()] = project; return map}, {});
+        eventProjectData.filter(event => projectsMap[event.project] !== undefined).forEach(event => {
+            if((user.job === null || user.job === '2D') && projectsMap[event.project].lead2D && user.id !== projectsMap[event.project].lead2D.toString() && result.stage1.indexOf(projectsMap[event.project].lead2D.toString()) < 0) result.stage1.push(projectsMap[event.project].lead2D.toString());
+            if((user.job === null || user.job === '3D') && projectsMap[event.project].lead3D && user.id !== projectsMap[event.project].lead3D.toString() && result.stage1.indexOf(projectsMap[event.project].lead3D.toString()) < 0) result.stage1.push(projectsMap[event.project].lead3D.toString());
+            if((user.job === null || user.job === 'MP') && projectsMap[event.project].leadMP && user.id !== projectsMap[event.project].leadMP.toString() && result.stage1.indexOf(projectsMap[event.project].leadMP.toString()) < 0) result.stage1.push(projectsMap[event.project].leadMP.toString());
+            if(projectsMap[event.project].manager && user.id !== projectsMap[event.project].manager.toString() && result.stage2.indexOf(projectsMap[event.project].manager.toString()) < 0 && result.stage1.indexOf(projectsMap[event.project].manager.toString()) < 0) result.stage2.push(projectsMap[event.project].manager.toString());
+            if(projectsMap[event.project].supervisor && user.id !== projectsMap[event.project].supervisor.toString() && result.stage2.indexOf(projectsMap[event.project].supervisor.toString()) < 0 && result.stage1.indexOf(projectsMap[event.project].supervisor.toString()) < 0) result.stage2.push(projectsMap[event.project].supervisor.toString());
+            //if(projectsMap[event.project].producer && user.id !== projectsMap[event.project].producer.toString() && result.stage2.indexOf(projectsMap[event.project].producer.toString()) < 0 && result.stage1.indexOf(projectsMap[event.project].producer.toString()) < 0) result.stage2.push(projectsMap[event.project].producer.toString());
         });
         const managers = await User.find({role: 'booking:manager'}, {_id: true}).lean();
         managers.forEach(manager => {
@@ -437,14 +443,20 @@ exports.addWorkRequestMessageAndStage = async (id, messageId, stage) => {
 //----------------------------------------------------------------------------------------------------------------------
 
 // *********************************************************************************************************************
-// Get Managers with Freelancers //TODO xBPx ******** ********
+// Get Managers with Freelancers //TODO xBPx
 // *********************************************************************************************************************
 exports.getManagersWithFreelancers = async () => {
     const today = moment().startOf('day');
-    const events = await BookingEvent.find({offtime: false}, {startDate: true, days: true, project: true, operator: true}).populate({path: 'project', select: 'manager internal deleted'}).populate({path: 'operator', select: 'virtual freelancer confirmed'}).lean();
+    const events = await BookingEvent.find({offtime: false}, {startDate: true, days: true, project: true, operator: true}).lean().populate({path: 'operator', select: 'virtual freelancer confirmed'});
+
+    const projectIds = events.map(event => event.project);
+    const projects1 = await BookingProject.find({_id: {$in: projectIds}, deleted: null, mergedToProject: null}, 'manager internal rnd').lean();
+    const projects2 = (await Project.find({_id: {$in: projectIds}, deleted: null, booking: true}, 'team bookingType').lean()).map(project => projectToBooking(project, true));
+    const projectsMap = projects1.concat(projects2).reduce((map, project) => {map[project._id.toString()] = project; return map}, {});
+
     const resources = await BookingResource.find({type: 'OPERATOR', $or: [{virtual: true}, {freelancer: true}], confirmed:{$exists: true, $ne: []}}, {confirmed: true}).lean();
     const activeEvents = events.filter(event => {
-        if(event.project.internal || event.project.rnd || event.project.deleted) return false; // no internal, r&d or deleted projects
+        if(!projectsMap[event.project] || projectsMap[event.project].internal || projectsMap[event.project].rnd || projectsMap[event.project].deleted) return false; // no internal, r&d or deleted projects
         if(!event.operator || (!event.operator.virtual && !event.operator.freelancer)) return false;// event operator is not freelancer or virtual
         const endDay = moment(event.startDate, 'YYYY-MM-DD').add((event.days.length - 1), 'days').startOf('day');
         if(endDay.diff(today, 'days') < 0) return false; //only event having any day equal today and late
@@ -492,8 +504,8 @@ exports.getManagersWithFreelancers = async () => {
                         const di = confirmedFreelancers[operatorId].indexOf(day.format('YYYY-MM-DD'));
                         if(di >= 0) confirmedFreelancers[operatorId].splice(di, 1);
                     }
-                } else if(event.project.manager) {
-                    if(managersWithUnconfirmedFreelancers.indexOf(event.project.manager.toString()) < 0) managersWithUnconfirmedFreelancers.push(event.project.manager.toString());
+                } else if(projectsMap[event.project] && projectsMap[event.project].manager) {
+                    if(managersWithUnconfirmedFreelancers.indexOf(projectsMap[event.project].manager.toString()) < 0) managersWithUnconfirmedFreelancers.push(projectsMap[event.project].manager.toString());
                 }
             }
             day.add(1, 'day');
@@ -526,10 +538,17 @@ async function getHrNotifyManagers(outputId) {
 //----------------------------------------------------------------------------------------------------------------------
 
 // *********************************************************************************************************************
-// Get Process Tasks //TODO xBPx ****** *******
+// Get Process Tasks //TODO xBPx
 // *********************************************************************************************************************
 exports.getProcessTasks = async () => {
-    return await PusherTask.find({type: 'ARCHIVE_PROCESS', resolved: null}, {project: true, dataOrigin: true, followed: true, origin: true}).populate([{path: 'project', select: 'projectId'}, {path: 'followed', select: 'dataTarget resolved'}]).lean();
+    const tasks =  await PusherTask.find({type: 'ARCHIVE_PROCESS', resolved: null}, {project: true, dataOrigin: true, followed: true, origin: true}).lean().populate({path: 'followed', select: 'dataTarget resolved'});
+    const projectIds = tasks.map(event => event.project);
+    const projects1 = await BookingProject.find({_id: {$in: projectIds}, deleted: null, mergedToProject: null}, 'K2projectId').lean();
+    const projects2 = (await Project.find({_id: {$in: projectIds}, deleted: null, booking: true}, 'K2').lean()).map(project => projectToBooking(project, true));
+    const projectsMap = projects1.concat(projects2).reduce((map, project) => {map[project._id.toString()] = project; return map}, {});
+    for(const task of tasks) if(task.project && projectsMap[task.project] && projectsMap[task.project].K2projectId) task.project = {_id: task.project, K2projectId: projectsMap[task.project].K2projectId};
+    console.log(tasks)
+    return tasks;
 };
 // *********************************************************************************************************************
 // Create Archive Review Task

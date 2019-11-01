@@ -23,7 +23,7 @@ require('../../_common/models/budget');
 exports.getManagersAndSupervisorsUtilization = async (from, to) => {
     const today = moment().startOf('day');
     const users = await User.find({},{role: true, name: true}).lean();
-    const projects = await BookingProject.find({deleted: null, internal: {$ne: true}, offtime: {$ne: true}}, {manager:true, supervisor:true, events:true, _id:false, label:true}).populate('manager supervisor events').lean();
+    const projects = await BookingProject.find({deleted: null, internal: {$ne: true}, offtime: {$ne: true}}, {manager:true, supervisor:true, events:true, _id:false, label:true}).lean().populate('manager supervisor events');
 
     const usersPrepared = users.reduce((out, user) => {
         if(user.role.indexOf('booking:manager') >= 0) {
@@ -84,7 +84,7 @@ exports.getManagersAndSupervisorsUtilization = async (from, to) => {
 exports.getManagersAndSupervisorsEfficiency = async (from, to) => {
     const today = moment().startOf('day');
     const users = await User.find({},{role: true, name: true}).lean();
-    const projects = await BookingProject.find({deleted: null, internal: {$ne: true}, offtime: {$ne: true}},{manager: true, supervisor: true, events: true, jobs: true, _id:false}).populate('manager supervisor events').lean();
+    const projects = await BookingProject.find({deleted: null, internal: {$ne: true}, offtime: {$ne: true}},{manager: true, supervisor: true, events: true, jobs: true, _id:false}).lean().populate('manager supervisor events');
 
     const usersPrepared = users.reduce((out, user) => {
         if(user.role.indexOf('booking:manager') >= 0) {
@@ -157,7 +157,7 @@ exports.getManagersAndSupervisorsEfficiency = async (from, to) => {
 // BOOKING NOTIFICATIONS
 // *********************************************************************************************************************
 exports.getNotifications = async () => {
-    const projects = await BookingProject.find({confirmed: true, manager: {$ne: null}, events: {$gt: []}, deleted: null, internal: {$ne: true}, offtime: {$ne: true}},{events:true, timing:true, label:true, jobs:true, manager:true, K2rid:true, _id:false, onair: true, budget: true}).populate('manager events').lean();
+    const projects = await BookingProject.find({confirmed: true, manager: {$ne: null}, events: {$gt: []}, deleted: null, internal: {$ne: true}, offtime: {$ne: true}},{events:true, timing:true, label:true, jobs:true, manager:true, K2rid:true, _id:false, onair: true, budget: true}).lean().populate('manager events');
     return projects.map(project => ({
         label: project.label,
         K2: project.K2rid !== null,
@@ -242,7 +242,7 @@ exports.getNotifications = async () => {
 // *********************************************************************************************************************
 exports.getProjects = async (from, to, underBooked) => {
     const workTypeMap = (await BookingWorkType.find().lean()).reduce((o, workType) => {o[workType._id.toString()] = workType.label; return o}, {});
-    const projects = await BookingProject.find({deleted: null, internal: {$ne: true}, offtime: {$ne: true}},{events: true, jobs: true, label: true, manager: true, _id: false}).populate('events manager').lean();
+    const projects = await BookingProject.find({deleted: null, internal: {$ne: true}, offtime: {$ne: true}},{events: true, jobs: true, label: true, manager: true, _id: false}).lean().populate('events manager');
     const today = moment().startOf('day');
     return projects.reduce((out, project) => {
         const events = project.events.filter(event => {
@@ -314,7 +314,7 @@ exports.getProjectsFinal = async () => {
     const SMALL_PROJECT_HOURS = 30;
 
     const workTypesMap = (await BookingWorkType.find().lean()).filter(workType => workType.bookable).reduce((o, workType) => {o[workType._id.toString()] = workType.shortLabel; return o}, {});
-    const projectsData = await BookingProject.find({deleted: null, internal: {$ne: true}, offtime: {$ne: true}, confirmed: true, checked: null}, {manager: true, supervisor: true, events: true, label: true, K2rid: true, budget: true, jobs: true }).populate('manager supervisor events budget jobs').lean();
+    const projectsData = await BookingProject.find({deleted: null, internal: {$ne: true}, offtime: {$ne: true}, confirmed: true, checked: null}, {manager: true, supervisor: true, events: true, label: true, K2rid: true, budget: true, jobs: true }).lean().populate('manager supervisor events budget jobs');
 
     const projects = projectsData
         .map(project => ({
@@ -401,7 +401,7 @@ exports.getProfit = async (from, to) => {
     const today = moment().startOf('day');
     const jobs = await BookingWorkType.find().lean();
     const overhead = await AnalyticsOverhead.findOne({},{fix:true, percent:true, _id:false}).lean();
-    const projects = await BookingProject.find({deleted: null, internal: {$ne: true}, offtime: {$ne: true}, confirmed: true}, {events: true, jobs: true, K2rid:true, _id: false}).populate('events').lean();
+    const projects = await BookingProject.find({deleted: null, internal: {$ne: true}, offtime: {$ne: true}, confirmed: true}, {events: true, jobs: true, K2rid:true, _id: false}).lean().populate('events');
     const operatorTariffs = (await BookingResource.find({type: 'OPERATOR', tariff :{$ne: null}}, {tariff:true, K2id: true }).lean()).map(operator => {return {id: operator._id, K2id: operator.K2id, tariff: getTariffNumber(operator.tariff, operator._id.toString())}});
     const jobTariffs= jobs.reduce((o, job) => {o[job._id] = job.tariff; return o;}, {});
     const operatorTariffsById = operatorTariffs.reduce((o, operator) => {o[operator.id] = operator.tariff; return o;}, {});
@@ -552,7 +552,7 @@ exports.updateWorkTariffs = async data => {
 // GET / UPdATE OPERATOR TARIFFS
 // *********************************************************************************************************************
 exports.getOperatorTariffs = async () => {
-    const operators = await BookingResource.find({type: 'OPERATOR', disabled: {$ne: true}, deleted: {$ne: true}, virtual: {$ne: true}, freelancer: {$ne: true}}, {guarantee: true, tariff:true, label: true, job: true }).populate('job').lean();
+    const operators = await BookingResource.find({type: 'OPERATOR', disabled: {$ne: true}, deleted: {$ne: true}, virtual: {$ne: true}, freelancer: {$ne: true}}, {guarantee: true, tariff:true, label: true, job: true }).lean().populate('job');
     return operators.map(operator => ({
         id: operator._id,
         label: operator.label,

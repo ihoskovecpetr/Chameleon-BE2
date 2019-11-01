@@ -11,7 +11,7 @@ let privateKey = null;
 module.exports = async () => {
     logger.debug('Project Archive Job Fired - Skipped for now');
     return;
-    const processTasks = await db.getProcessTasks();
+    const processTasks = await db.getProcessTasks(); //TODO carefully test what return this function (projectId ????)
     for (const task of processTasks) {
         const reviewOpened = task.followed.some(reviewTask => reviewTask.resolved === null);
         if(!reviewOpened) {

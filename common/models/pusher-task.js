@@ -11,7 +11,7 @@ const PusherTaskSchema = new Schema({
     conditions: [],
     conditionsMet: {type: Boolean, default: true},
     postpone: {type: Number, default: 0},
-    project: {type: Schema.Types.ObjectId, ref: 'booking-project', default: null },
+    project: {type: Schema.Types.ObjectId, default: null },
     dataOrigin: {type: Schema.Types.Mixed, default: null},
     dataTarget: {type: Schema.Types.Mixed, default: null},
     resolved: {type: Date, default: null},

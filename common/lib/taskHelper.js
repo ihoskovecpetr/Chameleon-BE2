@@ -2,6 +2,9 @@ const moment = require('moment');
 const crypto = require('crypto');
 const PusherWorklog = require('../models/pusher-worklog');
 const PusherTask = require('../models/pusher-task');
+const BookingProject = require('../models/booking-project');
+const Project = require('../models/project');
+const projectToBooking = require('./projectToBooking');
 
 module.exports = {
     evaluateTaskConditions: evaluateTaskConditions,
@@ -13,6 +16,11 @@ module.exports = {
 
 // normalize - map task data to form of accepted by Pusher
 async function normalizeTask(taskData, users) {
+    //const taskData = _task.toJSON ? _task.toJSON() : _task;
+    if(taskData.project && taskData.project.label === undefined) {
+        taskData = taskData.toJSON ? taskData.toJSON() : taskData;
+        taskData.project = await BookingProject.findOne({_id: taskData.project}).lean() || projectToBooking(await Project.findOne({_id: taskData.project}).lean());
+    }
     let task = {
         id: taskData._id,
         project: taskData.project ? taskData.project.label : '',
@@ -412,5 +420,3 @@ function flattenIntervals(intervals, today) {
         .map(interval => {return {firstDate: interval.firstDate.valueOf(), lastDate: interval.lastDate.valueOf()}});
     return result;
 }
-
-

@@ -11,6 +11,8 @@ const Person = require('../../_common/models/contact-person');
 const Company = require('../../_common/models/contact-company');
 const BookingProject = require('../../_common/models/booking-project');
 const BookingEvent = require('../../_common/models/booking-event');
+const PusherTask = require('../../_common/models/pusher-task');
+const PusherWorkLog = require('../../_common/models/pusher-worklog');
 const logger = require('../logger');
 
 
@@ -41,6 +43,8 @@ exports.createProject = async (projectData, user) => {
     if(projectData.bookingId) {
         booking = await BookingProject.findOneAndUpdate({_id: projectData.bookingId}, {mergedToProject: project._id});
         await BookingEvent.updateMany({project: projectData.bookingId}, {$set: {project: project._id}});
+        await PusherTask.updateMany({project: projectData.bookingId}, {$set: {project: project._id}});
+        await PusherWorkLog.updateMany({project: projectData.bookingId}, {$set: {project: project._id}});
     }
     return {project: await normalizeProject(project), booking: booking};
 };
@@ -62,6 +66,8 @@ exports.updateProject = async (id, updateData, user) => {
     if(updateData.bookingId) {
         booking = await BookingProject.findOneAndUpdate({_id: updateData.bookingId}, {mergedToProject: id});
         await BookingEvent.updateMany({project: updateData.bookingId}, {$set: {project: id}});
+        await PusherTask.updateMany({project: updateData.bookingId}, {$set: {project: id}});
+        await PusherWorkLog.updateMany({project: updateData.bookingId}, {$set: {project: id}});
     } else if(updateData.budget && project.bookingId) { //needed only for budget to get previous state of budget.booking - so far
         booking = await BookingProject.findOne({_id: project.bookingId}).lean();
     }

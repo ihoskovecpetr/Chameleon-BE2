@@ -35,7 +35,7 @@ exports.getPricelists = async () => {
 // *********************************************************************************************************************
 exports.getPricelist = async id => {
     const groups = await PricelistGroup.find({}, {__v:false}).lean();
-    const items = await PricelistItem.find({}, {__v: false}).populate('job').lean();
+    const items = await PricelistItem.find({}, {__v: false}).lean().populate('job');
     let clientPricelist = id ? await Pricelist.findOne({_id: id}).lean() : null;
     const units = await PricelistUnit.find({}, {__v: false}).lean();
 
@@ -244,7 +244,7 @@ exports.getBudgets = async () => {
 // get budget
 // *********************************************************************************************************************
 exports.getBudget = async id => {
-    const budget = await Budget.findOne({_id: id}).populate('pricelist parts').lean();
+    const budget = await Budget.findOne({_id: id}).lean().populate('pricelist parts');
     const colors = (await PricelistGroup.find({}, {color: true}).lean()).reduce((colors, group) => {colors[group._id.toString()] = group.color; return colors}, {});
     const project = await BookingProject.findOne({budget: id, deleted: null, offtime: false}, {label: true, manager: true}).lean();
     const v2 = !!budget.pricelist.v2;
@@ -615,7 +615,7 @@ function getBudgetPrices(budget) {
 
 async function getBudgetMinutes(budgetId) {
     let result = {kickBack: false, jobs: {}};
-    const budget = await Budget.findOne({_id: budgetId}, {parts: true, client: true}).populate('parts').lean();
+    const budget = await Budget.findOne({_id: budgetId}, {parts: true, client: true}).lean().populate('parts');
     if(budget) {
         budget.parts.filter(part => part.active).forEach(part => {
             part.items.forEach(item => {

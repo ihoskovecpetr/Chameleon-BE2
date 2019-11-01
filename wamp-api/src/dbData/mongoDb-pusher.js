@@ -41,7 +41,6 @@ exports.getPusherBookingTimeSpan = () => PUSHER_BOOKING_TIME_SPAN;
 exports.getTaskById = async id => {
     const task = await PusherTask.findOne({_id: id}).lean();
     if(!task) return null;
-    task.project = await BookingProject.findOne({_id: task.project}).lean() || projectToBooking(await Project.findOne({_id: task.project}).lean());
     return await taskHelper.normalizeTask(task, await getUsers());
 };
 // *********************************************************************************************************************
@@ -61,13 +60,7 @@ exports.getTasksForUser = async user => {
             }
         }
         const activeTasks =  userTasks.filter(task => task.conditionsMet);
-        const tasks = [];
-        for(const task of activeTasks) {
-            const taskObject = task.toJSON();
-            taskObject.project = await BookingProject.findOne({_id: task.project}).lean() || projectToBooking(await Project.findOne({_id: task.project}).lean());
-            tasks.push(await taskHelper.normalizeTask(taskObject, users))
-        }
-        return tasks;
+        return await Promise.all(activeTasks.map(task => taskHelper.normalizeTask(task, users)))
     } else throw new Error(`Can't find user ${user}`);
 };
 // *********************************************************************************************************************
@@ -145,13 +138,7 @@ exports.completeTask = async (id, data) => {
     }
     tasks.unshift(task);
     const users = await getUsers();
-    const populatedTasks = [];
-    for(const task of tasks) {
-        const taskObject = task.toJSON ? task.toJSON() : task;
-        taskObject.project = await BookingProject.findOne({_id: task.project}).lean() || projectToBooking(await Project.findOne({_id: task.project}).lean());
-        populatedTasks.push(await taskHelper.normalizeTask(taskObject, users))
-    }
-    return populatedTasks;
+    return await Promise.all(tasks.map(task => taskHelper.normalizeTask(task, users)));
 };
 // *********************************************************************************************************************
 // FOLLOW TASK COMPLETED //TODO xBPx
@@ -213,7 +200,7 @@ exports.addTask = async task => {
     }
     task = await PusherTask.create(task);
     //if not found in booking-projects, so try to find it in projects
-    task.project = await BookingProject.findOne({_id: task.project}).lean() || projectToBooking(await Project.findOne({_id: task.project}).lean());
+    //task.project = await BookingProject.findOne({_id: task.project}).lean() || projectToBooking(await Project.findOne({_id: task.project}).lean());
     return await taskHelper.normalizeTask(task, await getUsers());
 };
 // *********************************************************************************************************************
@@ -223,7 +210,7 @@ exports.updateTask = async (id, data) => {
     const task = await PusherTask.findOneAndUpdate({_id: id}, {$set: data}, {new: true});
     if(task) {
         //if not found in booking-projects, so try to find it in projects
-        task.project = await BookingProject.findOne({_id: task.project}).lean() || projectToBooking(await Project.findOne({_id: task.project}).lean());
+        //task.project = await BookingProject.findOne({_id: task.project}).lean() || projectToBooking(await Project.findOne({_id: task.project}).lean());
         return {updatedTask: await taskHelper.normalizeTask(task, await getUsers()), followed: task.followed.filter(t => t.toString() != '000000000000000000000000' && t.toString() != '000000000000000000000001')};
     } else throw new Error(`UpdateTask - Can't find task id: "${id}"`);
 };
@@ -233,7 +220,7 @@ exports.updateTask = async (id, data) => {
 exports.forwardTask = async (id, targetId) => {
     const task = await PusherTask.findOneAndUpdate({_id: id}, {target: targetId}, { new: true });
     if(task) {
-        task.project = await BookingProject.findOne({_id: task.project}).lean() || projectToBooking(await Project.findOne({_id: task.project}).lean());
+        //task.project = await BookingProject.findOne({_id: task.project}).lean() || projectToBooking(await Project.findOne({_id: task.project}).lean());
         return await taskHelper.normalizeTask(task, await getUsers());
     } else throw new Error(`ForwardTask - Can't find task id: ${id}`);
 };
@@ -287,7 +274,7 @@ exports.createBigArchiveTask = async (taskId, work) => {
         if(task.origin) {
             const parent = await PusherTask.findOne({type: `ARCHIVE_${work}_LEAD`, project: task.project, target: task.origin, resolved: null}).lean();
             if(parent) {
-                parent.project = await BookingProject.findOne({_id: parent.project}).lean() || projectToBooking(await Project.findOne({_id: parent.project}).lean());
+                //parent.project = await BookingProject.findOne({_id: parent.project}).lean() || projectToBooking(await Project.findOne({_id: parent.project}).lean());
                 parentTask = await taskHelper.normalizeTask(parent, await getUsers());
             }
         }

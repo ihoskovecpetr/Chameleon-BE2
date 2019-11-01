@@ -9,7 +9,7 @@ const BookingEventSchema = new Schema({
     offtime: {type: Boolean, default: false},
     label: {type: String, default:null},
     confirmedAsProject: {type: Boolean, default: true},
-    project: {type: Schema.Types.ObjectId, ref: 'booking-project', default: null},
+    project: {type: Schema.Types.ObjectId, default: null},
     job: {type: Schema.Types.ObjectId, ref: 'booking-work-type', default: null},
     efficiency: {type: Number, default: 100},
     days: [{
