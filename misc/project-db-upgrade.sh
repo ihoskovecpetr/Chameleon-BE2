@@ -28,6 +28,9 @@ mongo_eval 'db["projects"].updateMany({}, {$set: {bookingType: "UNCONFIRMED"}})'
 echo -- change booking field in projects to false
 mongo_eval 'db["projects"].updateMany({}, {$set: {booking: false}})'
 
+echo -- change paymentChecked field in projects to null
+mongo_eval 'db["projects"].updateMany({}, {$set: {paymentChecked: null}})'
+
 echo -- add bookingId field to projects - default null
 mongo_eval 'db["projects"].updateMany({}, {$set: {bookingId: null}})'
 

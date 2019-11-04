@@ -79,7 +79,7 @@ const ProjectSchema = new Schema({
         category: {type: Number, default: 1},
         _id: false
     }],
-    paymentChecked: {type: Boolean, default: false},
+    paymentChecked: {type: Date, default: null},
     deleted: {type: Date, default: null},
     archived: {type: Date, default: null},
     bookingType: {type: String, default: 'UNCONFIRMED'},

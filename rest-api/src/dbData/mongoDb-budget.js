@@ -13,12 +13,14 @@ const PricelistUnit = require('../../_common/models/pricelist-unit');
 const BookingWorkType = require('../../_common/models/booking-work-type');
 const PricelistGroup = require('../../_common/models/pricelist-group');
 const BookingProject = require('../../_common/models/booking-project');
+const Project = require('../../_common/models/project');
 const PricelistItem = require('../../_common/models/pricelist-item');
 const BudgetCondition = require('../../_common/models/budget-condition');
 const BudgetItem = require('../../_common/models/budget-item');
 const PricelistSnapshot = require('../../_common/models/pricelist-snapshot');
 
 const BookingOplog = require('../../_common/models/booking-oplog');
+const projectToBooking = require('../../_common/lib/projectToBooking');
 
 // +++++  P R I C E L I S T S  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -226,11 +228,12 @@ exports.removeTemplate = async id => {
 // +++++  B U D G E T S  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 // *********************************************************************************************************************
-// get budgets
+// get budgets //TODO xBPx
 // *********************************************************************************************************************
 exports.getBudgets = async () => {
-    const projects = await BookingProject.find({deleted: null, offtime: false, budget: {$ne: null}}).lean();
-    const linkedBudgets = projects.map(project => project.budget ? project.budget.toString() : '');
+    const bookingProjects = await BookingProject.find({mergedToProject: null, deleted: null, rnd: false, offtime: false, budget: {$ne: null}}, 'budget').lean();
+    const projects = (await Project.find({dleted: null, booking: true}, 'bookingType budget')).map(project => projectToBooking(project, true)).filter(project => !project.offtime && !project.rnd);
+    const linkedBudgets = bookingProjects.concat(projects).map(project => project.budget ? project.budget.toString() : '');
     const budgets = await Budget.find({deleted: null}, {label: true, version: true, parts: true, contact: true, modified: true}, {sort: 'modified'}).lean();
     return budgets.map(budget => ({
         id: budget._id,
@@ -241,12 +244,12 @@ exports.getBudgets = async () => {
 };
 
 // *********************************************************************************************************************
-// get budget
+// get budget //TODO xBPx
 // *********************************************************************************************************************
 exports.getBudget = async id => {
     const budget = await Budget.findOne({_id: id}).lean().populate('pricelist parts');
     const colors = (await PricelistGroup.find({}, {color: true}).lean()).reduce((colors, group) => {colors[group._id.toString()] = group.color; return colors}, {});
-    const project = await BookingProject.findOne({budget: id, deleted: null, offtime: false}, {label: true, manager: true}).lean();
+    const project = await BookingProject.findOne({mergedToProject: null, budget: id, deleted: null, offtime: false}, {label: true, manager: true}).lean() || projectToBooking(await Project.findOne({'budget.booking': id, deleted: null, bookingType: {$in: ['CONFIRMED', 'UNCONFIRMED', 'INTERNAL']}}, {name: true, team: true}).lean(), true);
     const v2 = !!budget.pricelist.v2;
     return {
         id: budget._id,
@@ -373,7 +376,7 @@ exports.createBudget = async options => { // budget = {label, pricelistId, langu
 };
 
 // *********************************************************************************************************************
-// create as copy budget
+// create as copy budget //TODO xBPx
 // *********************************************************************************************************************
 exports.createBudgetAsCopy = async (id, budget) => {
     const newPrice = getBudgetPrices(budget);
@@ -388,14 +391,15 @@ exports.createBudgetAsCopy = async (id, budget) => {
     budget.parts = budget.parts.map(part => part._id);
     await Budget.findOneAndUpdate({_id: newId}, budget);
     for(const part of parts) await BudgetItem.create(part, {setDefaultsOnInsert: true});
-    const newProject = await BookingProject.findOne({_id: budget.project});
-    const newProjectID = newProject ? newProject._id.toString() : null;
-    const project = newProjectID ? await exports.updateProjectsBudget(newProjectID, newId, true) : null;
+    //const newProject = await BookingProject.findOne({_id: budget.project}, '_id').lean() || ;
+    //const newProjectId = newProject ? budget.project : null;
+    //const project = newProjectId ? await exports.updateProjectsBudget(newProjectId, newId, true) : null;
+    const project = await exports.updateProjectsBudget(budget.project, newId, true);
     return {oldProject: project, newProject: project, newPrice: newPrice, oldPrice: oldPrice, newBudget: newId, oldBudget: id};
 };
 
 // *********************************************************************************************************************
-// update budget
+// update budget //TODO xBPx
 // *********************************************************************************************************************
 exports.updateBudget = async (id, budget) => {
     const newPrice = getBudgetPrices(budget);
@@ -409,27 +413,29 @@ exports.updateBudget = async (id, budget) => {
     const toDelete = oldBudget.parts.filter(partId => partIds.indexOf(partId.toString()) < 0);
     for(const partId of toDelete) await BudgetItem.findByIdAndRemove(partId);
 
-    const oldProject = await BookingProject.findOne({budget: id});
-    const newProject = await BookingProject.findOne({_id: budget.project});
-    const oldProjectID = oldProject ? oldProject._id.toString() : null;
-    const newProjectID = newProject ? newProject._id.toString() : null;
+    const oldProject = await BookingProject.findOne({budget: id, mergedToProject: null}, '_id').lean() || await Project.findOne({'budget.booking': id}, '_id').lean();
+    const newProject = await BookingProject.findOne({_id: budget.project}, '_id').lean() || Project.findOne({_id: budget.project}, '_id').lean();
+
+    const oldProjectId = oldProject ? oldProject._id.toString() : null;
+    const newProjectId = newProject ? newProject._id.toString() : null;
+
     const result = {oldProject: null, newProject: null, newPrice: newPrice, oldPrice: oldPrice, oldBudget: id, newBudget: id};
-    if(oldProjectID !== newProjectID) {
-        if(newProjectID) result.newProject = await exports.updateProjectsBudget(newProjectID, id, true);
-        if(oldProjectID) result.oldProject = await exports.updateProjectsBudget(oldProjectID, null, true);
+    if(oldProjectId !== newProjectId) {
+        if(newProjectId) result.newProject = await exports.updateProjectsBudget(newProjectId, id, true);
+        if(oldProjectId) result.oldProject = await exports.updateProjectsBudget(oldProjectId, null, true);
     } else {
-        if(newProjectID) result.newProject = await exports.updateProjectsBudget(newProjectID, id, true);
+        if(newProjectId) result.newProject = await exports.updateProjectsBudget(newProjectId, id, true);
         result.oldProject = result.newProject;
     }
     return result;
 };
 
 // *********************************************************************************************************************
-// remove budget
+// remove budget  //TODO xBPx
 // *********************************************************************************************************************
 exports.removeBudget = async id => {
     const budget = await Budget.findOneAndUpdate({_id: id}, {deleted: moment()}).populate('parts');
-    let project = await BookingProject.findOne({budget: id}, {_id: true}).lean();
+    let project = await BookingProject.findOne({mergedToProject: null, budget: id}, {_id: true}).lean() || Project.findOne({'budget.booking': id}, {_id: true}).lean();
     if(project) project = await exports.updateProjectsBudget(project._id, null, true);
     return {oldProject: project, newProject: null, oldPrice: getBudgetPrices(budget), newPrice: null, oldBudget: id, newBudget: null}
 };
@@ -471,7 +477,7 @@ exports.getClients = async () => {
 };
 
 // *********************************************************************************************************************
-// get booking projects to pair with
+// get booking projects to pair with  //TODO xBPx *********
 // *********************************************************************************************************************
 exports.getProjects = async include => {
     let query = {deleted: null, offtime: false, budget: null};
@@ -481,26 +487,33 @@ exports.getProjects = async include => {
 };
 
 // *********************************************************************************************************************
-// get booking project (For create new from booking)
+// get booking project (For create new from booking)  //TODO xBPx
 // *********************************************************************************************************************
 exports.getProject = async id => {
-    return await BookingProject.findOne({_id: id, deleted: null, offtime: false}, {label: true, K2name: true, K2client: true, budget: true}).lean();
+    return await BookingProject.findOne({_id: id, deleted: null, offtime: false, rnd: false}, {label: true, K2name: true, K2client: true, budget: true}).lean() || projectToBooking(await Project.findOne({_id: id, deleted: null, bookingType: {$in: ['CONFIRMED', 'UNCONFIRMED', 'INTERNAL']}}, 'name K2 budget').lean(), true);
 };
 
 // *********************************************************************************************************************
-// update booking project - set budget id for new created budget already linked to project
+// update booking project - set budget id for new created budget already linked to project  //TODO xBPx
 // *********************************************************************************************************************
 exports.updateProjectsBudget = async (projectId, budgetId, updateMinutes) => {
     let changed = false;
-    const project = await BookingProject.findOne({_id: projectId});
+    const project = await BookingProject.findOne({_id: projectId}) || await Project.findOne({_id: projectId});
     if(project) {
-        if(project.budget != budgetId) {
-            project.budget = budgetId;
-            changed = true;
+        if(project.projectId) { //project
+            if(project.budget && project.budget.booking != budgetId) {
+                project.budget.booking = budgetId;
+                changed = true;
+            }
+        } else { //booking project
+            if(project.budget != budgetId) {
+                project.budget = budgetId;
+                changed = true;
+            }
         }
         if(updateMinutes) {
             if(budgetId) {
-                const budgetMinutes = await getBudgetMinutes(budgetId);
+                const budgetMinutes = await getBudgetMinutes(budgetId); //{kickBack, jobs}
                 changed = updatePlannedMinutes(budgetMinutes, project) || changed;
             } else {
                 changed = resetPlannedMinutes(project) || changed;
@@ -508,11 +521,11 @@ exports.updateProjectsBudget = async (projectId, budgetId, updateMinutes) => {
         }
         if(changed) {
             const updatedProject = await project.save();
-            const normalizedProject = exports.getNormalizedProject(updatedProject);
+            const normalizedProject = exports.getNormalizedProject(updatedProject.projectId ? projectToBooking(updatedProject) : updatedProject);
             await exports.logOp('updateProjectBudget', '777777777777777777777777', normalizedProject, null);
             return normalizedProject;
-        } else return exports.getNormalizedProject(project);
-    }
+        } else return exports.getNormalizedProject(project.projectId ? projectToBooking(project) : project);
+    } else return null;
 };
 
 // *********************************************************************************************************************
@@ -546,16 +559,27 @@ exports.logOp = async (type, user, data, err) => {
 // *********************************************************************************************************************
 // helpers
 // *********************************************************************************************************************
+//TODO xBPx
 function resetPlannedMinutes(project) {
     if(project) {
         let changed = false;
-        project.jobs.forEach((job, index) => {
-            if(job.plannedDuration !== 0) {
-                project.jobs[index].plannedDuration = 0;
-                changed = true;
-            }
-        });
-        project.jobs = project.jobs.filter(job => job.plannedDuration > 0 || job.doneDuration > 0); // remove 0-0 job
+        if(project.projectId) { //project
+            project.work.forEach((work, index) => {
+                if (work.plannedDuration !== 0) {
+                    project.work[index].plannedDuration = 0;
+                    changed = true;
+                }
+            });
+            project.work = project.work.filter(work => work.plannedDuration > 0 || work.doneDuration > 0); // remove 0-0 job
+        } else { //booking project
+            project.jobs.forEach((job, index) => {
+                if (job.plannedDuration !== 0) {
+                    project.jobs[index].plannedDuration = 0;
+                    changed = true;
+                }
+            });
+            project.jobs = project.jobs.filter(job => job.plannedDuration > 0 || job.doneDuration > 0); // remove 0-0 job
+        }
         if(project.kickBack) {
             project.kickBack = false;
             changed = true;
@@ -563,26 +587,46 @@ function resetPlannedMinutes(project) {
         return changed;
     } else return false;
 }
-
+//TODO xBPx
 function updatePlannedMinutes(budgetMinutes, project) {
     if(budgetMinutes && project) {
         let changed = false;
-        project.jobs.forEach((job, index) => {
-            if(budgetMinutes.jobs[job.job]) {
-                if(job.plannedDuration !== budgetMinutes.jobs[job.job]) {
-                    project.jobs[index].plannedDuration = budgetMinutes.jobs[job.job];
+        if(project.projectId) { //project
+            project.work.forEach((work, index) => {
+                if(budgetMinutes.jobs[work.job]) {
+                    if(work.plannedDuration !== budgetMinutes.jobs[work.job]) {
+                        project.work[index].plannedDuration = budgetMinutes.jobs[work.job];
+                        changed = true;
+                    }
+                    budgetMinutes.jobs[work.job] = -1;
+                } else if(work.plannedDuration !== 0) {
+                    project.work[index].plannedDuration = 0;
                     changed = true;
                 }
-                budgetMinutes.jobs[job.job] = -1;
-            } else if(job.plannedDuration !== 0) {
-                project.jobs[index].plannedDuration = 0;
-                changed = true;
-            }
-        });
-        project.jobs = project.jobs.filter(job => job.plannedDuration > 0 || job.doneDuration > 0); // remove 0-0 job
+            });
+            project.work = project.work.filter(work => work.plannedDuration > 0 || work.doneDuration > 0); // remove 0-0 job
+        } else { //booking project
+            project.jobs.forEach((job, index) => {
+                if(budgetMinutes.jobs[job.job]) {
+                    if(job.plannedDuration !== budgetMinutes.jobs[job.job]) {
+                        project.jobs[index].plannedDuration = budgetMinutes.jobs[job.job];
+                        changed = true;
+                    }
+                    budgetMinutes.jobs[job.job] = -1;
+                } else if(job.plannedDuration !== 0) {
+                    project.jobs[index].plannedDuration = 0;
+                    changed = true;
+                }
+            });
+            project.jobs = project.jobs.filter(job => job.plannedDuration > 0 || job.doneDuration > 0); // remove 0-0 job
+        }
         Object.keys(budgetMinutes.jobs).filter(jobId => budgetMinutes.jobs[jobId] >= 0).forEach(jobId => {
             changed = true;
-            project.jobs.push({doneDuration: 0, job: jobId, plannedDuration: budgetMinutes.jobs[jobId]})
+            if(project.projectId) { // project
+                project.work.push({doneDuration: 0, type: jobId, plannedDuration: budgetMinutes.jobs[jobId]})
+            } else { // booking project
+                project.jobs.push({doneDuration: 0, job: jobId, plannedDuration: budgetMinutes.jobs[jobId]})
+            }
         });
         if(project.kickBack !== budgetMinutes.kickBack) {
             project.kickBack = budgetMinutes.kickBack;
