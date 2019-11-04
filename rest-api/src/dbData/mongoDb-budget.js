@@ -403,7 +403,7 @@ exports.createBudgetAsCopy = async (id, budget) => {
 // *********************************************************************************************************************
 exports.updateBudget = async (id, budget) => {
     const newPrice = getBudgetPrices(budget);
-    const oldPrice = getBudgetPrices(await Budget.findOne({_id: id}).populate('parts'));
+    const oldPrice = getBudgetPrices(await Budget.findOne({_id: id}).lean().populate('parts'));
     const parts = [...budget.parts];
     budget.parts = budget.parts.map(part => part._id);
     const oldBudget = await Budget.findOneAndUpdate({_id: id}, budget);
@@ -414,7 +414,7 @@ exports.updateBudget = async (id, budget) => {
     for(const partId of toDelete) await BudgetItem.findByIdAndRemove(partId);
 
     const oldProject = await BookingProject.findOne({budget: id, mergedToProject: null}, '_id').lean() || await Project.findOne({'budget.booking': id}, '_id').lean();
-    const newProject = await BookingProject.findOne({_id: budget.project}, '_id').lean() || Project.findOne({_id: budget.project}, '_id').lean();
+    const newProject = await BookingProject.findOne({_id: budget.project}, '_id').lean() || await Project.findOne({_id: budget.project}, '_id').lean();
 
     const oldProjectId = oldProject ? oldProject._id.toString() : null;
     const newProjectId = newProject ? newProject._id.toString() : null;
