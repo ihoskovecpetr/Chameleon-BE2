@@ -782,7 +782,7 @@ exports.confirmWorkLog = async (id, kind, value) => {
                 updateManager = true;
             }
         }
-        //await log.save();
+        await log.save();
         const update = [];
         if(updateResolver) {
             const users = await User.find({role: 'booking:worklog-resolver'}, {ssoId: true, _id: false}).lean();
