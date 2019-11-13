@@ -25,7 +25,8 @@ const BudgetSchema = new Schema({
     conditions: {type: String, default:''},
     colorOutput: {type: Boolean, default: false},
     singleOutput: {type: Boolean, default: false},
-    multiTotal: {type: Boolean, default: false}
+    multiTotal: {type: Boolean, default: false},
+    __v: { type: Number, select: false}
 });
 
 module.exports = mongoose.model('budget', BudgetSchema);

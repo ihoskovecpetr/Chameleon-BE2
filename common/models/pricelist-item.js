@@ -14,7 +14,8 @@ const PricelistItemSchema = new Schema({
         eur: {type: Number, default: 0},
         usd: {type: Number, default: 0}
     },
-    order: {type: Number, default: 0}
+    order: {type: Number, default: 0},
+    __v: { type: Number, select: false}
 });
 
 module.exports = mongoose.model('pricelist-item', PricelistItemSchema);

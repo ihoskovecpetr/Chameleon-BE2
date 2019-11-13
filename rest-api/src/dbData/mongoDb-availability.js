@@ -6,7 +6,7 @@ const User = require('../../_common/models/user');
 const BookingResource = require('../../_common/models/booking-resource');
 const BookingEvent = require('../../_common/models/booking-event');
 const BookingProject = require('../../_common/models/booking-project');
-const BookingOplog = require('../../_common/models/booking-oplog');
+//const BookingOplog = require('../../_common/models/booking-oplog');
 
 
 //const logger = require('../logger');
@@ -75,8 +75,8 @@ exports.updateAvbEvent = async (avbId, eventUpdate) => {
 // *********************************************************************************************************************
 // DB LOGGING
 // *********************************************************************************************************************
-exports.logOp = async (type, user, data, err) => {
-    await BookingOplog.create({type: type, user: user, data: data, success: err ? false : true, reason: err});
-};
+//exports.logOp = async (type, user, data, err) => {
+//    await BookingOplog.create({type: type, user: user, data: data, success: err ? false : true, reason: err});
+//};
 
 

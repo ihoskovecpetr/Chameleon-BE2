@@ -12,7 +12,8 @@ const UserSchema = new Schema({
     role: [{type: String}],
     resource: {type: Schema.Types.ObjectId, ref: 'booking-resource', default: null},
     email: {type:String, default: null},
-    tlf: {type:String, default: null}
+    tlf: {type:String, default: null},
+    __v: { type: Number, select: false}
 });
 
 module.exports = mongoose.model('user', UserSchema);

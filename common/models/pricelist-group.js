@@ -7,7 +7,8 @@ const PricelistGroupSchema = new Schema({
         en: {type: String, default: ''}
     },
     order: {type: Number, default: 0},
-    color: {type: String, default: '#919191'}
+    color: {type: String, default: '#919191'},
+    __v: { type: Number, select: false}
 });
 
 module.exports = mongoose.model('pricelist-group', PricelistGroupSchema);

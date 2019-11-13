@@ -1,5 +1,7 @@
+'use strict';
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
+const HistoryPlugin = require('../mongoHistoryPlugin');
 
 const BookingResourceSchema = new Schema({
     label: String,
@@ -33,7 +35,11 @@ const BookingResourceSchema = new Schema({
         note: {type: String, default: ''},
         _id: false
     }],
-    tlf: {type: String, default: null}
+    tlf: {type: String, default: null},
+    __v: { type: Number, select: false}
 });
+
+BookingResourceSchema.virtual('_user').set(function(v) {this.__user = v});
+BookingResourceSchema.plugin(HistoryPlugin());
 
 module.exports = mongoose.model('booking-resource', BookingResourceSchema);

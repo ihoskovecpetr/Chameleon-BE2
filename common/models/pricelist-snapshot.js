@@ -35,10 +35,13 @@ const PricelistSnapshotSchema = new Schema({
                 czk: {type: Boolean, default: false},
                 eur: {type: Boolean, default: false},
                 usd: {type: Boolean, default: false}
-            }
-        }]
+            },
+            _id: false
+        }],
+        _id: false
     }],
-    v2: {type: Boolean, default: true}
+    v2: {type: Boolean, default: true},
+    __v: { type: Number, select: false}
 });
 
 module.exports = mongoose.model('pricelist-snapshot', PricelistSnapshotSchema);

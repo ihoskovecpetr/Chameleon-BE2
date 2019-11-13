@@ -9,7 +9,8 @@ const BookingWorkTypeSchema = new Schema({
     shortLabel: String,
     type: String,
     bookable: {type: Boolean, default: true},
-    multi: {type: Boolean, default: false}
+    multi: {type: Boolean, default: false},
+    __v: { type: Number, select: false}
 });
 
 module.exports = mongoose.model('booking-work-type', BookingWorkTypeSchema);

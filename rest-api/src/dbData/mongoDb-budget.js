@@ -19,7 +19,7 @@ const BudgetCondition = require('../../_common/models/budget-condition');
 const BudgetItem = require('../../_common/models/budget-item');
 const PricelistSnapshot = require('../../_common/models/pricelist-snapshot');
 
-const BookingOplog = require('../../_common/models/booking-oplog');
+//const BookingOplog = require('../../_common/models/booking-oplog');
 const projectToBooking = require('../../_common/lib/projectToBooking');
 
 // +++++  P R I C E L I S T S  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -552,9 +552,9 @@ exports.getNormalizedProject = source => {
 // *********************************************************************************************************************
 // logging ops to db (booking)
 // *********************************************************************************************************************
-exports.logOp = async (type, user, data, err) => {
-    await BookingOplog.create({type: type, user: user, data: data, success: !err, reason: err});
-};
+//exports.logOp = async (type, user, data, err) => {
+//    await BookingOplog.create({type: type, user: user, data: data, success: !err, reason: err});
+//};
 
 // *********************************************************************************************************************
 // helpers

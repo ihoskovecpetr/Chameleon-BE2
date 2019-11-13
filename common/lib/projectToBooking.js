@@ -1,5 +1,20 @@
 'use strict';
 
+const TIMING = {
+    GO_AHEAD: {id: 'GO_AHEAD', category: 101, label: 'Go Ahead'},
+    PPM: {id: 'PPM', category: 102, label: 'PPM'},
+    TRAVEL: {id: 'TRAVEL', category: 103, label: 'Travel'},
+    RECCE: {id: 'RECCE', category: 104, label: 'Recce'},
+    SHOOT: {id: 'SHOOT', category: 105, label: 'Shoot'},
+    OFFLINE_APPROVAL: {id: 'OFFLINE_APPROVAL', category: 106, label: 'Offline Approval'},
+    ONLINE_PRESENTATION: {id: 'ONLINE_PRESENTATION', category: 107, label: 'Online Presentation'},
+    DELIVERY: {id: 'DELIVERY', category: 108, label: 'Delivery'},
+    ON_AIR: {id: 'ON_AIR', category: 109, label: 'On Air'},
+    GENERAL1: {id: 'GENERAL1', category: 1, label: ''},
+    GENERAL2: {id: 'GENERAL2', category: 2, label: ''},
+    GENERAL3: {id: 'GENERAL3', category: 3, label: ''}
+};
+
 module.exports = (project, update) => {
     if(!project) return null;
     if(project.toJSON) project = project.toJSON();
@@ -37,6 +52,9 @@ module.exports = (project, update) => {
             }
         }
     }
+    //const onair = update && (typeof project.timing === 'undefined' || project.timing.filter(t => t.type === TIMING.ON_AIR.id).length === 0) ? undefined : project.timing ? project.timing.filter(t => t.type === TIMING.ON_AIR.id) : [];
+    //const timing = update && (typeof project.timing === 'undefined' || project.timing.filter(t => t.type !== TIMING.ON_AIR.id).length === 0) ? undefined : project.timing ? project.timing.filter(t => t.type !== TIMING.ON_AIR.id) : [];
+    //const clipsMap = update && typeof project.clip === 'undefined' ? undefined : project.clip.reduce((o, c) => {o[c._id] = c.name; return o}, {});
     const out = {
         _id: update && typeof project._id === 'undefined' ? undefined : project._id,
         label: update && typeof project.name === 'undefined' ? undefined : project.name,
@@ -52,8 +70,8 @@ module.exports = (project, update) => {
         K2client: update && typeof project.K2 === 'undefined' ? undefined : project.K2 && project.K2.client ? project.K2.client : null,
         K2name: update && typeof project.K2 === 'undefined' ? undefined : project.K2 && project.K2.name ? project.K2.name : null,
         K2projectId: update && typeof project.K2 === 'undefined' ? undefined : project.K2 && project.K2.projectId ? project.K2.projectId : null,
-        onair: update && typeof project.onair === 'undefined' ? undefined : project.onair,
-        timing: update && typeof project.timing === 'undefined' ? undefined : project.timing && project.timing.length > 0 ? project.timing.map(t => ({type: t.type, date: t.date, dateTo: t.dateTo, text: t.label, category: t.category})) : [],
+        onair: [],//onair ? onair.map(t => projectTimingToOnair(t, clipsMap)) : undefined,
+        timing: [],//timing ? timing.map(t => projectTimingToTiming(t, clipsMap)) : undefined,
         invoice: update && typeof project.invoice === 'undefined' ? undefined : project.invoice,
         confirmed: update && typeof project.bookingType === 'undefined' ? undefined : project.bookingType === 'CONFIRMED',
         internal: update && typeof project.bookingType === 'undefined' ? undefined : project.bookingType === 'INTERNAL',
@@ -73,3 +91,33 @@ module.exports = (project, update) => {
     }
     return out;
 };
+
+function projectTimingToTiming(timing, clipsMap) {
+    const category = TIMING[timing.type] ? TIMING[timing.type].category : 1; //1,2,3,101,...
+
+    const type = TIMING[timing.type] && TIMING[timing.type].label ? TIMING[timing.type].label : '';
+    const clips = timing.clip && timing.clip.length > 0 ? timing.clip.map(c => clipsMap[c] || 'unknown clip') : [];
+    const text = timing.text ? timing.text : '';
+
+    return {
+        date: timing.date,
+        category: category,
+        text: encodeTimingText(type, text, clips),
+        type: timing.category, //UPP, CLIENT
+    };
+}
+
+function projectTimingToOnair(timing, clipsMap) {
+    const clips = timing.clip && timing.clip.length > 0 ? timing.clip.map(c => clipsMap[c] || 'unknown clip').join(' + ') : null;
+        return {
+        date: timing.date,
+        state: timing.state,
+        _id: timing._id,
+        name: `${clips ? clips : TIMING.ON_AIR.label}`
+    };
+}
+
+function encodeTimingText(type, text, clips) {
+    //return `${type}${text ? type ? ` - ${text}` : text : ''}${clips && clips.length > 0 ? type || text ? ` [${clips.join(', ')}]` : clips.join(', ') : ''}`
+    return `<${type}::${text}::${clips.join(':')}>`;
+}

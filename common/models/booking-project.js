@@ -1,6 +1,7 @@
+'use strict';
 const mongoose = require('mongoose');
-
 const Schema = mongoose.Schema;
+const HistoryPlugin = require('../mongoHistoryPlugin');
 
 const BookingProjectSchema = new Schema({
     label: String,
@@ -24,13 +25,15 @@ const BookingProjectSchema = new Schema({
     jobs: [{
         job: {type: Schema.Types.ObjectId, ref: 'booking-work-type'},
         plannedDuration: {type: Number, default : 0},
-        doneDuration: {type: Number, default : 0}
+        doneDuration: {type: Number, default : 0},
+        _id: false
     }],
     timing: [{
         date: Date,
         type: {type: String},
         text: {type: String, default: ''},
-        category: {type: Number, default: 1}
+        category: {type: Number, default: 1},
+        _id: false
     }],
     bookingNotes: {type: String, default: ''},
     onair:[{
@@ -41,12 +44,17 @@ const BookingProjectSchema = new Schema({
     invoice:[{
         name: {type: String, default: null},
         date: {type: Date, default: null},
+        _id: false
     }],
     budget: {type: Schema.Types.ObjectId, ref: 'budget', default: null},
     kickBack: {type: Boolean, default: false},
     checked: {type: Date, default: null},
     archived: {type: Boolean, default: false},
-    mergedToProject: {type: Schema.Types.ObjectId, ref: 'project', default: null}
+    mergedToProject: {type: Schema.Types.ObjectId, ref: 'project', default: null},
+    __v: { type: Number, select: false}
 });
+
+BookingProjectSchema.virtual('_user').set(function(v) {this.__user = v});
+BookingProjectSchema.plugin(HistoryPlugin());
 
 module.exports = mongoose.model('booking-project', BookingProjectSchema);

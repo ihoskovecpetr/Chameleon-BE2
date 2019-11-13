@@ -8,7 +8,8 @@ const BookingOplogSchema = new Schema({
     user: {type: Schema.Types.ObjectId, ref: 'user', default: null},
     data: {type: Schema.Types.Mixed, default: null},
     success: Boolean,
-    reason: {type: Schema.Types.Mixed, default: null}
+    reason: {type: Schema.Types.Mixed, default: null},
+    __v: { type: Number, select: false}
 });
 
 module.exports = mongoose.model('booking-oplog', BookingOplogSchema);

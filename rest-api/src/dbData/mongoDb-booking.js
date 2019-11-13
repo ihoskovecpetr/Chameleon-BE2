@@ -37,18 +37,20 @@ exports.getHolidays = async () => {
 
 exports.getProjects = async () => { //TODO xBPx
     const bookingProjects = await BookingProject.find({deleted: null, archived: false, mergedToProject: null},{__v: false, 'jobs.__v': false, 'jobs._id': false, 'timing.__v': false, 'timing._id': false, 'invoice.__v': false, 'invoice._id': false, 'onair.__v': false, deleted: false, archived: false, checked: false, mergedToProject: false }).lean();
-    const projects = await Project.find({deleted: null, archived: null, booking: true}, {_id: true, name: true, team: true, budget: true, K2: true, onair: true, invoice: true, timing: true, bookingType: true, events: true, work: true, bookingNote: true, kickBack: true, created: true}).lean();
+    const projects = await Project.find({deleted: null, archived: null, booking: true}, {_id: true, name: true, team: true, budget: true, K2: true, invoice: true, timing: true, bookingType: true, events: true, work: true, bookingNote: true, kickBack: true, created: true}).lean();
     return dataHelper.getObjectOfNormalizedDocs(bookingProjects.concat(projects.map(projectToBooking)));
 };
 
-exports.getEvents = async () => { //TODO xBPx
-    const bookingProjects = await BookingProject.find({deleted: null, archived: false, mergedToProject: null}, {_id: true}).lean();
-    const bookingProjectIds = bookingProjects.map(bookingProject => bookingProject._id);
+exports.getEvents = async idsOfProjects => { //TODO xBPx
+    if(typeof idsOfProjects === 'undefined') {
+        const bookingProjects = await BookingProject.find({deleted: null, archived: false, mergedToProject: null}, {_id: true}).lean();
+        const bookingProjectIds = bookingProjects.map(bookingProject => bookingProject._id);
 
-    const projects = await Project.find({deleted: null, archived: null, booking: true}, {_id: true, bookingId: true}).lean();
-    const projectsIds = projects.map(project => project._id);
-
-    const events = await BookingEvent.find({project: {$in: bookingProjectIds.concat(projectsIds)}, archived: false},{__v: false, 'days.__v': false, 'days._id': false, archived: false}).lean();
+        const projects = await Project.find({deleted: null, archived: null, booking: true}, {_id: true}).lean();
+        const projectsIds = projects.map(project => project._id);
+        idsOfProjects = bookingProjectIds.concat(projectsIds);
+    }
+    const events = await BookingEvent.find({project: {$in: idsOfProjects}, archived: false},{__v: false, 'days.__v': false, archived: false}).lean();
     return  dataHelper.getObjectOfNormalizedDocs(events);
 };
 

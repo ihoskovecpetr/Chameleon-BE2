@@ -17,7 +17,8 @@ const CompanySchema = new Schema({
     person: [{type: Schema.Types.ObjectId, ref: 'contact-person'}],
     note: {type: String, default: ''},
     deleted: {type: Date, default: null},
-    archived: {type: Date, default: null}
+    archived: {type: Date, default: null},
+    __v: { type: Number, select: false}
 }, {timestamps : {createdAt: 'created', updatedAt: 'updated'}});
 
 

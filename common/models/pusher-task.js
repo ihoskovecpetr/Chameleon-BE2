@@ -15,7 +15,8 @@ const PusherTaskSchema = new Schema({
     dataOrigin: {type: Schema.Types.Mixed, default: null},
     dataTarget: {type: Schema.Types.Mixed, default: null},
     resolved: {type: Date, default: null},
-    followed: [{type: Schema.Types.ObjectId}]
+    followed: [{type: Schema.Types.ObjectId}],
+    __v: { type: Number, select: false}
 });
 
 module.exports = mongoose.model('pusher-task', PusherTaskSchema);

@@ -17,22 +17,11 @@ router.get('/initData', validateToken,  async (req, res, next) => {
     try {
         const start = Date.now();
         logger.debug(`Requested booking init data. User: ${req.remote_user_name} (${req.remote_user})`);
-        /*
-        const [groups, resources, holidays, projects, events, jobs, users] = await Promise.all([
-            db.getResourceGroups(),
-            db.getResources(),
-            db.getHolidays(),
-            db.getProjects(),
-            db.getEvents(),
-            db.getJobs(),
-            db.getUsers()
-        ]);
-        */
         const groups = await db.getResourceGroups();
         const resources = await db.getResources();
         const holidays = await db.getHolidays();
         const projects = await db.getProjects();
-        const events = await db.getEvents();
+        const events = await db.getEvents(Object.keys(projects));
         const jobs = await db.getJobs();
         const users = await db.getUsers();
         let lockedEvents = [];
@@ -42,6 +31,7 @@ router.get('/initData', validateToken,  async (req, res, next) => {
         const data = {groups, resources, holidays, projects, events, jobs, users, lockedEvents};
         res.status(200).json(data);
     } catch(error) {
+        logger.debug(`${error}`);
         next(JSON.stringify(error));
     }
 });

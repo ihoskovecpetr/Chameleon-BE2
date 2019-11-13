@@ -8,7 +8,8 @@ const HistorySchema = new Schema({
     patch: [],
     user: {type: String, default: null},
     timestamp: {type: Date, default: Date.now},
-    method: {type: String, default: ''}
+    method: {type: String, default: ''},
+    __v: { type: Number, select: false}
 },{
     collection: '__histories'
 });

@@ -49,8 +49,12 @@ exports.createProject = async (projectData, user) => {
     return {project: await normalizeProject(project), booking: booking};
 };
 
+exports.getProject = async id => {
+    return Project.findOne({_id: id}, {__v: false}).lean().populate({path: 'bookingId', select: {_id: true, label: true}}); //due to populate await is not necessary????
+};
+
 exports.getProjects = async () => {
-    return Project.find({deleted: null, archived: null}, {__v: false}).populate({path: 'bookingId', select: {_id: true, label: true}}).lean(); //due to populate await is not necessary????
+    return Project.find({deleted: null, archived: null}, {__v: false}).lean().populate({path: 'bookingId', select: {_id: true, label: true}}); //due to populate await is not necessary????
     /*const histories = await Promise.all(projects.map(project => Project.getHistory(project._id, '/name', {unique: true, limit: 3})));
     return projects.map((project, i) => {
         project.$name = histories[i];

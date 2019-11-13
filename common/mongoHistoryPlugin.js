@@ -19,9 +19,10 @@ const historyPlugin = (options) => {
     const getPatch = doc => {
         const previousObject = doc._original ? doc._original : {};
         delete doc._original;
+
         const currentObject = toJSON(doc);
 
-        delete currentObject.__user;
+        delete currentObject.constructor;
         delete currentObject.__v;
         delete previousObject.__v;
 
@@ -38,15 +39,24 @@ const historyPlugin = (options) => {
     };
 
     const createHistory = async doc => {
-        const patch = getPatch(doc);
-        if(patch && Array.isArray(patch) && patch.length > 0) {
+        const docRef = doc._id;
+        const method = doc._method;
+        const modelName = doc.constructor && doc.constructor.modelName ? doc.constructor.modelName : doc.modelName;
+        const user = doc.__user ? doc.__user : null;
+
+        delete doc.__user;
+        const remove = doc._method === 'delete' || doc._method === 'remove';
+        delete doc._method;
+
+        const patch = remove ? [] : getPatch(doc);
+        if(remove || (patch && Array.isArray(patch) && patch.length > 0)) {
             const history = new HistoryModel({
-                collectionName: doc.constructor.modelName,
-                ref: doc._id,
+                collectionName: modelName,
+                ref: docRef,
                 patch: patch || [],
-                method: doc._method
+                method: method,
+                user: user
             });
-            if(doc.__user) history.user = doc.__user;
             await history.save();
         }
     };
@@ -66,14 +76,14 @@ const historyPlugin = (options) => {
         original = original || new this.model({});
         this._original = toJSON(original);
         this._method = 'update';
-        const user = this._update._user || this._update.$set._user || this.options._user;
+        const user = this._update && this._update._user ? this._update._user : this._update && this._update.$set && this._update.$set._user ? this._update.$set._user : this.options._user;
         if(user) this.__user = user;
     }
 
     async function postUpdateOne() {
         if(this._original) {
             const current = await this.model.findOne({_id: this._original._id});
-            if(!current) return //throw new Error('No current document found (one). ' + this._original._id);
+            if(!current) return; //throw new Error('No current document found (one). ' + this._original._id);
             current._original = this._original;
             current._method = this._method;
             current.__user = this.__user;
@@ -81,6 +91,23 @@ const historyPlugin = (options) => {
         } else {
             throw new Error('No original document found (one).');
         }
+    }
+
+    async function preDeleteOne() {
+        const original = await this.model.findOne(this._conditions);
+        const user = this.options._user ? this.options._user : null;
+        const doc = {
+            _method: 'delete',
+            _id: original ? original._id : null,
+            modelName: original && original.constructor ? original.constructor.modelName : ''
+        };
+        if(user) doc.__user = user;
+        await createHistory(doc)
+    }
+
+    async function postRemove() {
+        this._method = 'remove';
+        await createHistory(this);
     }
 
     async function preUpdateMulti() {
@@ -92,7 +119,7 @@ const historyPlugin = (options) => {
             this._originals = []
         }
         this._method = 'update';
-        const user = this._update._user || this._update.$set._user || this.options._user;
+        const user = this._update && this._update._user ? this._update._user : this._update && this._update.$set && this._update.$set._user ? this._update.$set._user : this.options._user;
         if (user) this.__user = user;
     }
 
@@ -306,6 +333,54 @@ const historyPlugin = (options) => {
                 next(err);
             }
         });
+        // *************************************************************************************************************
+        // REMOVE
+        // *************************************************************************************************************
+        schema.pre('remove', async function(next) {
+            try {
+                if(mongoose.get('debug')) console.log(`PRE-HOOK :: REMOVE`);
+                //await preRemove.call(this);
+                next()
+            } catch(err) {
+                console.error(err);
+                next(err);
+            }
+        });
+        schema.post('remove', async function(resultObject, next) {
+            try {
+                if(mongoose.get('debug')) console.log(`POST-HOOK :: REMOVE`);
+                await postRemove.call(this);
+                next();
+            } catch(err) {
+                console.error(err);
+                next(err);
+            }
+        });
+        // *************************************************************************************************************
+        // FIND ONE AND DELETE
+        // *************************************************************************************************************
+        schema.pre('findOneAndDelete', async function(next) {
+            try {
+                if(mongoose.get('debug')) console.log(`PRE-HOOK :: FIND ONE AND DELETE`);
+                await preDeleteOne.call(this);
+                next()
+            } catch(err) {
+                console.error(err);
+                next(err);
+            }
+        });
+
+        schema.post('findOneAndDelete', async function(resultObject, next) {
+            try {
+                if(mongoose.get('debug')) console.log(`POST-HOOK :: FIND ONE AND DELETE`);
+                next();
+            } catch(err) {
+                console.error(err);
+                next(err);
+            }
+        });
+
+
     };
     return plugin;
 };

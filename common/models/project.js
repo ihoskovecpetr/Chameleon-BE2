@@ -61,24 +61,21 @@ const ProjectSchema = new Schema({
         name: {type: String, default: null},
         projectId: {type: String, default: null}
     },
-    onair: [{
-        date: {type: Date, default: null},
-        name: {type: String, default: null},
-        state: {type: String, default: 'free'} //free, used, deleted
-    }],
     invoice: [{
         date: {type: Date, default: null},
         name: {type: String, default: null},
         _id: false
     }],
     timing: [{
-        type: {type: String, default: 'CLIENT'},
+        category: {type: String}, //UPP, CLIENT
+        type: {type: String, default: 'GENERAL1'}, //id of timing
         date: Date,
-        dateTo: {type: Date, default: null},
-        label: {type: String, default: ''},
-        category: {type: Number, default: 1},
-        _id: false
+        text: {type: String, default: ''},
+        clip: [{type: Schema.Types.ObjectId}], // clip._id
+        state: {type: String, default: ''}, //free, used, deleted - for onair
+        _id: false //for onair in booking - _id is clip._id
     }],
+    clip: [{name: {type: String, default: ''}}], // name + _id
     paymentChecked: {type: Date, default: null},
     deleted: {type: Date, default: null},
     archived: {type: Date, default: null},
@@ -91,15 +88,12 @@ const ProjectSchema = new Schema({
         _id: false
     }],
     bookingNote: {type: String, default: ''},
-    kickBack: {type: Boolean, default: false}
+    kickBack: {type: Boolean, default: false},
+    __v: { type: Number, select: false}
 }, {timestamps : {createdAt: 'created', updatedAt: 'updated'}});
 
 
-ProjectSchema.virtual('_user').set(function(v) {
-    this.__user = v
-});
-
-
+ProjectSchema.virtual('_user').set(function(v) {this.__user = v});
 ProjectSchema.plugin(HistoryPlugin());
 
 module.exports = mongoose.model('project', ProjectSchema);

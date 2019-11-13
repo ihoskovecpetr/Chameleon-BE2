@@ -8,8 +8,10 @@ const PricelistSchema = new Schema({
     client: {type: Schema.Types.ObjectId, ref: 'budget-client'},
     pricelist : [{
         itemId: {type: Schema.Types.ObjectId, ref: 'pricelist-item'},
-        price: {type: Number, default: -1}
-    }]
+        price: {type: Number, default: -1},
+        _id: false
+    }],
+    __v: { type: Number, select: false}
 });
 
 module.exports = mongoose.model('pricelist', PricelistSchema);

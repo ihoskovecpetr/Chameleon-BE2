@@ -19,7 +19,8 @@ const PusherWorklogSchema = new Schema({
     confirmManager: {type: Number, default: 0},
     confirmProducer: {type: Number, default: 0},
     resolve: {type: Boolean, default: false},
-    approved: {type: Boolean, default: false}
+    approved: {type: Boolean, default: false},
+    __v: { type: Number, select: false}
 });
 
 module.exports = mongoose.model('pusher-worklog', PusherWorklogSchema);

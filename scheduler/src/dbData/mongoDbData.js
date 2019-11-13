@@ -13,7 +13,7 @@ const BookingResource = require('../../_common/models/booking-resource');
 const BookingWorkType = require('../../_common/models/booking-work-type');
 const User = require('../../_common/models/user');
 const BookingEvent = require('../../_common/models/booking-event');
-const BookingOplog = require('../../_common/models/booking-oplog');
+//const BookingOplog = require('../../_common/models/booking-oplog');
 const PusherWorklog = require('../../_common/models/pusher-worklog');
 const PusherTask = require('../../_common/models/pusher-task');
 const PusherMessage = require('../../_common/models/pusher-message');
@@ -30,9 +30,9 @@ exports = module.exports;
 // *********************************************************************************************************************
 // DB LOGGING
 // *********************************************************************************************************************
-exports.logOp = async (type, user, data, err) => {
-    await BookingOplog.create({type: type, user: user, data: data, success: !err, reason: err});
-};
+//exports.logOp = async (type, user, data, err) => {
+//    await BookingOplog.create({type: type, user: user, data: data, success: !err, reason: err});
+//};
 
 //----------------------------------------------------------------------------------------------------------------------
 // ===>  K2

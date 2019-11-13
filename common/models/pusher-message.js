@@ -15,7 +15,8 @@ const PusherMessageSchema = new Schema({
     deadline: {type: Date, default: null},
     postpone: [{type: Number}],
     answer:  [{type: Schema.Types.Mixed}],
-    confirmed: [{type: Date, default: null}]
+    confirmed: [{type: Date, default: null}],
+    __v: { type: Number, select: false}
 });
 
 module.exports = mongoose.model('pusher-message', PusherMessageSchema);

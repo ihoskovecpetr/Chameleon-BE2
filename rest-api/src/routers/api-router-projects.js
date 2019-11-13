@@ -61,7 +61,10 @@ router.post('/', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)],  asy
         logger.warn(`Create project - update booking error: ${error}`);
     }
 });
-
+// *********************************************************************************************************************
+// GET
+// *********************************************************************************************************************
+//get all projects
 router.get('/', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)],  async (req, res, next) => {
     try {
         const result = await db.getProjects();
@@ -70,7 +73,52 @@ router.get('/', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)],  asyn
         next(error);
     }
 });
-
+// all booking projects to link with
+router.get('/booking', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)],  async (req, res, next) => {
+    try {
+        const bookings = await db.getBookings();
+        res.status(200).json(bookings);
+    } catch(error) {
+        next(error);
+    }
+});
+//get single project
+router.get('/:id', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)],  async (req, res, next) => {
+   try {
+       const id = req.params.id && mongoose.Types.ObjectId.isValid(req.params.id) ? req.params.id : null;
+       if(!id) {
+           const error = new Error('Projects - get single project. Wrong or mismatched project id.');
+           error.statusCode = 400;
+           next(error);
+       } else {
+           const result = await db.getProject(id);
+           res.status(200).json(result);
+       }
+   } catch(error) {
+       next(error);
+   }
+});
+// single booking project
+router.get('/booking/:id', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)],  async (req, res, next) => {
+    try {
+        const id = req.params.id && mongoose.Types.ObjectId.isValid(req.params.id) ? req.params.id : null;
+        if(!id) {
+            const error = new Error('Projects/booking - get data. Wrong booking id.');
+            error.statusCode = 400;
+            next(error);
+        } else {
+            const booking = await db.getBooking(id);
+            if(!booking) {
+                const error = new Error(`Projects/booking - get data. Booking id [${id}] not found.`);
+                error.statusCode = 400;
+                next(error);
+            } else res.status(200).json(booking);
+        }
+    } catch(error) {
+        next(error);
+    }
+});
+// ************************
 router.put('/:id', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)],  async (req, res, next) => {
     let result;
     try {
@@ -256,37 +304,4 @@ router.get('/users/role', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FUL
     }
 });
 
-// *********************************************************************************************************************
-// GET BOOKING DATA
-// *********************************************************************************************************************
-router.get('/booking/:id', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)],  async (req, res, next) => {
-    try {
-        const id = req.params.id && mongoose.Types.ObjectId.isValid(req.params.id) ? req.params.id : null;
-        if(!id) {
-            const error = new Error('Projects/booking - get data. Wrong booking id.');
-            error.statusCode = 400;
-            next(error);
-        } else {
-            const booking = await db.getBooking(id);
-            if(!booking) {
-                const error = new Error(`Projects/booking - get data. Booking id [${id}] not found.`);
-                error.statusCode = 400;
-                next(error);
-            } else res.status(200).json(booking);
-        }
-    } catch(error) {
-        next(error);
-    }
-});
 
-// *********************************************************************************************************************
-// GET BOOKINGS TO LINK WITH
-// *********************************************************************************************************************
-router.get('/booking', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)],  async (req, res, next) => {
-    try {
-        const bookings = await db.getBookings();
-        res.status(200).json(bookings);
-    } catch(error) {
-        next(error);
-    }
-});

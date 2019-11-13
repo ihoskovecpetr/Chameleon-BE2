@@ -136,9 +136,9 @@ module.exports = async projectId => {
                         await db.updateProject(project._id, project);
                         wamp.publish('updateProject', [], result);
                         logger.debug(`Project ${result.project.label} [${result.id}] updated by K2 data.`);
-                        await db.logOp('updateProjectK2', '888888888888888888888888', result, null);
+                        //await db.logOp('updateProjectK2', '888888888888888888888888', result, null);
                     } catch(error) {
-                        await db.logOp('updateProjectK2', '888888888888888888888888', result, error);
+                        //await db.logOp('updateProjectK2', '888888888888888888888888', result, error);
                         logger.warn(`Update Project ${result.label} [${result.id}] by K2 data error: ${error}`);
                     }
                 }

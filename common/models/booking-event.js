@@ -1,5 +1,7 @@
+'use strict';
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
+const HistoryPlugin = require('../mongoHistoryPlugin');
 
 const BookingEventSchema = new Schema({
     startDate: Date,
@@ -15,13 +17,18 @@ const BookingEventSchema = new Schema({
     days: [{
         duration: {type: Number, default : 0},
         float: {type: Boolean, default : true},
-        start: {type: Number, default: 480}
+        start: {type: Number, default: 0},
+        _id: false
     }],
     isShooting : {type: Boolean, default: false},
     notes: {type: String, default: ''},
     virtualOperator: {type: String, default: null},
     avbEvent: {type: Schema.Types.ObjectId, default: null},
-    archived: {type: Boolean, default: false}
+    archived: {type: Boolean, default: false},
+    __v: { type: Number, select: false}
 });
+
+BookingEventSchema.virtual('_user').set(function(v) {this.__user = v});
+BookingEventSchema.plugin(HistoryPlugin());
 
 module.exports = mongoose.model('booking-event', BookingEventSchema);

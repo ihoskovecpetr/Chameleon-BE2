@@ -8,7 +8,8 @@ const PusherWorkRequestSchema = new Schema({
     timestamp: {type: Date, default: Date.now},
     closed: {type: Date, default: null},
     stage: {type: Number, default: 0},
-    stageTime: {type: Date, default: Date.now}
+    stageTime: {type: Date, default: Date.now},
+    __v: { type: Number, select: false}
 });
 
 module.exports = mongoose.model('pusher-work-request', PusherWorkRequestSchema);

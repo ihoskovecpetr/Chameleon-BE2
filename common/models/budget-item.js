@@ -19,8 +19,10 @@ const BudgetItemSchema = new Schema({
         id: {type: Schema.Types.ObjectId, default: null},
         subtotal: {type: Boolean, default: false},
         color: {type: String, default: ''},
-        clientPrice: {type: Boolean, default: false}
+        clientPrice: {type: Boolean, default: false},
+        _id: false
     }],
+    __v: { type: Number, select: false}
 });
 
 module.exports = mongoose.model('budget-item', BudgetItemSchema);

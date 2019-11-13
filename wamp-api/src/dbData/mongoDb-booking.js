@@ -13,7 +13,7 @@ const Project = require('../../_common/models/project');
 const BookingEvent = require('../../_common/models/booking-event');
 const BookingWorkType = require('../../_common/models/booking-work-type');
 const User = require('../../_common/models/user');
-const BookingOplog = require('../../_common/models/booking-oplog');
+//const BookingOplog = require('../../_common/models/booking-oplog');
 
 const Budget = require('../../_common/models/budget');
 const BudgetClient = require('../../_common/models/budget-client');
@@ -24,9 +24,9 @@ exports = module.exports;
 // *********************************************************************************************************************
 // DB LOGGING
 // *********************************************************************************************************************
-exports.logOp = async (type, user, data, err) => {
-    await BookingOplog.create({type: type, user: user, data: data, success: !err, reason: err});
-};
+//exports.logOp = async (type, user, data, err) => {
+//    await BookingOplog.create({type: type, user: user, data: data, success: !err, reason: err});
+//};
 
 // *******************************************************************************************
 // GET DATA
@@ -71,8 +71,9 @@ exports.getUsers = async () => {
 // *******************************************************************************************
 // EVENTS
 // *******************************************************************************************
-exports.addEvent = async (id, event, noAddToProject) => { //TODO xBPx
+exports.addEvent = async (id, event, user, noAddToProject) => { //TODO xBPx
     event._id = id;
+    event._user = user;
     await BookingEvent.create(event);
     if(!noAddToProject) {
         await BookingProject.findOneAndUpdate({_id: event.project}, {$push: {events: id}});
@@ -80,7 +81,8 @@ exports.addEvent = async (id, event, noAddToProject) => { //TODO xBPx
     }
 };
 
-exports.updateEvent = async (id, event) => { //TODO xBPx
+exports.updateEvent = async (id, event, user) => { //TODO xBPx
+    event._user = user;
     const oldEvent = await BookingEvent.findOneAndUpdate({_id: id}, {$set: event});
     if(oldEvent.project && oldEvent.project.toString() !== event.project) await Promise.all([
         BookingProject.findOneAndUpdate({_id: oldEvent.project}, {$pull: {events: id}}),
@@ -91,23 +93,26 @@ exports.updateEvent = async (id, event) => { //TODO xBPx
     return dataHelper.normalizeDocument(oldEvent, true);
 };
 
-exports.removeEvent = async id => { //TODO xBPx
-    const event = await BookingEvent.findByIdAndRemove(id);
+exports.removeEvent = async (id, user) => { //TODO xBPx
+    const event = await BookingEvent.findOneAndDelete({_id: id}, {_user: user});
     await BookingProject.findOneAndUpdate({_id: event.project}, {$pull: {events: id}});
     await Project.findOneAndUpdate({_id: event.project}, {$pull: {events: id}}); //first try to find in bookingProject then in Project
 };
 
-exports.splitEvent = async (id, event, id2, event2) => { //TODO xBPx
+exports.splitEvent = async (id, event, id2, event2, user) => { //TODO xBPx
     event2._id = id2;
+    event2._user = user;
+    event._user = user;
     await BookingEvent.create(event2);
     await BookingProject.findOneAndUpdate({_id: event.project}, {$push: {events: id2}}); //add second part to the project
     await Project.findOneAndUpdate({_id: event.project}, {$push: {events: id2}}); //add second part to the project - first try to find in bookingProject then in Project
     await BookingEvent.findOneAndUpdate({_id: id}, {$set: event}); //update first part - changed length
 };
 
-exports.joinEvents = async (id, event, id2) => { //TODO xBPx
+exports.joinEvents = async (id, event, id2, user) => { //TODO xBPx
+    event._user = user;
     await BookingEvent.findOneAndUpdate({_id: id}, {$set: event}); //update first part by joined data
-    await BookingEvent.findOneAndRemove({_id: id2}); //remove second part
+    await BookingEvent.findOneAndDelete({_id: id2}, {_user: user}); //remove second part
     await BookingProject.findOneAndUpdate({_id: event.project}, {$pull: {events: id2}});
     await Project.findOneAndUpdate({_id: event.project}, {$pull: {events: id2}}); //first try to find in bookingProject then in Project
 };
@@ -115,14 +120,15 @@ exports.joinEvents = async (id, event, id2) => { //TODO xBPx
 // *******************************************************************************************
 // PROJECTS
 // *******************************************************************************************
-exports.addProject = async (id, project) => {
+exports.addProject = async (id, project, user) => {
     project._id = id;
+    project._user = user;
     const updatedProject = await updateBudgetMinutes(project);
     const createdProject = await BookingProject.create(updatedProject); //!!!!! Create from booking - so just r&d project TODO test if it is R&D
     return dataHelper.normalizeDocument(createdProject, true);
 };
 
-exports.updateProject = async (id, project) => { //TODO xBPx
+exports.updateProject = async (id, project, user) => { //TODO xBPx
     const newProject = await updateBudgetMinutes(project);
     if(project.version === 2) {
         const oldProject = await Project.findOne({_id: id});
@@ -132,34 +138,37 @@ exports.updateProject = async (id, project) => { //TODO xBPx
             if(project.label !== undefined) oldProject.name = project.label;
             if(project.jobs !== undefined) oldProject.work = project.jobs.map(job => ({type: job.job, plannedDuration: job.plannedDuration, doneDuration: job.doneDuration}));
             if(project.timing !== undefined) oldProject.timing = project.timing.map(t => ({type: t.type, text: t.label, date: t.date, dateTo: t.dateTo, category: t.category}));
-            if(project.onair !== undefined) oldProject.onair = project.onair;
+            if(project.onair !== undefined) oldProject.onair = project.onair; //TODO convert booking to project !!!! 2x make conversion function !!!!!!!!!!!
             if(project.invoice !== undefined) oldProject.invoice = project.invoice;
             if(project.bookingNotes !== undefined) oldProject.bookingNote = project.bookingNotes;
+            oldProject._user = user;
             await oldProject.save();
             return {oldProject: dataHelper.normalizeDocument(oldBookingProject, true), newProject: newProject};
         }
     } else {
-        const oldProject = await BookingProject.findOneAndUpdate({_id: id}, {$set: newProject});
+        const oldProject = await BookingProject.findOneAndUpdate({_id: id}, {$set: newProject}, {_user: user});
         return {oldProject: dataHelper.normalizeDocument(oldProject, true), newProject: newProject};
     }
 };
 
-exports.removeProject = async id => {
-    await BookingProject.findOneAndUpdate({_id: id}, {$set : {deleted: new Date()}});//!!!!! Remove from booking - so just r&d project TODO test if it is R&D
+exports.removeProject = async (id, user) => {
+    await BookingProject.findOneAndUpdate({_id: id}, {$set : {deleted: new Date(), _user: user}});//!!!!! Remove from booking - so just r&d project TODO test if it is R&D
 };
 
 // *******************************************************************************************
 // RESOURCES
 // *******************************************************************************************
-exports.addResource = async (id, resource) => {
+exports.addResource = async (id, resource, user) => {
     resource._id = id;
+    resource._user = user;
     await BookingResource.create(resource);
     await BookingGroup.findOneAndUpdate({_id: resource.group}, {$push : {members: id}});
     if(resource.pair) await BookingResource.findOneAndUpdate({_id: resource.pair},{$set: {pair: id}});
     return [await exports.getResourceGroups(), await exports.getResources()];
 };
 
-exports.updateResource = async (id, resource) => {
+exports.updateResource = async (id, resource, user) => {
+    resource._user = user;
     let oldResource = await BookingResource.findOneAndUpdate({_id: id}, {$set: resource});
     oldResource = dataHelper.normalizeDocument(oldResource);
     const groupsChanged = resource.group != oldResource.group;
@@ -175,25 +184,27 @@ exports.updateResource = async (id, resource) => {
     else return [null, await exports.getResources(), oldResource];
 };
 
-exports.removeResource = async id => {
+exports.removeResource = async (id, user) => {
     const numberOfEvents = await exports.getNumberOfEventsForResource(id);
     const resource = await BookingResource.findOne({_id: id});
+    resource._user = user;
     if(numberOfEvents > 0) {
         resource.deleted = true;
         resource.disabled = true;
-        if(resource.pair) await BookingResource.findOneAndUpdate({_id: resource.pair}, {$set: {pair: null}});
+        const resourcePair = resource.pair;
         resource.pair = null;
         await resource.save();
+        if(resourcePair) await BookingResource.findOneAndUpdate({_id: resourcePair}, {$set: {pair: null}});
     } else {
-        await resource.remove();
+        await resource.remove({_user: user});
         await BookingGroup.findOneAndUpdate({_id: resource.group}, {$pull: {members: resource._id}});
         if(resource.pair) await BookingResource.findOneAndUpdate({_id: resource.pair}, {$set: {pair: null}});
     }
     return [await exports.getResourceGroups(), await exports.getResources()];
 };
 
-exports.reorderResource = async (id1, members1, id2, members2, id3) => { //from group + members, to group + members, id of moved resource if between groups
-    await BookingGroup.findOneAndUpdate({_id: id1}, {$set:{members: members1}});
+exports.reorderResource = async (id1, members1, id2, members2, id3, user) => { //from group + members, to group + members, id of moved resource if between groups
+    await BookingGroup.findOneAndUpdate({_id: id1}, {$set:{members: members1, _user: user}});
     if(id2) {
         await BookingGroup.findOneAndUpdate({_id: id2}, {$set:{members: members2}});
         await BookingResource.findOneAndUpdate({_id: id3}, {$set:{group: id2}});
@@ -208,24 +219,26 @@ exports.getNumberOfEventsForResource = async id => {
 // *******************************************************************************************
 // GROUPS
 // *******************************************************************************************
-exports.addGroup = async (id, group) => {
+exports.addGroup = async (id, group, user) => {
     group._id = id;
+    group._user = user;
     await BookingGroup.create(group);
     return await exports.getResourceGroups();
 };
 
-exports.updateGroup = async (id, group) => {
+exports.updateGroup = async (id, group, user) => {
+    group._user = user;
     await BookingGroup.findOneAndUpdate({_id: id}, {$set: group});
     return await exports.getResourceGroups();
 };
 
-exports.removeGroup = async id => {
-    await BookingGroup.findOneAndRemove({_id: id});
+exports.removeGroup = async (id, user) => {
+    await BookingGroup.findOneAndDelete({_id: id}, {_user: user});
     return await exports.getResourceGroups();
 };
 
-exports.reorderGroups = async order => {
-    await Promise.all(order.map((id, i) => BookingGroup.findOneAndUpdate({_id: id}, {$set:{order:i}})));
+exports.reorderGroups = async (order, user) => {
+    await Promise.all(order.map((id, i) => BookingGroup.findOneAndUpdate({_id: id}, {$set:{order: i, _user: user}})));
     return await exports.getResourceGroups();
 };
 
@@ -308,7 +321,7 @@ exports.getAvailableBudgets = async projectId => { //TODO xBPx
 // *********************************************************************************************************************
 // PRODUCTION LOGIN PIN
 // *********************************************************************************************************************
-exports.changeUserPin = async (id, group, pin) => {
+exports.changeUserPin = async (id, group, pin, user) => {
     const users = await User.find().lean();
     const isFree = users.reduce((isFree, user) => {
         if(!user.isGroup && user.pinGroupId == group) {
@@ -319,7 +332,7 @@ exports.changeUserPin = async (id, group, pin) => {
     }, true);
     if(isFree) {
         const hash = crypto.createHash('md5').update(id + pin).digest("hex");
-        await  User.findOneAndUpdate({_id: id}, {$set: {pinHash: hash}});
+        await  User.findOneAndUpdate({_id: id}, {$set: {pinHash: hash, _user: user}});
         return await exports.getUsers();
     } else throw new Error('Can\'t use this pin');
 };

@@ -54,7 +54,7 @@ router.post('/event/:id', authorizeApiAccess(), async (req, res, next) => {
                 };
                 await db.addEvent(id, event);
                 wamp.publish('addEvent', [], {id: id, event: event});
-                await db.logOp('addEvent', '333333333333333333333333', {id: id, event: event}, null);
+                //await db.logOp('addEvent', '333333333333333333333333', {id: id, event: event}, null);
                 res.status(200).end();
             } else {
                 //const error = new Error(`Add Event (availability) - no resource or user, uid: ${req.body.uid}, avbId: ${avbId}`);
@@ -69,7 +69,7 @@ router.post('/event/:id', authorizeApiAccess(), async (req, res, next) => {
             next(error);
         }
     } catch(error) {
-        await db.logOp('addEvent', '333333333333333333333333', {id: id, event: event}, error);
+        //await db.logOp('addEvent', '333333333333333333333333', {id: id, event: event}, error);
         next(error);
     }
 });
@@ -94,7 +94,7 @@ router.delete('/event/:id', authorizeApiAccess(), async (req, res, next) => {
                     event: event
                 };
                 wamp.publish('removeEvent', [], result);
-                await db.logOp('removeEvent', '333333333333333333333333', result, null);
+                //await db.logOp('removeEvent', '333333333333333333333333', result, null);
                 res.status(200).end();
             } else {
                 //const error = new Error(`Remove Event (availability) - avb event ${avbId}  not found`);
@@ -109,7 +109,7 @@ router.delete('/event/:id', authorizeApiAccess(), async (req, res, next) => {
             next(error);
         }
     } catch(error) {
-        await db.logOp('removeEvent', '333333333333333333333333', {id: id, event: event}, error);
+        //await db.logOp('removeEvent', '333333333333333333333333', {id: id, event: event}, error);
         next(error);
     }
 });
@@ -144,7 +144,7 @@ router.put('/event/:id', authorizeApiAccess(), async (req, res, next) => {
                 delete data.event._id;
                 delete data.event.__v;
                 wamp.publish('updateEvent', [], data);
-                db.logOp('updateEvent', '333333333333333333333333', data, null);
+                //db.logOp('updateEvent', '333333333333333333333333', data, null);
                 res.status(200).end();
             } else {
                 //const error = new Error(`Update Event (availability) - avb event ${avbId} not found`);
@@ -159,7 +159,7 @@ router.put('/event/:id', authorizeApiAccess(), async (req, res, next) => {
             next(error);
         }
     } catch(error) {
-        await db.logOp('updateEvent', '333333333333333333333333', {id: id, event: event}, error);
+        //await db.logOp('updateEvent', '333333333333333333333333', {id: id, event: event}, error);
         next(error);
     }
 });
