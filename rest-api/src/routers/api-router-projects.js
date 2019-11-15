@@ -28,9 +28,8 @@ router.get('/data', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)],  
         next(error);
     }
 });
-
 // *********************************************************************************************************************
-// PROJECTS CRUD
+// PROJECTS POST - CREATE
 // *********************************************************************************************************************
 router.post('/', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)],  async (req, res, next) => {
     let result;
@@ -51,7 +50,7 @@ router.post('/', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)],  asy
             if (result.project.booking && result.project.bookingId) {//update project
                 wamp.publish('exchangeProject', [], {new: db.getNormalizedBookingProject(result.project), old: {id: result.booking._id, project: dataHelper.normalizeDocument(result.booking, true)}});
             } else if (result.project.booking) {//create project
-                wamp.publish('addProject', [], db.getNormalizedBookingProject(result.project));
+                wamp.publish('addProject', [], db.getNormalizedBookingProject(result.project)); //no add events - create project in projects is without events
             } else if (result.project.bookingId) {//remove project
                 wamp.publish('removeProject', [], {id: result.booking._id, project: dataHelper.normalizeDocument(result.booking, true)});
             }
@@ -62,7 +61,7 @@ router.post('/', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)],  asy
     }
 });
 // *********************************************************************************************************************
-// GET
+// PROJECTS GET
 // *********************************************************************************************************************
 //get all projects
 router.get('/', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)],  async (req, res, next) => {
@@ -118,7 +117,9 @@ router.get('/booking/:id', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FU
         next(error);
     }
 });
-// ************************
+// *********************************************************************************************************************
+// PROJECTS PUT - UPDATE
+// *********************************************************************************************************************
 router.put('/:id', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)],  async (req, res, next) => {
     let result;
     try {
@@ -156,7 +157,9 @@ router.put('/:id', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)],  a
         logger.warn(`Update project - update booking error: ${error}`);
     }
 });
-
+// *********************************************************************************************************************
+// PROJECTS DELETE
+// *********************************************************************************************************************
 router.delete('/:id', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)],  async (req, res, next) => {
     try {
         const id = req.params.id && mongoose.Types.ObjectId.isValid(req.params.id) ? req.params.id : null;
