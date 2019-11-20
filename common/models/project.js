@@ -66,16 +66,25 @@ const ProjectSchema = new Schema({
         name: {type: String, default: null},
         _id: false
     }],
-    timing: [{
-        category: {type: String}, //UPP, CLIENT
+    timingClient: [{
         type: {type: String, default: 'GENERAL1'}, //id of timing
         date: Date,
         text: {type: String, default: ''},
         clip: [{type: Schema.Types.ObjectId}], // clip._id
-        state: {type: String, default: ''}, //free, used, deleted - for onair
-        _id: false //for onair in booking - _id is clip._id
+        _id: false
     }],
-    clip: [{name: {type: String, default: ''}}], // name + _id
+    timingUpp: [{
+        type: {type: String, default: 'GENERAL1'}, //id of timing
+        date: Date,
+        text: {type: String, default: ''},
+        clip: [{type: Schema.Types.ObjectId}], // clip._id
+        _id: false
+    }],
+    clip: [{
+        name: {type: String, default: ''},
+        onair: {type: Date, default: null},
+        state: {type: String, default: ''} //free, used, deleted, disabled - for onair
+    }],
     paymentChecked: {type: Date, default: null},
     deleted: {type: Date, default: null},
     archived: {type: Date, default: null},
