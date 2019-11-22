@@ -315,7 +315,12 @@ router.get('/K2/free',  [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)
     try {
         const data = await k2.getK2projects();
         const K2projects = await db.getK2linkedProjects();
-        const result = data.filter(item => K2projects.indexOf(item.RID) < 0);
+        const result = data.filter(item => item.RID && K2projects.indexOf(item.RID) < 0 && item.Popis.trim() && item.Zkr.trim()).map(item => ({
+            rid: item.RID,
+            client: item.Zkr,
+            name: item.Popis,
+            projectId: item.Abbr
+        }));
         res.status(200).json(result);
     } catch(error) {
         next(error);
