@@ -30,6 +30,11 @@ exports.getK2workLogs = async (from, to, projectIds) => {
     return K2dataRequest(sqlQuery);
 };
 
+exports.getK2projects = async () => {
+    const sqlQuery = "SELECT * FROM Dbo.K2ReklamaProjectList WHERE Str = 'R VFX' OR Str = 'R DI' ORDER BY TimeStamp DESC";
+    return K2dataRequest(sqlQuery);
+};
+
 async function K2dataRequest(sqlQuery) {
     if(connection === null || !connection.connected) {
         try {

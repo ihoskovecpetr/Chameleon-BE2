@@ -226,3 +226,11 @@ exports.getBookingEvents = async ids => {
     const events = await BookingEvent.find({_id: {$in: ids}}, {__v: false, 'days.__v': false, 'days._id': false, archived: false}).lean();
     return dataHelper.getObjectOfNormalizedDocs(events);
 };
+// *******************************************************************************************
+// K2
+// *******************************************************************************************
+exports.getK2linkedProjects = async () => { //TODO xBPx
+    const bookingProjects = await BookingProject.find({deleted: null, mergedToProject: null, K2rid: { $ne: null}}, {K2rid: true, _id: false}).lean();
+    const projects = await Project.find({deleted: null, booking: true, 'K2.rid': {$ne: null}}, {K2: true, _id: false}).lean();
+    return bookingProjects.map(project => project.K2rid).concat(projects.map(project => project.K2.rid));
+};

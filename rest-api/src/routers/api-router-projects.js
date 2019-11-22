@@ -4,6 +4,7 @@ const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
 const db = require('../dbData/mongoDb-projects');
+const k2 = require('../k2-mssql');
 
 const validateToken = require('../validateToken');
 const authoriseApiAccess = require('./authoriseApiAccess');
@@ -307,4 +308,17 @@ router.get('/users/role', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FUL
     }
 });
 
+// *********************************************************************************************************************
+// K2
+// *********************************************************************************************************************
+router.get('/K2/free',  [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)],  async (req, res, next) => {
+    try {
+        const data = await k2.getK2projects();
+        const K2projects = await db.getK2linkedProjects();
+        const result = data.filter(item => K2projects.indexOf(item.RID) < 0);
+        res.status(200).json(result);
+    } catch(error) {
+        next(error);
+    }
+});
 
