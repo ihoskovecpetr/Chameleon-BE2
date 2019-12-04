@@ -19,3 +19,4 @@ misc/db-backup
 misc/data
 data-backups
 mongoDbTests.js
+**/_common
