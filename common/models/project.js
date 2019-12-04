@@ -39,15 +39,13 @@ const ProjectSchema = new Schema({
     statusNote: {type: String, default: ''},
     booking: {type: Boolean, default: false},
     bookingId: {type: Schema.Types.ObjectId, ref: 'booking-project', default: null},
-    budget: {
-        booking: {type: Schema.Types.ObjectId, ref: 'budget', default: null},
-        client: {type: Schema.Types.ObjectId, ref: 'budget', default: null},
-        sent: [{type: Schema.Types.ObjectId, ref: 'budget'}],
-        ballpark: {
-            currency: {type: String, default: 'eur'},
-            from: {type: Number, default: 0},
-            to: {type: Number, default: 0}
-        }
+    bookingBudget: {type: Schema.Types.ObjectId, ref: 'budget', default: null},
+    clientBudget: {type: Schema.Types.ObjectId, ref: 'budget', default: null},
+    sentBudget: [{type: Schema.Types.ObjectId, ref: 'budget'}],
+    ballpark: {
+        currency: {type: String, default: 'eur'},
+        from: {type: Number, default: 0},
+        to: {type: Number, default: 0}
     },
     projectNote: {type: String, default: ''},
     story: {type: String, default: ''},

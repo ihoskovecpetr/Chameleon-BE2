@@ -1312,8 +1312,8 @@ function getLogStatus(log) {
     if(log.project.leadMP  && log.project.leadMP == logOperator) logStatus.leadMP = 4;
     // set 5 if log.job.type is not required to be approved by the role
     switch(log.job.type) {
-        case 'GR': // grading only manager
-            logStatus.supervisor = 5;
+        case 'GR': // grading only manager + supervisor
+            //logStatus.supervisor = 5;
             logStatus.lead2D = 5;
             logStatus.lead3D = 5;
             logStatus.leadMP = 5;
@@ -1344,6 +1344,10 @@ function getLogStatus(log) {
         case 'PG':
             logStatus.leadMP = 5;
             break;
+        case 'OL': //ONLINE PREP - manager, supervisor, lead2D
+            logStatus.lead3D = 5;
+            logStatus.leadMP = 5;
+            break;
         //TODO solve DEV and SUP mapped to 2D, 3D, leads....
     }
     // producer approve log of supervisor of the project
@@ -1353,12 +1357,12 @@ function getLogStatus(log) {
 // *********************************************************************************************************************
 // user role for log
 function getLogRole(log, userIds) {
-    const logOperator = log.operator ? log.operator.toString() : null; //user ID
+    const logOperator = log.operator ? log.operator.toString() : null; //user ID //ADDED GR TO SUPERVISOR
     const logUserRole = [];
     //TODO solve DEV and SUP mapped to 2D, 3D, leads....
-    if(log.project.manager == userIds.id    &&    ['2D','3D','MP','GR','OV','TW','SV','PG'].indexOf(log.job.type) >= 0) logUserRole.push('manager');
-    if(log.project.supervisor == userIds.id &&    ['2D','3D','MP',     'OV','TW','SV','PG'].indexOf(log.job.type) >= 0) logUserRole.push('supervisor');
-    if(log.project.lead2D == userIds.id     &&   (['2D','MP','PG'].indexOf(log.job.type) >= 0 || ((log.job.type === 'OV' || log.job.type === 'TW') && log.operatorJob && (log.operatorJob.type === '2D' || log.operatorJob.type === 'GR')))) logUserRole.push('lead2D');
+    if(log.project.manager == userIds.id    &&    ['2D','3D','MP','GR','OV','TW','SV','PG','OL'].indexOf(log.job.type) >= 0) logUserRole.push('manager');
+    if(log.project.supervisor == userIds.id &&    ['2D','3D','MP','GR','OV','TW','SV','PG','OL'].indexOf(log.job.type) >= 0) logUserRole.push('supervisor');
+    if(log.project.lead2D == userIds.id     &&   (['2D','MP','PG','OL'].indexOf(log.job.type) >= 0 || ((log.job.type === 'OV' || log.job.type === 'TW') && log.operatorJob && (log.operatorJob.type === '2D' || log.operatorJob.type === 'GR')))) logUserRole.push('lead2D');
     if(log.project.lead3D == userIds.id     &&   (['3D','MP','PG'].indexOf(log.job.type) >= 0 || ((log.job.type === 'OV' || log.job.type === 'TW') && log.operatorJob && log.operatorJob.type === '3D'))) logUserRole.push('lead3D');
     if(log.project.leadMP == userIds.id     &&   (['MP'].indexOf(log.job.type) >= 0      || ((log.job.type === 'OV' || log.job.type === 'TW') && log.operatorJob && log.operatorJob.type === 'MP'))) logUserRole.push('leadMP');
     if(logOperator != userIds.id && userIds.role.indexOf('booking:main-producer') >= 0 && log.project.supervisor && log.project.supervisor == logOperator) logUserRole.push('producer');
