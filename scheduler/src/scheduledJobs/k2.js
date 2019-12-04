@@ -32,11 +32,12 @@ module.exports = async projectId => {
                         projectUpdated = true;
                     }
                 }
-                const workLog = await k2.getK2workLog(project.K2rid);
+                const workLog = await k2.getK2workLog(project.K2rid, ['OV', 'SV', '2D', '3D', 'MP', 'BL', 'FL', 'IT']); //internal, supervision, 2D - 1, 3D, Matte Paint, Grading, 2D -2, IT??
                 const work = workLog.map(log => {
                     let logKod = log.Kod.trim();
                     if(logKod === 'OV' && log.Zkr.trim() === 'TASK WORK') logKod = 'TW';
                     if(logKod === 'OV' && log.Zkr.trim() === 'PROGRAMATOR') logKod = 'PG';
+                    if(logKod === '2D' && log.Zkr.trim() === 'ONLINE PREP') logKod = 'OP';
 
                     // INTERNI_GRADING - ObjectId = 586ce3fca6bf9a09681bd7e0, K2rid = 73005854097557 set as OV !!!!!!
                     if(project.K2rid == '73005854097557') logKod = 'OV';

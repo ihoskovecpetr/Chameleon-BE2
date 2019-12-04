@@ -766,7 +766,7 @@ module.exports = async (conditionsOnly, regular) => {
             try {
                 await db.removeTask(task.id);
                 if (users[task.target]) {
-                    session.publish(users[task.target].ssoId + '.task', [task.id], null);
+                    wamp.publish(users[task.target].ssoId + '.task', [task.id], null);
                 }
             } catch (e) {
                 logger.warn(`PusherCheck:removeTask 'K2_PROJECT' error: ${e}`);
