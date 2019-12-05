@@ -18,6 +18,11 @@ const config = {
 };
 exports = module.exports;
 
+exports.getK2project = async projectId => {
+    const sqlQuery = "SELECT * FROM Dbo.K2ReklamaProjectList WHERE RID = " + projectId;
+    return K2dataRequest(sqlQuery);
+};
+
 exports.getK2workLog = async (projectId, works) => {
     const worksString = works.map(work => `Kod = '${work}'`).join(' OR ');
     //const sqlQuery = "SELECT ReservationDate, ProdejRID, EX_Popis, Mnoz, Prij, Jmno, Abbr, RID, Kod, Zkr FROM Dbo.K2WorkAll WHERE RID = " + projectId + " AND ( Abbr = 'hod' OR Abbr = 'min' ) AND ( Kod = 'OV' OR Kod = 'SV' OR Kod = '2D' OR Kod = '3D' OR Kod = 'MP' OR Kod = 'BL' OR Kod = 'FL' OR Kod = 'IT')";
