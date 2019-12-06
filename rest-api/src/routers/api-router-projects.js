@@ -32,7 +32,7 @@ router.get('/data', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)],  
 // *********************************************************************************************************************
 // PROJECTS POST - CREATE
 // *********************************************************************************************************************
-router.post('/', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)],  async (req, res, next) => {
+router.post('/project', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)],  async (req, res, next) => {
     let result;
     try {
         if(!req.body) {
@@ -65,7 +65,7 @@ router.post('/', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)],  asy
 // PROJECTS GET
 // *********************************************************************************************************************
 //get all projects
-router.get('/', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)],  async (req, res, next) => {
+router.get('/project', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)],  async (req, res, next) => {
     try {
         const result = await db.getProjects();
         res.status(200).json(result);
@@ -83,7 +83,7 @@ router.get('/booking', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)]
     }
 });
 //get single project
-router.get('/:id', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)],  async (req, res, next) => {
+router.get('/project/:id', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)],  async (req, res, next) => {
    try {
        const id = req.params.id && mongoose.Types.ObjectId.isValid(req.params.id) ? req.params.id : null;
        if(!id) {
@@ -121,7 +121,7 @@ router.get('/booking/:id', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FU
 // *********************************************************************************************************************
 // PROJECTS PUT - UPDATE
 // *********************************************************************************************************************
-router.put('/:id', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)],  async (req, res, next) => {
+router.put('/project/:id', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)],  async (req, res, next) => {
     let result;
     try {
         const id = req.params.id && mongoose.Types.ObjectId.isValid(req.params.id) ? req.params.id : null;
@@ -161,7 +161,7 @@ router.put('/:id', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)],  a
 // *********************************************************************************************************************
 // PROJECTS DELETE
 // *********************************************************************************************************************
-router.delete('/:id', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)],  async (req, res, next) => {
+router.delete('/project/:id', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)],  async (req, res, next) => {
     try {
         const id = req.params.id && mongoose.Types.ObjectId.isValid(req.params.id) ? req.params.id : null;
         if(!id) {
@@ -326,4 +326,17 @@ router.get('/K2/free',  [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)
         next(error);
     }
 });
+// *********************************************************************************************************************
+// BUDGETS (FREE - POSSIBLE TO LINK WITH PROJECT)
+// *********************************************************************************************************************
+router.get('/budget', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)],  async (req, res, next) => {
+   try {
+       const result = await db.getAvailableBudgets();
+       res.status(200).json(result);
+   } catch(error) {
+       next(error);
+   }
+});
+
+
 

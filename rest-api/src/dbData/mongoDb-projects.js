@@ -13,6 +13,7 @@ const BookingProject = require('../../_common/models/booking-project');
 const BookingEvent = require('../../_common/models/booking-event');
 const PusherTask = require('../../_common/models/pusher-task');
 const PusherWorkLog = require('../../_common/models/pusher-worklog');
+const Budget = require('../../_common/models/budget');
 const logger = require('../logger');
 
 
@@ -37,7 +38,12 @@ exports.getData = async () => {
 exports.createProject = async (projectData, user) => {
     projectData.projectId = nanoid(NANOID_ALPHABET, NANOID_LENGTH);
     projectData._user = user;
+
     if(projectData.bookingId && projectData.bookingId._id) projectData.bookingId = projectData.bookingId._id;
+    if(projectData.bookingBudget && projectData.bookingBudget._id) projectData.bookingBudget = projectData.bookingBudget._id;
+    if(projectData.clientBudget && projectData.clientBudget._id) projectData.clientBudget = projectData.clientBudget._id;
+    if(projectData.sentBudget && Array.isArray(projectData.sentBudget) && projectData.sentBudget.length > 0) projectData.sentBudget = projectData.sentBudget.map(budget => budget._id ? budget._id : budget);
+
     const project = await Project.create(projectData);
     let booking = null;
     if(projectData.bookingId) {
@@ -50,21 +56,41 @@ exports.createProject = async (projectData, user) => {
 };
 
 exports.getProject = async id => {
-    return Project.findOne({_id: id}, {__v: false}).lean().populate({path: 'bookingId', select: {_id: true, label: true}}); //due to populate await is not necessary????
+    const project = await Project.findOne({_id: id}, {__v: false}).lean().populate({path: 'bookingId', select: {_id: true, label: true}});
+    if(project) {
+        project.bookingBudget = await getBudgetSimple(project.bookingBudget);
+        project.clientBudget = await getBudgetSimple(project.clientBudget);
+        //TODO sentBudget []
+    }
+    return project;
 };
 
+async function getBudgetSimple(id) {
+    if(!id) return null;
+    if(id.toString() === '000000000000000000000000') return {_id: '000000000000000000000000', label: '', version: ''};
+    const budget = await Budget.findOne({_id: id}, {_id: true, label: true, version: true}).lean();
+    if(budget) return budget;
+    else return id;
+}
+
 exports.getProjects = async () => {
-    return Project.find({deleted: null, archived: null}, {__v: false}).lean().populate({path: 'bookingId', select: {_id: true, label: true}}); //due to populate await is not necessary????
-    /*const histories = await Promise.all(projects.map(project => Project.getHistory(project._id, '/name', {unique: true, limit: 3})));
-    return projects.map((project, i) => {
-        project.$name = histories[i];
-        return project;
-    });*/
+    const projects = await Project.find({deleted: null, archived: null}, {__v: false}).lean().populate({path: 'bookingId', select: {_id: true, label: true}});
+    for(const project of projects) {
+        project.bookingBudget = await getBudgetSimple(project.bookingBudget);
+        project.clientBudget = await getBudgetSimple(project.clientBudget);
+        //TODO sentBudget []
+    }
+    return projects;
 };
 
 exports.updateProject = async (id, updateData, user) => {
     updateData._user = user;
+
     if(updateData.bookingId && updateData.bookingId._id) updateData.bookingId = updateData.bookingId._id;
+    if(updateData.bookingBudget && updateData.bookingBudget._id) updateData.bookingBudget = updateData.bookingBudget._id;
+    if(updateData.clientBudget && updateData.clientBudget._id) updateData.clientBudget = updateData.clientBudget._id;
+    if(updateData.sentBudget && Array.isArray(updateData.sentBudget) && updateData.sentBudget.length > 0) updateData.sentBudget = updateData.sentBudget.map(budget => budget._id ? budget._id : budget);
+
     const project = await Project.findOneAndUpdate({_id: id}, updateData, {new: true});
     let booking = null;
     if(updateData.bookingId) {
@@ -84,6 +110,7 @@ exports.removeProject = async (id, user) => {
 };
 
 async function normalizeProject(project) {
+    if(!project) return project;
     const result = project.toJSON();
     delete result.__v;
     //result.$name = await Project.getHistory(project._id, '/name', {unique: true, limit: 3});
@@ -91,6 +118,9 @@ async function normalizeProject(project) {
         const booking = await BookingProject.findOne({_id: result.bookingId}, {_id: true, label: true}).lean();
         if(booking) result.bookingId = booking;
     }
+    result.bookingBudget = await getBudgetSimple(result.bookingBudget);
+    result.sentBudget = await getBudgetSimple(result.sentBudget);
+    //TODO sentBudget []
     return result;
 }
 
@@ -196,7 +226,7 @@ exports.getUsersRole = async () => {
 // GET BOOKING DATA
 // *******************************************************************************************
 exports.getBooking = async id => {
-    const booking = await BookingProject.findOne({_id: id}, {created: false, deleted: false, mergedToProject: false, __v: false}).lean();
+    const booking = await BookingProject.findOne({_id: id}, {created: false, deleted: false, mergedToProject: false, __v: false}).lean().populate({path: 'budget', select: {_id: true, label: true, version: true}});
     return dataHelper.normalizeDocument(booking);
 };
 
@@ -233,4 +263,14 @@ exports.getK2linkedProjects = async () => { //TODO xBPx
     const bookingProjects = await BookingProject.find({deleted: null, mergedToProject: null, K2rid: { $ne: null}}, {K2rid: true, _id: false}).lean();
     const projects = await Project.find({deleted: null, booking: true, 'K2.rid': {$ne: null}}, {K2: true, _id: false}).lean();
     return bookingProjects.map(project => project.K2rid).concat(projects.map(project => project.K2.rid));
+};
+// *******************************************************************************************
+// BUDGET
+// *******************************************************************************************
+exports.getAvailableBudgets = async projectId => { //TODO xBPx
+    const bookingProjects = await BookingProject.find({budget: {$ne: null}, deleted: null, mergedToProject: null}, {budget: true}).lean();
+    const projects1 = await Project.find({booking: true, bookingBudget: {$ne: null}, deleted: null}, {bookingBudget: true}).lean();
+    const projects2 = await Project.find({booking: true, clientBudget: {$ne: null}, deleted: null}, {clientBudget: true}).lean();
+    const linkedBudgets =  bookingProjects.map(p => p.budget).concat(projects1.map(p => p.bookingBudget)).concat(projects2.map(p => p.clientBudget));
+    return await Budget.find({deleted: null, _id: {$nin: linkedBudgets}}, {label: true, version: true}).lean();
 };

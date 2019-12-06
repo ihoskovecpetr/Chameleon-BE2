@@ -312,8 +312,9 @@ exports.getBudgetLabel = async budgetId => {
 
 exports.getAvailableBudgets = async projectId => { //TODO xBPx
     const bookingProjects = await BookingProject.find({budget: {$ne: null}, deleted: null, mergedToProject: null}, {budget: true}).lean();
-    const projects = await Project.find({booking: true, 'budget.booking': {$ne: null}, deleted: null}, {budget: true}).lean();
-    const linkedBudgets = bookingProjects.filter(project => project._id != projectId).map(project => project.budget).concat(projects.filter(project => project._id != projectId).map(project => project.budget.booking));
+    const projects1 = await Project.find({booking: true, bookingBudget: {$ne: null}, deleted: null}, {bookingBudget: true}).lean();
+    const projects2 = await Project.find({booking: true, clientBudget: {$ne: null}, deleted: null}, {clientBudget: true}).lean();
+    const linkedBudgets = bookingProjects.filter(project => project._id !== projectId).map(project => project.budget).concat(projects1.filter(project => project._id !== projectId).map(project => project.bookingBudget)).concat(projects2.filter(project => project._id !== projectId).map(project => project.clientBudget));
     const budgets = await Budget.find({deleted: null, _id: {$nin: linkedBudgets}}, {label: true, version: true}).lean();
     return budgets.map(budget => ({id: budget._id, label: `${budget.label}${budget.version ? ` - ${budget.version}` : ''}`})).sort(dataHelper.sortByLabel)
 };
