@@ -41,8 +41,9 @@ exports.createProject = async (projectData, user) => {
 
     if(projectData.bookingId && projectData.bookingId._id) projectData.bookingId = projectData.bookingId._id;
     if(projectData.bookingBudget && projectData.bookingBudget._id) projectData.bookingBudget = projectData.bookingBudget._id;
-    if(projectData.clientBudget && projectData.clientBudget._id) projectData.clientBudget = projectData.clientBudget._id;
-    if(projectData.sentBudget && Array.isArray(projectData.sentBudget) && projectData.sentBudget.length > 0) projectData.sentBudget = projectData.sentBudget.map(budget => budget._id ? budget._id : budget);
+    if(projectData.clientBudget  && projectData.clientBudget._id)  projectData.clientBudget = projectData.clientBudget._id;
+    //TODO sentBudget []
+    //if(projectData.sentBudget && Array.isArray(projectData.sentBudget) && projectData.sentBudget.length > 0) projectData.sentBudget = projectData.sentBudget.map(budget => budget._id ? budget._id : budget);
 
     const project = await Project.create(projectData);
     let booking = null;
@@ -88,8 +89,9 @@ exports.updateProject = async (id, updateData, user) => {
 
     if(updateData.bookingId && updateData.bookingId._id) updateData.bookingId = updateData.bookingId._id;
     if(updateData.bookingBudget && updateData.bookingBudget._id) updateData.bookingBudget = updateData.bookingBudget._id;
-    if(updateData.clientBudget && updateData.clientBudget._id) updateData.clientBudget = updateData.clientBudget._id;
-    if(updateData.sentBudget && Array.isArray(updateData.sentBudget) && updateData.sentBudget.length > 0) updateData.sentBudget = updateData.sentBudget.map(budget => budget._id ? budget._id : budget);
+    if(updateData.clientBudget  && updateData.clientBudget._id)  updateData.clientBudget = updateData.clientBudget._id;
+    //TODO sentBudget []
+    //if(updateData.sentBudget && Array.isArray(updateData.sentBudget) && updateData.sentBudget.length > 0) updateData.sentBudget = updateData.sentBudget.map(budget => budget._id ? budget._id : budget);
 
     const project = await Project.findOneAndUpdate({_id: id}, updateData, {new: true});
     let booking = null;
@@ -119,7 +121,7 @@ async function normalizeProject(project) {
         if(booking) result.bookingId = booking;
     }
     result.bookingBudget = await getBudgetSimple(result.bookingBudget);
-    result.sentBudget = await getBudgetSimple(result.sentBudget);
+    result.clientBudget = await getBudgetSimple(result.clientBudget);
     //TODO sentBudget []
     return result;
 }

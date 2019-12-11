@@ -68,14 +68,14 @@ const ProjectSchema = new Schema({
         type: {type: String, default: 'GENERAL1'}, //id of timing
         date: Date,
         text: {type: String, default: ''},
-        clip: [{type: Schema.Types.ObjectId}], // clip._id
+        clip: [{type: Schema.Types.ObjectId, ref: 'project.clip'}], // clip._id
         _id: false
     }],
     timingUpp: [{
         type: {type: String, default: 'GENERAL1'}, //id of timing
         date: Date,
         text: {type: String, default: ''},
-        clip: [{type: Schema.Types.ObjectId}], // clip._id
+        clip: [{type: Schema.Types.ObjectId, ref: 'project.clip'}], // clip._id
         _id: false
     }],
     clip: [{
