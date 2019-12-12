@@ -65,7 +65,8 @@ const ProjectSchema = new Schema({
         _id: false
     }],
     timingClient: [{
-        type: {type: String, default: 'GENERAL1'}, //id of timing
+        type: {type: String, default: 'GENERAL'}, //id of timing
+        subType: {type: Number, default: 1},
         date: Date,
         text: {type: String, default: ''},
         clip: [{type: Schema.Types.ObjectId, ref: 'project.clip'}], // clip._id
@@ -73,6 +74,7 @@ const ProjectSchema = new Schema({
     }],
     timingUpp: [{
         type: {type: String, default: 'GENERAL1'}, //id of timing
+        subType: {type: Number, default: 1},
         date: Date,
         text: {type: String, default: ''},
         clip: [{type: Schema.Types.ObjectId, ref: 'project.clip'}], // clip._id

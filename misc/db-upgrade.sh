@@ -27,7 +27,7 @@ echo $'------------  REMOVE onair  ------------'
 mongo_eval 'db["projects"].updateMany({}, {$rename: {K2rid: "K2", invoices: "invoice", timing: "timingClient", budget: "ballpark"}, $set: {bookingType: "UNCONFIRMED", booking: false, paymentChecked: null, bookingId: null, events: [], work: [], bookingNote: "", kickBack: false, clip: [], bookingBudget: null, clientBudget: null, sentBudget: [], timingUpp: []}, $unset: {onair: true}})'
 
 echo $'\n------------  CHANGE timinigClient ------------'
-mongo_eval 'db["projects"].find({timingClient: {$ne: []}}).forEach(doc => db["projects"].findOneAndUpdate({_id: doc._id}, {$set: {timingClient: [{type: "GO_AHEAD", date: doc.timingClient[0].date, text: "", clip: []}]}}))'
+mongo_eval 'db["projects"].find({timingClient: {$ne: []}}).forEach(doc => db["projects"].findOneAndUpdate({_id: doc._id}, {$set: {timingClient: [{type: "GO_AHEAD", subType: 0, date: doc.timingClient[0].date, text: "", clip: []}]}}))'
 
 echo $'\n------------  CHANGE lastContact to UTC ------------'
 mongo_eval 'db["projects"].find({lastContact: {$ne: null}}).forEach(doc => {const d = new Date(doc.lastContact.getTime() + 10000000); db["projects"].findOneAndUpdate({_id: doc._id},{$set: {lastContact: new Date(`${d.getFullYear()}-${d.getMonth() < 9 ? "0" : ""}${d.getMonth() + 1}-${d.getDate() < 10 ? "0" : ""}${d.getDate()}T00:00:00.000Z`)}})})'
