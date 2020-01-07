@@ -61,19 +61,23 @@ mongo_eval 'db.getCollection("booking-events").updateMany({"days._id": {$exists:
 echo $'\n------------  SET booking.event start to 0 if duration is 0 ------------'
 mongo_eval 'db.getCollection("booking-events").updateMany({"days.duration": 0, "days.start": {$ne: 0}}, {$set: {"days.$[].start": 0}})'
 
-echo $'\n------------  MODIFY BUDGET-ITEMS DB  ------------'
-echo $'------------  REMOVE _id from invoice ------------'
-mongo_eval 'db.getCollection("budget-items").updateMany({"items._id": {$exists: true}}, {$unset: {"items.$[]._id": 1}})'
 
-echo $'\n------------  MODIFY PRICELISTS DB  ------------'
-echo $'------------  REMOVE _id from pricelist ------------'
-mongo_eval 'db.getCollection("pricelists").updateMany({"pricelist._id": {$exists: true}}, {$unset: {"pricelist.$[]._id": 1}})'
 
-echo $'\n------------  MODIFY PRICELIST-SNAPSHOT DB  ------------'
-echo $'------------  REMOVE _id from pricelist ------------'
-mongo_eval 'db.getCollection("pricelist-snapshots").updateMany({"pricelist._id": {$exists: true}}, {$unset: {"pricelist.$[]._id": 1}})'
+#echo $'\n------------  MODIFY BUDGET-ITEMS DB  ------------'
+#echo $'------------  REMOVE _id from invoice ------------'
+#mongo_eval 'db.getCollection("budget-items").updateMany({"items._id": {$exists: true}}, {$unset: {"items.$[]._id": 1}})'
 
-echo $'\n------------  REMOVE _id from pricelist.items ------------'
-mongo_eval 'db.getCollection("pricelist-snapshots").find({"pricelist.items._id": {$exists: true}}).forEach(doc => {const pricelist = doc.pricelist.map(pricelist => ({label: pricelist.label, id: pricelist.id, items: pricelist.items.map(item => ({label: item.label, id: item.id, price: item.price, unit: item.unit, unitId: item.unitId, jobId: item.jobId, clientPrice: item.clientPrice}))})); db["pricelist-snapshots"].findOneAndUpdate({_id: doc._id}, {$set: {pricelist: pricelist}})})'
+
+
+#echo $'\n------------  MODIFY PRICELISTS DB  ------------'
+#echo $'------------  REMOVE _id from pricelist ------------'
+#mongo_eval 'db.getCollection("pricelists").updateMany({"pricelist._id": {$exists: true}}, {$unset: {"pricelist.$[]._id": 1}})'
+
+#echo $'\n------------  MODIFY PRICELIST-SNAPSHOT DB  ------------'
+#echo $'------------  REMOVE _id from pricelist ------------'
+#mongo_eval 'db.getCollection("pricelist-snapshots").updateMany({"pricelist._id": {$exists: true}}, {$unset: {"pricelist.$[]._id": 1}})'
+
+#echo $'\n------------  REMOVE _id from pricelist.items ------------'
+#mongo_eval 'db.getCollection("pricelist-snapshots").find({"pricelist.items._id": {$exists: true}}).forEach(doc => {const pricelist = doc.pricelist.map(pricelist => ({label: pricelist.label, id: pricelist.id, items: pricelist.items.map(item => ({label: item.label, id: item.id, price: item.price, unit: item.unit, unitId: item.unitId, jobId: item.jobId, clientPrice: item.clientPrice}))})); db["pricelist-snapshots"].findOneAndUpdate({_id: doc._id}, {$set: {pricelist: pricelist}})})'
 
 
