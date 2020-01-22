@@ -5,10 +5,10 @@ const fs = require('fs');
 const moment = require('moment');
 
 const config = {
-    dbURI: `mongodb://${process.env.MONGO_DB_HOST}:${process.env.MONGO_DB_PORT}/booking-devel?authSource=admin`,
+    dbURI: `mongodb://${process.env.MONGO_DB_HOST}:${process.env.MONGO_DB_PORT}/chameleon?authSource=admin`,
     dbOptions: {
-        user: 'booking',
-        pass: 'h35l0_b00king',
+        user: 'admin',
+        pass: 'm0ng0_01_adm1n',
         useNewUrlParser: true
     }
 };
@@ -18,7 +18,9 @@ mongoose.set('debug', true);
 
 //const currentMembers = 'subscribed_members_export_4de65ff335.csv';
 //const currentMembers = 'subscribed_members_export_15d17415eb.csv';
-const currentMembers = 'subscribed_members_export_1bde686f3d.csv';
+//const currentMembers = 'subscribed_members_export_1bde686f3d.csv';
+const currentMembers = 'subscribed_members_export_c5ed02d3c7.csv';
+
 
 //Email,"First Name","Last Name",,,,,,,,,,,,,,,,,,
 //shiqing.zhao@shootinggalleryasia.com,Shiging,Zhao,,"Shooting Gallery Asia","INDIE\, EGYPT...",2,"2018-10-11 09:55:14",,"2018-10-11 09:55:14",89.233.144.101,,,,,,,,"2018-10-11 09:55:14",90498395,810826c56e,
@@ -30,7 +32,6 @@ const currentMembers = 'subscribed_members_export_1bde686f3d.csv';
             const fields = line.split(',');
             return fields[0].toLowerCase();
         });
-
         const result = ['Email,"First Name","Last Name",Position,Company,ORIGIN,MEMBER_RATING,OPTIN_TIME,OPTIN_IP,CONFIRM_TIME,CONFIRM_IP,LATITUDE,LONGITUDE,GMTOFF,DSTOFF,TIMEZONE,CC,REGION,LAST_CHANGED,LEID,EUID,NOTES,TAGS'];
         const numOfFields = result[0].split(',').length;
         const commasToAdd = ','.repeat(numOfFields - 3);
