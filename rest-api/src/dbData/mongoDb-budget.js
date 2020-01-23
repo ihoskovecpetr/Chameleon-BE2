@@ -34,7 +34,7 @@ exports.getPricelists = async () => {
 // get pricelist, no id => return general
 // *********************************************************************************************************************
 exports.getPricelist = async id => {
-    const groups = await PricelistGroup.find({}, {__v:false}).lean();
+    const groups = await PricelistGroup.find({}, {__v: false}).lean();
     const items = await PricelistItem.find({}, {__v: false}).populate('job').lean();
     let clientPricelist = id ? await Pricelist.findOne({_id: id}).lean() : null;
     const units = await PricelistUnit.find({}, {__v: false}).lean();
@@ -138,7 +138,8 @@ exports.createSnapshot = async options => { // options = {pricelistId} OR {langu
             label = pricelist.label;
             client = pricelist.client;
         }
-        const units = pricelist.units.reduce((units, unit) => {units[unit._id] = unit.label; return units},{});
+        const units = pricelist.units.reduce((units, unit) => {units[unit._id] = unit.label; return units}, {});
+
         const snapshot = {
             pricelistId: pricelistId,
             label: label,
@@ -149,15 +150,16 @@ exports.createSnapshot = async options => { // options = {pricelistId} OR {langu
                 return {
                     label: group.label,
                     id: group.id,
-                    items: group.items.map(item => {
+                    items: group.items.map(item => { //single items in group
                         const clientPrice = {czk: false, eur: false, usd: false};
                         if(item.clientPrice) clientPrice[currency] = true;
-                        const price = item.price;
+                        const price = {...item.price};
                         if(item.clientPrice) price[currency] = item.clientPrice;
                         return {
                             id: item.id,
                             label: item.label,
                             price: price,
+                            generalPrice: item.price,
                             unitId: item.unitId,
                             unit: units[item.unitId],
                             jobId: item.jobId,
@@ -167,7 +169,8 @@ exports.createSnapshot = async options => { // options = {pricelistId} OR {langu
                 }
             })
         };
-        return await PricelistSnapshot.create(snapshot);
+
+        return PricelistSnapshot.create(snapshot);
     } else {
         throw `Can't create pricelist snapshot, missing input parameters (id or language + currency).`;
     }
@@ -206,7 +209,7 @@ exports.getTemplate = async (id, idsOnly) => {
 // create template
 // *********************************************************************************************************************
 exports.createTemplate = async template => {
-    return await Template.create(template);
+    return Template.create(template);
 };
 
 // *********************************************************************************************************************
@@ -271,6 +274,7 @@ exports.getBudget = async id => {
                     label: item.label,
                     unit: item.unit,
                     price: item.price,
+                    generalPrice: item.generalPrice,
                     jobId: item.jobId,
                     unitId: item.unitId,
                     clientPrice : item.clientPrice,
@@ -335,6 +339,7 @@ exports.createBudget = async options => { // budget = {label, pricelistId, langu
                 template.push({
                     label: itemMap[item].label[language],
                     price: itemMap[item].price[currency],
+                    generalPrice: itemMap[item].generalPrice[currency],
                     fixed: !!itemMap[item].price[currency],
                     clientPrice: itemMap[item].clientPrice[currency],
                     unit: itemMap[item].unit[language],
@@ -621,20 +626,29 @@ async function getBudgetMinutes(budgetId) {
             part.items.forEach(item => {
                 if(!item.isGroup && item.job && item.numberOfUnits > 0 && item.unitDuration > 0) {
                     if (!result.jobs[item.job]) result.jobs[item.job] = 0;
-                    result.jobs[item.job] += item.numberOfUnits * item.unitDuration;
+                    let minutes = item.numberOfUnits * item.unitDuration;
+                    if(item.generalPrice && item.generalPrice > 0 && item.generalPrice > item.price) {
+                        minutes = Math.round(minutes * (item.price / item.generalPrice));
+                        result.kickBack = true;
+                    }
+                    result.jobs[item.job] += minutes;
                 }
             })
         });
         if(budget.client && mongoose.Types.ObjectId.isValid(budget.client)) {
-            const client = await BudgetClient.findOne({_id: budget.client}, {kickBack: true}).lean();
-            result.kickBack = client && !!client.kickBack;
-            if(client && !!client.kickBack) {
-                Object.keys(result.jobs).forEach(jobKey => {
-                    result.jobs[jobKey] = Math.round(result.jobs[jobKey] * (1 - client.kickBack)); //TODO double check
-                })
+            const kickBack = await BudgetClient.findOne({_id: budget.client}, {kickBack: true}).lean();
+            if(kickBack) {
+                result.kickBack = result.kickBack || !!kickBack.kickBack;
+                if (kickBack.kickBack) {
+                    Object.keys(result.jobs).forEach(jobKey => {
+                        result.jobs[jobKey] = Math.round(result.jobs[jobKey] * (1 - kickBack.kickBack));
+                    })
+                }
             }
         }
     }
     return result;
 }
+
+
 

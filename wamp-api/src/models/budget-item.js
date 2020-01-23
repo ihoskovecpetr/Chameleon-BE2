@@ -10,6 +10,7 @@ const BudgetItemSchema = new Schema({
         isGroup: {type: Boolean, default: false},
         label: {type: String, default: ''},
         price: {type: Number, default: 0},
+        generalPrice: {type: Number, default: -1}, // -1 not set - old setup
         fixed: {type: Boolean, default: true},
         unit: {type: String, default: ''},
         unitId: {type: Schema.Types.ObjectId, ref: 'pricelist-unit', default: null },
