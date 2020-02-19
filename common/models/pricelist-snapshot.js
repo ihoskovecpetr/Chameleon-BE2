@@ -25,13 +25,18 @@ const PricelistSnapshotSchema = new Schema({
                 eur: {type: Number, default: 0},
                 usd: {type: Number, default: 0}
             },
+            generalPrice: {
+                czk: {type: Number, default: -1}, // -1 not defined - old setup
+                eur: {type: Number, default: -1},
+                usd: {type: Number, default: -1}
+            },
             unit: {
                 cz: {type: String, default: ''},
                 en: {type: String, default: ''}
             },
             unitId: {type: Schema.Types.ObjectId, ref: 'pricelist-unit', default: null},
             jobId: {type: Schema.Types.ObjectId, ref: 'booking-work-type', default: null},
-            clientPrice: {
+            clientPrice: { //indicate client have defined this in pricelist even if the price is the same
                 czk: {type: Boolean, default: false},
                 eur: {type: Boolean, default: false},
                 usd: {type: Boolean, default: false}

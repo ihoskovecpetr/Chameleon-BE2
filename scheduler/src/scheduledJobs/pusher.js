@@ -439,12 +439,25 @@ module.exports = async (conditionsOnly, regular) => {
         const archiveManagerPrepareTasks = allTasks['ARCHIVE_MANAGER_PREPARE'] ? allTasks['ARCHIVE_MANAGER_PREPARE'] : [];
         const makingOfProducerTasks = allTasks['MAKING_OF_PRODUCER'] ? allTasks['MAKING_OF_PRODUCER'] : [];
         const makingOfOperatorTasks = allTasks['MAKING_OF_OPERATOR'] ? allTasks['MAKING_OF_OPERATOR'] : [];
+        const makingOfOperator2DTasks = allTasks['MAKING_OF_OPERATOR_2D'] ? allTasks['MAKING_OF_OPERATOR_2D'] : [];
+        const makingOfOperator3DTasks = allTasks['MAKING_OF_OPERATOR_3D'] ? allTasks['MAKING_OF_OPERATOR_3D'] : [];
+
         for (const project of projects.filter(project => {
             if (moment().startOf('day').diff(project.lastDate, 'days') < ARCHIVE_DAYS_AFTER_LAST_BOOKED_DAY) return false;
             if (project.onair && Array.isArray(project.onair) && project.onair.length > 0 && project.totalDuration > LARGE_PROJECT_HOURS && !makingOfSupervisorTasks.some(task => task.project === project.id)) return false; // MAKING_OF_SUPERVISOR should exist for large project and this time, probably just added, so skip for now
             if (makingOfSupervisorTasks.some(task => task.project === project.id && !task.resolved)) return false; // some MAKING_OF_SUPERVISOR has not decided
             if (makingOfProducerTasks.some(task => task.project === project.id && !task.resolved)) return false; // some MAKING_OF_PRODUCER has not decided
-            if (makingOfProducerTasks.filter(task => task.project === project.id && task.resolved && task.dataTarget).length !== makingOfOperatorTasks.filter(task => task.project === project.id && task.resolved).length) return false; // some making of are not finished yet or it has not been decided
+            const makingOfProducerTasksNum = makingOfProducerTasks.filter(task => task.project === project.id && task.resolved && task.dataTarget).length;
+            if(makingOfProducerTasksNum > 0) {
+                const makingOfOperatorTasksNum = makingOfOperatorTasks.filter(task => task.project === project.id && task.resolved).length;
+                const makingOfOperator2DTasksNum = makingOfOperator2DTasks.filter(task => task.project === project.id && task.resolved).length;
+                const makingOfOperator3DTasksNum = makingOfOperator3DTasks.filter(task => task.project === project.id && task.resolved).length;
+                if(makingOfOperator2DTasksNum > 0 || makingOfOperator3DTasksNum > 0) {
+                   if(makingOfOperator2DTasksNum !== makingOfOperator3DTasksNum) return false;
+                   if(makingOfOperator2DTasksNum !== makingOfProducerTasksNum) return false;
+                } else if(makingOfOperatorTasksNum !== makingOfProducerTasksNum) return false;
+                //if (makingOfProducerTasks.filter(task => task.project === project.id && task.resolved && task.dataTarget).length !== makingOfOperatorTasks.filter(task => task.project === project.id && task.resolved).length) return false; // some making of are not finished yet or it has not been decided
+            }
             return true;
         })) {
             if(!archiveManagerCleanVersionTasks.some(task => task.project === project.id)) {

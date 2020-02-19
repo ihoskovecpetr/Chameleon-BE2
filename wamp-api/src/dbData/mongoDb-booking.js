@@ -284,17 +284,22 @@ exports.getBudgetMinutes = async budgetId => {
             part.items.forEach(item => {
                 if(!item.isGroup && item.job && item.numberOfUnits > 0 && item.unitDuration > 0) {
                     if (!result.jobs[item.job]) result.jobs[item.job] = 0;
-                    result.jobs[item.job] += item.numberOfUnits * item.unitDuration;
+                    let minutes = item.numberOfUnits * item.unitDuration;
+                    if(item.generalPrice && item.generalPrice > 0 && item.generalPrice > item.price) {
+                        minutes = Math.round(minutes * (item.price / item.generalPrice));
+                        result.kickBack = true;
+                    }
+                    result.jobs[item.job] += minutes;
                 }
             })
         });
         if(budget.client && mongoose.Types.ObjectId.isValid(budget.client)) {
             const kickBack = await BudgetClient.findOne({_id: budget.client}, {kickBack: true}).lean();
             if(kickBack) {
-                result.kickBack = !!kickBack.kickBack;
+                result.kickBack = result.kickBack || !!kickBack.kickBack;
                 if (kickBack.kickBack) {
                     Object.keys(result.jobs).forEach(jobKey => {
-                        result.jobs[jobKey] = Math.round(result.jobs[jobKey] * (1 - kickBack.kickBack)); //TODO double check
+                        result.jobs[jobKey] = Math.round(result.jobs[jobKey] * (1 - kickBack.kickBack));
                     })
                 }
             }
