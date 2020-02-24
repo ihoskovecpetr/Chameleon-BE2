@@ -36,7 +36,9 @@ exports.mapResources = (resources, users) => {
         users.forEach(user => {
             if(user.resource == resource._id.toString()) userId = user._id;
         });
-        output[resource.K2id] = {resource: resource._id, user: userId, job: resource.job};
+        if(!output[resource.K2id] || !resource.disabled) {
+            output[resource.K2id] = {resource: resource._id, user: userId, job: resource.job, disabled: resource.disabled};
+        }
         return output;
     },{});
 };
