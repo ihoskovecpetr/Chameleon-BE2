@@ -17,11 +17,13 @@ module.exports = async projectId => {
             let projects = await db.getK2linkedProjects(projectId);
             const resources = await db.getResourcesMap();
             const workTypes = await db.getWorkTypeMap();
+
             for(const project of projects) {
                 let projectUpdated = false;
                 const workLogPusher = [];
                 const efficiency = await db.getProjectOperatorsEfficiency(project.events);
                 const K2project = await k2.getK2project(project.K2rid);
+                //Update K2client and K2name if was changed
                 if(K2project.length > 0) {
                     if (project.K2client !== K2project[0].Zkr) {
                         project.K2client = K2project[0].Zkr;
@@ -32,23 +34,27 @@ module.exports = async projectId => {
                         projectUpdated = true;
                     }
                 }
-                const workLog = await k2.getK2workLog(project.K2rid, ['OV', 'SV', '2D', '3D', 'MP', 'BL', 'FL', 'IT']); //internal, supervision, 2D - 1, 3D, Matte Paint, Grading, 2D -2, IT??
-                const work = workLog.map(log => {
-                    let logKod = log.Kod.trim();
-                    if(logKod === 'OV' && log.Zkr.trim() === 'TASK WORK') logKod = 'TW';
-                    if(logKod === 'OV' && log.Zkr.trim() === 'PROGRAMATOR') logKod = 'PG';
-                    if(logKod === '2D' && log.Zkr.trim() === 'ONLINE PREP') logKod = 'OP';
+
+                //get worklogs for current project
+                const projectWorkLogs = await k2.getK2workLog(project.K2rid, ['OV', 'SV', '2D', '3D', 'MP', 'BL', 'FL', 'IT']); //internal, supervision, 2D - 1, 3D, Matte Paint, Grading, 2D -2, IT??
+
+                //map projectWorkLogs to {job, duration} and then make map job: duration  + add worklog to workLogPusher (if age < 20? days)
+                const projectJobDurationMap = projectWorkLogs.map(workLog => {
+                    let logKod = workLog.Kod.trim();
+                    if(logKod === 'OV' && workLog.Zkr.trim() === 'TASK WORK') logKod = 'TW';
+                    if(logKod === 'OV' && workLog.Zkr.trim() === 'PROGRAMATOR') logKod = 'PG';
+                    if(logKod === '2D' && workLog.Zkr.trim() === 'ONLINE PREP') logKod = 'OP';
 
                     // INTERNI_GRADING - ObjectId = 586ce3fca6bf9a09681bd7e0, K2rid = 73005854097557 set as OV !!!!!!
                     if(project.K2rid == '73005854097557') logKod = 'OV';
                     //detect new workTypes - support, development - Kod = 'IT'
-                    const operator = resources[log.Jmno.trim().toLowerCase() + '.' + log.Prij.trim().toLowerCase()];
+                    const operator = resources[workLog.Jmno.trim().toLowerCase() + '.' + workLog.Prij.trim().toLowerCase()];
                     let job = workTypes[logKod] ? workTypes[logKod].id : null;
                     const jobIsBookable = workTypes[logKod] ? workTypes[logKod].bookable : false;
                     const jobIsMultiBookable = workTypes[logKod] && operator ? workTypes[logKod].multi : false;
                     if (!job) return null;
-                    let duration = log.Mnoz;
-                    switch (log.Abbr.trim()) {
+                    let duration = workLog.Mnoz;
+                    switch (workLog.Abbr.trim()) {
                         case 'hod':
                             duration = duration * 60;
                             break;
@@ -57,25 +63,25 @@ module.exports = async projectId => {
                         default:
                             return null;
                     }
-                    const logDate = moment(log['ReservationDate']).startOf('day');
+                    const logDate = moment(workLog['ReservationDate']).startOf('day');
                     const logAge = today.diff(logDate,'days');
                     // *****************************************************************************
                     // DATA FOR PUSHER
                     // *****************************************************************************
 
-                    const MAX_AGE_OF_LOGS = 10; //days
+                    const MAX_AGE_OF_LOGS = 20; //days
                     if(logAge <= MAX_AGE_OF_LOGS) {
                         workLogPusher.push({
-                            _id: log['ProdejRID'].trim(),
+                            _id: workLog['ProdejRID'].trim(),
                             project: project._id,
-                            operatorSurname: log['Prij'].trim(),
-                            operatorName: log['Jmno'].trim(),
+                            operatorSurname: workLog['Prij'].trim(),
+                            operatorName: workLog['Jmno'].trim(),
                             operator: operator ? operator.user : null,
                             date: logDate.toDate(),
                             job: job,
                             operatorJob: operator ? operator.job : null,
                             hours: Math.round(duration / 6) / 10,
-                            description: log['EX_Popis'].trim()
+                            description: workLog['EX_Popis'].trim()
                         });
                     }
 
@@ -88,7 +94,7 @@ module.exports = async projectId => {
 
                     const eff = operator ? efficiency[operator.resource + '@' + job] : null;
                     if (eff) duration = Math.round(duration * eff.sum / eff.count) / 100;
-                    if(duration > 0) return {job: job, duration: duration};
+                    if(duration > 0) return {job: job, duration: duration}; //MAIN MAP OUTPUT
                     else return null;
                 }).reduce((output, item) => {
                     if(item) {
@@ -96,21 +102,25 @@ module.exports = async projectId => {
                             output[item.job] += item.duration;
                         } else output[item.job] = item.duration;
                     }
-                    return output;
+                    return output; //OBJECT OUTPUT - removed null, set map job => duration
                 },{});
 
                 let removeSome = false;
+
+                //check if duration of project's job has been changed
                 for(let i = 0; i < project.jobs.length; i++) {
-                    if(work[project.jobs[i].job]) {
-                        if(project.jobs[i].doneDuration !== work[project.jobs[i].job]) {
-                            project.jobs[i].doneDuration = work[project.jobs[i].job];
+                    const projectWork = project.jobs[i];
+                    if(projectJobDurationMap[projectWork.job]) {
+                        if(projectWork.doneDuration !== projectJobDurationMap[projectWork.job]) {
+                            //logger.debug(`Duration of job ${projectWork.job} of ${project.label} changed :: ${projectWork.doneDuration} -> ${projectJobDurationMap[projectWork.job]}, h diff: ${Math.round((projectJobDurationMap[projectWork.job] - projectWork.doneDuration) / 6) / 10}`);
+                            projectWork.doneDuration = projectJobDurationMap[projectWork.job];
                             projectUpdated = true;
                         }
-                        delete work[project.jobs[i].job]; // remove used to see logged jobs not yet in project....
+                        delete projectJobDurationMap[projectWork.job]; // remove used to see logged jobs not yet in project....
                     } else {
-                        if(project.jobs[i].doneDuration !== 0) {
-                            project.jobs[i].doneDuration = 0;
-                            removeSome = project.jobs[i].plannedDuration === 0;
+                        if(projectWork.doneDuration !== 0) {
+                            projectWork.doneDuration = 0;
+                            removeSome = projectWork.plannedDuration === 0;
                             projectUpdated = true;
                         }
                     }
@@ -120,11 +130,11 @@ module.exports = async projectId => {
                     return item.plannedDuration > 0 || item.doneDuration > 0;
                 });
 
-                if(Object.keys(work).length > 0) {
-                    Object.keys(work).forEach(job => {
+                if(Object.keys(projectJobDurationMap).length > 0) {
+                    Object.keys(projectJobDurationMap).forEach(job => {
                         project.jobs.push({
                             job: job,
-                            doneDuration: work[job],
+                            doneDuration: projectJobDurationMap[job],
                             plannedDuration: 0
                         });
                     });
@@ -144,10 +154,13 @@ module.exports = async projectId => {
                     }
                 }
                 // DATA FOR PUSHER
-                for(const worklog of workLogPusher) {
+                for(const workLog of workLogPusher) {
                     try {
-                        const oldLog = await db.addOrUpdateWorklog(worklog);
-                        if(!oldLog)  logger.debug(`Inserted new worklog: ${worklog._id}`);
+                        const oldLog = await db.addOrUpdateWorklog(workLog);
+                        if(!oldLog) {
+                            logger.debug(`Inserted new WorkLog: ${workLog._id}, project: ${project.label}`);
+                            if(!workLog.operator) logger.debug(`WorkLog operator '${workLog.operatorName}:${workLog.operatorSurname}' not recognised.`);
+                        }
                     } catch(error) {
                         logger.warn(`Update / Insert worklog error: ${error}`);
                     }

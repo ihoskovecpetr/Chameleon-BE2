@@ -48,7 +48,9 @@ exports.getK2linkedProjects = async projectId => {
 // Get Resource map
 // *********************************************************************************************************************
 exports.getResourcesMap = async () => {
-    const resources = await BookingResource.find({type: 'OPERATOR', K2id: {$ne: null}}, 'K2id job').lean();
+    //const resources = await BookingResource.find({type: 'OPERATOR', K2id: {$ne: null}}, 'K2id job').lean();
+    //const resources = await BookingResource.find({type: 'OPERATOR', K2id: {$ne: null}, deleted: false, disabled: false}, 'K2id job').lean();
+    const resources  = await BookingResource.find({type: 'OPERATOR', $and : [{K2id: {$ne: null}}, {K2id: {$ne: '.'}}], deleted: false}).lean();
     const users = await User.find({}, 'resource').lean();
     return dataHelper.mapResources(resources, users);
 };
