@@ -13,12 +13,14 @@ const BookingProject = require('../../_common/models/booking-project');
 const BookingEvent = require('../../_common/models/booking-event');
 const PusherTask = require('../../_common/models/pusher-task');
 const PusherWorkLog = require('../../_common/models/pusher-worklog');
+const BookingWorkType = require('../../_common/models/booking-work-type');
 const Budget = require('../../_common/models/budget');
 const logger = require('../logger');
 
 
 const dataHelper = require('../../_common/lib/dataHelper');
 const projectToBooking = require('../../_common/lib/projectToBooking');
+const budgetDb = require("./mongoDb-budget");
 //const moment = require('moment');
 
 // *******************************************************************************************
@@ -29,7 +31,8 @@ exports.getData = async () => {
     const persons = await exports.getPersons();
     const companies = await exports.getCompanies();
     const users = await exports.getUsersRole();
-    return {projects, persons, companies, users}
+    const work = await exports.getWorkMap();
+    return {projects, persons, companies, users, work}
 };
 
 // *******************************************************************************************
@@ -59,26 +62,20 @@ exports.createProject = async (projectData, user) => {
 exports.getProject = async id => {
     const project = await Project.findOne({_id: id}, {__v: false}).lean().populate({path: 'bookingId', select: {_id: true, label: true}});
     if(project) {
-        project.bookingBudget = await getBudgetSimple(project.bookingBudget);
-        project.clientBudget = await getBudgetSimple(project.clientBudget);
+        project.bookingBudget = await budgetDb.getBudgetForProject(project.bookingBudget);
+        project.clientBudget = await budgetDb.getBudgetForProject(project.clientBudget);
         //TODO sentBudget []
     }
     return project;
 };
 
-async function getBudgetSimple(id) {
-    if(!id) return null;
-    if(id.toString() === '000000000000000000000000') return {_id: '000000000000000000000000', label: '', version: ''};
-    const budget = await Budget.findOne({_id: id}, {_id: true, label: true, version: true}).lean();
-    if(budget) return budget;
-    else return id;
-}
+
 
 exports.getProjects = async () => {
     const projects = await Project.find({deleted: null, archived: null}, {__v: false}).lean().populate({path: 'bookingId', select: {_id: true, label: true}});
     for(const project of projects) {
-        project.bookingBudget = await getBudgetSimple(project.bookingBudget);
-        project.clientBudget = await getBudgetSimple(project.clientBudget);
+        project.bookingBudget = await budgetDb.getBudgetForProject(project.bookingBudget);
+        project.clientBudget = await budgetDb.getBudgetForProject(project.clientBudget);
         //TODO sentBudget []
     }
     return projects;
@@ -120,8 +117,8 @@ async function normalizeProject(project) {
         const booking = await BookingProject.findOne({_id: result.bookingId}, {_id: true, label: true}).lean();
         if(booking) result.bookingId = booking;
     }
-    result.bookingBudget = await getBudgetSimple(result.bookingBudget);
-    result.clientBudget = await getBudgetSimple(result.clientBudget);
+    result.bookingBudget = await budgetDb.getBudgetForProject(result.bookingBudget);
+    result.clientBudget = await budgetDb.getBudgetForProject(result.clientBudget);
     //TODO sentBudget []
     return result;
 }
@@ -275,4 +272,11 @@ exports.getAvailableBudgets = async projectId => { //TODO xBPx
     const projects2 = await Project.find({booking: true, clientBudget: {$ne: null}, deleted: null}, {clientBudget: true}).lean();
     const linkedBudgets =  bookingProjects.map(p => p.budget).concat(projects1.map(p => p.bookingBudget)).concat(projects2.map(p => p.clientBudget));
     return await Budget.find({deleted: null, _id: {$nin: linkedBudgets}}, {label: true, version: true}).lean();
+};
+// *******************************************************************************************
+// MISC
+// *******************************************************************************************
+exports.getWorkMap = async () => {
+  const work = await BookingWorkType.find({bookable: true}, 'shortLabel').lean();
+  return work.reduce((out, work) => {out[work._id] = work.shortLabel; return out}, {});
 };
