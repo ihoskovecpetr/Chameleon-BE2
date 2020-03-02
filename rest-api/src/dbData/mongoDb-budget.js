@@ -698,3 +698,14 @@ exports.getBudgetForProject = async id => {
     return {_id: id, label: budget.label, version: budget.version, price: budgetPrices, minutes: budgetMinutes};
 };
 
+exports.getBudgetHoursMap = async id => {
+    if(!id) return null;
+    const budget = await Budget.findOne({_id: id}).lean().populate('parts');
+    if(!budget) return [];
+    const hours =  await getBudgetMinutes(budget, true);
+    if(hours && hours.jobs) {
+        return hours.jobs;
+    } else return {};
+};
+
+

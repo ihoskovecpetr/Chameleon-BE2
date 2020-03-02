@@ -4,6 +4,7 @@ const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
 const db = require('../dbData/mongoDb-projects');
+//const dbBudget = require('../dbData/mongoDb-budget');
 const k2 = require('../k2-mssql');
 
 const validateToken = require('../validateToken');
@@ -136,26 +137,31 @@ router.put('/project/:id', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FU
     } catch(error) {
         next(error);
     }
-    try {
-        switch (shouldUpdateBooking(req.body, result.booking)) {
-            case 'add':
-                const data = db.getNormalizedBookingProject(result.project);
-                data.events = await db.getBookingEvents(result.project.events);
-                wamp.publish('addProject', [], data);
-                break;
-            case 'remove':
-                wamp.publish('removeProject', [], db.getNormalizedBookingProject(result.project));
-                break;
-            case 'update':
-                wamp.publish('updateProject', [], db.getNormalizedBookingProject(result.project));
-                break;
-            case 'exchange':
-                wamp.publish('exchangeProject', [], {new: db.getNormalizedBookingProject(result.project), old: {id: result.booking._id, project: dataHelper.normalizeDocument(result.booking, true)}});
-                break;
+    if(result) {
+        try {
+            switch (shouldUpdateBooking(req.body, result.booking)) {
+                case 'add':
+                    const data = db.getNormalizedBookingProject(result.project);
+                    data.events = await db.getBookingEvents(result.project.events);
+                    wamp.publish('addProject', [], data);
+                    break;
+                case 'remove':
+                    wamp.publish('removeProject', [], db.getNormalizedBookingProject(result.project));
+                    break;
+                case 'update':
+                    wamp.publish('updateProject', [], db.getNormalizedBookingProject(result.project));
+                    break;
+                case 'exchange':
+                    wamp.publish('exchangeProject', [], {
+                        new: db.getNormalizedBookingProject(result.project),
+                        old: {id: result.booking._id, project: dataHelper.normalizeDocument(result.booking, true)}
+                    });
+                    break;
+            }
+            //todo publish K2check, updatePusherData, pusherCheck, projectBudgetChanged
+        } catch (error) {
+            logger.warn(`Update project - update booking error: ${error}`);
         }
-        //todo publish K2check, updatePusherData, pusherCheck, projectBudgetChanged
-    } catch(error) {
-        logger.warn(`Update project - update booking error: ${error}`);
     }
 });
 // *********************************************************************************************************************
@@ -337,6 +343,23 @@ router.get('/budget', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)],
        next(error);
    }
 });
-
-
-
+// *********************************************************************************************************************
+// BUDGET HOURS
+// *********************************************************************************************************************
+/*
+router.get('/budget/:id', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)],  async (req, res, next) => {
+    try {
+        const id = req.params.id && mongoose.Types.ObjectId.isValid(req.params.id) ? req.params.id : null;
+        if(!id) {
+            const error = new Error('Get budget work hours. Wrong budget id.');
+            error.statusCode = 400;
+            next(error);
+        } else {
+            const result = await dbBudget.getBudgetHours(id);
+            res.status(200).json(result);
+        }
+    } catch(error) {
+        next(error);
+    }
+});
+*/

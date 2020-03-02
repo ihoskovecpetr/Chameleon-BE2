@@ -46,9 +46,10 @@ exports.createProject = async (projectData, user) => {
     if(projectData.bookingBudget && projectData.bookingBudget._id) projectData.bookingBudget = projectData.bookingBudget._id;
     if(projectData.clientBudget  && projectData.clientBudget._id)  projectData.clientBudget = projectData.clientBudget._id;
     //TODO sentBudget []
-    //if(projectData.sentBudget && Array.isArray(projectData.sentBudget) && projectData.sentBudget.length > 0) projectData.sentBudget = projectData.sentBudget.map(budget => budget._id ? budget._id : budget);
-
+    const work = projectData.work ? [...projectData.work] : null;
+    delete projectData.work;
     const project = await Project.create(projectData);
+    await updateProjectHours(project, work);
     let booking = null;
     if(projectData.bookingId) {
         booking = await BookingProject.findOneAndUpdate({_id: projectData.bookingId}, {mergedToProject: project._id});
@@ -69,8 +70,6 @@ exports.getProject = async id => {
     return project;
 };
 
-
-
 exports.getProjects = async () => {
     const projects = await Project.find({deleted: null, archived: null}, {__v: false}).lean().populate({path: 'bookingId', select: {_id: true, label: true}});
     for(const project of projects) {
@@ -89,8 +88,10 @@ exports.updateProject = async (id, updateData, user) => {
     if(updateData.clientBudget  && updateData.clientBudget._id)  updateData.clientBudget = updateData.clientBudget._id;
     //TODO sentBudget []
     //if(updateData.sentBudget && Array.isArray(updateData.sentBudget) && updateData.sentBudget.length > 0) updateData.sentBudget = updateData.sentBudget.map(budget => budget._id ? budget._id : budget);
-
+    const work = updateData.work ? [...updateData.work] : null;
+    delete updateData.work;
     const project = await Project.findOneAndUpdate({_id: id}, updateData, {new: true});
+    await updateProjectHours(project, work);
     let booking = null;
     if(updateData.bookingId) {
         booking = await BookingProject.findOneAndUpdate({_id: updateData.bookingId}, {mergedToProject: id});
@@ -107,6 +108,40 @@ exports.removeProject = async (id, user) => {
     const project = await Project.findOneAndUpdate({_id: id}, {deleted: new Date(), _user: user});
     return await normalizeProject(project);
 };
+
+async function updateProjectHours(project, newWork) {
+    let save = false;
+    if(project.bookingBudget || project.clientBudget) {
+        const budgetHoursMap = await budgetDb.getBudgetHoursMap(project.bookingBudget) || await budgetDb.getBudgetHoursMap(project.clientBudget) || {};
+        for(let i = 0; i < project.work.length; i++) {
+            if(budgetHoursMap[project.work[i].type]) {
+                if(project.work[i].plannedDuration !== budgetHoursMap[project.work[i].type]) {
+                    save = true;
+                    project.work[i].plannedDuration = budgetHoursMap[project.work[i].type];
+                }
+                delete budgetHoursMap[project.work[i].type];
+            } else {
+                save = true;
+                if(project.work[i].doneDuration) {
+                    project.work[i].plannedDuration = 0;
+                } else {
+                    project.work.splice(i, 1); //remove current
+                    i--;
+                }
+            }
+        }
+        if(Object.keys(budgetHoursMap).length > 0) {
+            save = true;
+            Object.keys(budgetHoursMap).forEach(workId => {
+                project.work.push({type: workId, plannedDuration: budgetHoursMap[workId], doneDuration: 0})
+            });
+        }
+    } else if(newWork) {
+        save = true;
+        project.work = newWork.filter(work => work.plannedDuration || work.doneDuration);
+    }
+    if(save) await project.save();
+}
 
 async function normalizeProject(project) {
     if(!project) return project;
