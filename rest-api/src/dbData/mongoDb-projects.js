@@ -110,37 +110,22 @@ exports.removeProject = async (id, user) => {
 };
 
 async function updateProjectHours(project, newWork) {
-    let save = false;
     if(project.bookingBudget || project.clientBudget) {
+        const spentHoursMap = project.work && project.work.length > 0 ? project.work.reduce((out, work) => {out[work.type] = work.doneDuration; return out}, {}) : newWork && newWork.length > 0 ? newWork.reduce((out, work) => {out[work.type] = work.doneDuration; return out}, {}) : {};
+        project.work = [];
         const budgetHoursMap = await budgetDb.getBudgetHoursMap(project.bookingBudget) || await budgetDb.getBudgetHoursMap(project.clientBudget) || {};
-        for(let i = 0; i < project.work.length; i++) {
-            if(budgetHoursMap[project.work[i].type]) {
-                if(project.work[i].plannedDuration !== budgetHoursMap[project.work[i].type]) {
-                    save = true;
-                    project.work[i].plannedDuration = budgetHoursMap[project.work[i].type];
-                }
-                delete budgetHoursMap[project.work[i].type];
-            } else {
-                save = true;
-                if(project.work[i].doneDuration) {
-                    project.work[i].plannedDuration = 0;
-                } else {
-                    project.work.splice(i, 1); //remove current
-                    i--;
-                }
-            }
-        }
-        if(Object.keys(budgetHoursMap).length > 0) {
-            save = true;
-            Object.keys(budgetHoursMap).forEach(workId => {
-                project.work.push({type: workId, plannedDuration: budgetHoursMap[workId], doneDuration: 0})
-            });
-        }
+        Object.keys(budgetHoursMap).forEach(workId => {
+            project.work.push({type: workId, plannedDuration: budgetHoursMap[workId], doneDuration: spentHoursMap[workId] ? spentHoursMap[workId] : 0});
+            if(spentHoursMap[workId]) delete spentHoursMap[workId];
+        });
+        Object.keys(spentHoursMap).forEach(workId => {
+            project.work.push({type: workId, plannedDuration: 0, doneDuration: spentHoursMap[workId]});
+        });
+        await project.save();
     } else if(newWork) {
-        save = true;
         project.work = newWork.filter(work => work.plannedDuration || work.doneDuration);
+        await project.save();
     }
-    if(save) await project.save();
 }
 
 async function normalizeProject(project) {

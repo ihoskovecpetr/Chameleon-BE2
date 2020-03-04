@@ -162,7 +162,7 @@ exports.getManagersAndSupervisorsEfficiency = async (from, to) => {
 // *********************************************************************************************************************
 exports.getNotifications = async () => {
     const bookingProjects = await BookingProject.find({mergedToProject: null, confirmed: true, manager: {$ne: null}, events: {$gt: []}, deleted: null, internal: {$ne: true}, offtime: {$ne: true}, rnd: {$ne: true}},{events:true, timing:true, label:true, jobs:true, manager:true, K2rid:true, _id:false, onair: true, budget: true}).lean().populate('events');
-    const projects = (await Project.find({booking: true, events: {$gt: []}}, 'events timing name work team K2 onair budget bookingType').lean().populate('events')).map(project => projectToBooking(project, true)).filter(project => !project.internal && !project.offtime && !project.rnd && project.events.length > 0 && project.manager);
+    const projects = (await Project.find({booking: true, events: {$gt: []}}, 'events timing name work team K2 onair bookingBudget bookingType').lean().populate('events')).map(project => projectToBooking(project, true)).filter(project => !project.internal && !project.offtime && !project.rnd && project.events.length > 0 && project.manager);
     const managersMap = (await User.find({_id: {$in: bookingProjects.concat(projects).map(project => project.manager)}}, 'name').lean()).reduce((out, user) => {out[user._id] = {name: user.name}; return out;}, {});
     return bookingProjects.concat(projects).map(project => ({
         label: project.label,
@@ -323,7 +323,7 @@ exports.getProjectsFinal = async () => {
 
     const workTypesMap = (await BookingWorkType.find().lean()).filter(workType => workType.bookable).reduce((o, workType) => {o[workType._id.toString()] = workType.shortLabel; return o}, {});
     const bookingProjectsData = await BookingProject.find({mergedToProject: null, deleted: null, internal: {$ne: true}, offtime: {$ne: true}, rnd: {$ne: true}, confirmed: true, checked: null}, {manager: true, supervisor: true, events: true, label: true, K2rid: true, budget: true, jobs: true }).lean().populate('events');
-    const projectsData = (await Project.find({booking: true, deleted: null, paymentChecked: null}, 'events team name K2 budget work bookingType').lean().populate('events')).map(project => projectToBooking(project, true)).filter(project => !project.internal && !project.offtime && !project.rnd && project.confirmed);
+    const projectsData = (await Project.find({booking: true, deleted: null, paymentChecked: null}, 'events team name K2 bookingBudget work bookingType').lean().populate('events')).map(project => projectToBooking(project, true)).filter(project => !project.internal && !project.offtime && !project.rnd && project.confirmed);
     const budgetsMap = (await Budget.find({_id: {$in: bookingProjectsData.concat(projectsData).filter(project => project.budget).map(project => project.budget)}}, 'offer parts currency').lean()).reduce((o, budget) => {o[budget._id] = budget; return o}, {});
     const usersMap = (await User.find({},{name: true}).lean()).reduce((out, u) => {out[u._id] = u.name; return out}, {});
     const projects = bookingProjectsData.concat(projectsData)

@@ -37,7 +37,7 @@ exports.getHolidays = async () => {
 
 exports.getProjects = async () => { //TODO xBPx
     const bookingProjects = await BookingProject.find({deleted: null, archived: false, mergedToProject: null},{__v: false, 'jobs.__v': false, 'jobs._id': false, 'timing.__v': false, 'timing._id': false, 'invoice.__v': false, 'invoice._id': false, 'onair.__v': false, deleted: false, archived: false, checked: false, mergedToProject: false }).lean();
-    const projects = await Project.find({deleted: null, archived: null, booking: true}, {_id: true, name: true, team: true, budget: true, K2: true, invoice: true, timing: true, bookingType: true, events: true, work: true, bookingNote: true, kickBack: true, created: true}).lean();
+    const projects = await Project.find({deleted: null, archived: null, booking: true}, {_id: true, name: true, team: true, bookingBudget: true, K2: true, invoice: true, timing: true, bookingType: true, events: true, work: true, bookingNote: true, kickBack: true, created: true}).lean();
     return dataHelper.getObjectOfNormalizedDocs(bookingProjects.concat(projects.map(projectToBooking)));
 };
 

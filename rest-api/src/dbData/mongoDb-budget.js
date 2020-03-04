@@ -231,7 +231,7 @@ exports.removeTemplate = async id => {
 // *********************************************************************************************************************
 exports.getBudgets = async () => {
     const bookingProjects = await BookingProject.find({mergedToProject: null, deleted: null, rnd: false, offtime: false, budget: {$ne: null}}, 'budget').lean();
-    const projects = (await Project.find({dleted: null, booking: true}, 'bookingType budget')).map(project => projectToBooking(project, true)).filter(project => !project.offtime && !project.rnd);
+    const projects = (await Project.find({deleted: null, booking: true, bookingBudget: {$ne: null}}, 'bookingType bookingBudget')).map(project => projectToBooking(project, true)).filter(project => !project.offtime && !project.rnd);
     const linkedBudgets = bookingProjects.concat(projects).map(project => project.budget ? project.budget.toString() : '');
     const budgets = await Budget.find({deleted: null}, {label: true, version: true, parts: true, contact: true, modified: true}, {sort: 'modified'}).lean();
     return budgets.map(budget => ({
@@ -248,7 +248,7 @@ exports.getBudgets = async () => {
 exports.getBudget = async id => {
     const budget = await Budget.findOne({_id: id}).lean().populate('pricelist parts');
     const colors = (await PricelistGroup.find({}, {color: true}).lean()).reduce((colors, group) => {colors[group._id.toString()] = group.color; return colors}, {});
-    const project = await BookingProject.findOne({mergedToProject: null, budget: id, deleted: null, offtime: false}, {label: true, manager: true}).lean() || projectToBooking(await Project.findOne({'budget.booking': id, deleted: null, bookingType: {$in: ['CONFIRMED', 'UNCONFIRMED', 'INTERNAL']}}, {name: true, team: true}).lean(), true);
+    const project = await BookingProject.findOne({mergedToProject: null, budget: id, deleted: null, offtime: false}, {label: true, manager: true}).lean() || projectToBooking(await Project.findOne({'bookingBudget': id, deleted: null, bookingType: {$in: ['CONFIRMED', 'UNCONFIRMED', 'INTERNAL']}}, {name: true, team: true}).lean(), true);
     const v2 = !!budget.pricelist.v2;
     return {
         id: budget._id,
@@ -412,7 +412,7 @@ exports.updateBudget = async (id, budget) => {
     const toDelete = oldBudget.parts.filter(partId => partIds.indexOf(partId.toString()) < 0);
     for(const partId of toDelete) await BudgetItem.findByIdAndRemove(partId);
 
-    const oldProject = await BookingProject.findOne({budget: id, mergedToProject: null}, '_id').lean() || await Project.findOne({'budget.booking': id}, '_id').lean();
+    const oldProject = await BookingProject.findOne({budget: id, mergedToProject: null}, '_id').lean() || await Project.findOne({'bookingBudget': id}, '_id').lean();
     const newProject = await BookingProject.findOne({_id: budget.project}, '_id').lean() || await Project.findOne({_id: budget.project}, '_id').lean();
 
     const oldProjectId = oldProject ? oldProject._id.toString() : null;
@@ -434,7 +434,7 @@ exports.updateBudget = async (id, budget) => {
 // *********************************************************************************************************************
 exports.removeBudget = async id => {
     const budget = await Budget.findOneAndUpdate({_id: id}, {deleted: moment()}).populate('parts');
-    let project = await BookingProject.findOne({mergedToProject: null, budget: id}, {_id: true}).lean() || Project.findOne({'budget.booking': id}, {_id: true}).lean();
+    let project = await BookingProject.findOne({mergedToProject: null, budget: id}, {_id: true}).lean() || Project.findOne({'bookingBudget': id}, {_id: true}).lean();
     if(project) project = await exports.updateProjectsBudget(project._id, null, true);
     return {oldProject: project, newProject: null, oldPrice: getBudgetPrices(budget), newPrice: null, oldBudget: id, newBudget: null}
 };
@@ -489,7 +489,7 @@ exports.getProjects = async include => {
 // get booking project (For create new from booking)  //TODO xBPx
 // *********************************************************************************************************************
 exports.getProject = async id => {
-    return await BookingProject.findOne({_id: id, deleted: null, offtime: false, rnd: false}, {label: true, K2name: true, K2client: true, budget: true}).lean() || projectToBooking(await Project.findOne({_id: id, deleted: null, bookingType: {$in: ['CONFIRMED', 'UNCONFIRMED', 'INTERNAL']}}, 'name K2 budget').lean(), true);
+    return await BookingProject.findOne({_id: id, deleted: null, offtime: false, rnd: false}, {label: true, K2name: true, K2client: true, budget: true}).lean() || projectToBooking(await Project.findOne({_id: id, deleted: null, bookingType: {$in: ['CONFIRMED', 'UNCONFIRMED', 'INTERNAL']}}, 'name K2 bookingBudget').lean(), true);
 };
 
 // *********************************************************************************************************************
