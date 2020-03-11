@@ -842,7 +842,7 @@ exports.getProjectTeamForUser = async user => {
     for(let i = 0; i < PUSHER_BOOKING_TIME_SPAN; i++) days.push({date: today.clone().add(i, 'days'), timings: [], projects: []});
     const userIds = await exports.getUserBySsoId(user);
     const bookingProjects = await BookingProject.find({timing: {$gt: []}, $or: [{manager: userIds.id}, {supervisor: userIds.id}, {lead2D: userIds.id}, {lead3D: userIds.id}, {leadMP: userIds.id}], mergedToProject: null, deleted: null, offtime: {$ne: true}, internal: {$ne: true}, confirmed: true}, {label:true, timing:true, lead2D: true, lead3D: true, leadMP: true, manager: true, supervisor: true, producer: true}).lean();
-    const projects = (await Project.find({timing: {$gt: []}, team: {$gt: []}, booking: true, deleted: null, bookingType: 'CONFIRMED'}, {name: true, timing: true, team: true}).lean()).map(project => projectToBooking(project, true)).filter(project => project.manager == userIds.id || project.supervisor == userIds.id || project.lead2D == userIds.id || project.lead3D == userIds.id || project.leadMP == userIds.id);
+    const projects = (await Project.find({$or: [{timingClient: {$gt: []}}, {timingUpp: {$gt: []}}], team: {$gt: []}, booking: true, deleted: null, bookingType: 'CONFIRMED'}, {name: true, timing: true, team: true}).lean()).map(project => projectToBooking(project, true)).filter(project => project.manager == userIds.id || project.supervisor == userIds.id || project.lead2D == userIds.id || project.lead3D == userIds.id || project.leadMP == userIds.id);
 
     bookingProjects.concat(projects).forEach(project => {
         const isManagerOrSupervisor = (project.manager && project.manager.toString() === userIds.id) || (project.supervisor && project.supervisor.toString() === userIds.id);

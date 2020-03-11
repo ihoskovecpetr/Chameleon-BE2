@@ -168,6 +168,7 @@ router.put('/project/:id', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FU
 // PROJECTS DELETE
 // *********************************************************************************************************************
 router.delete('/project/:id', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)],  async (req, res, next) => {
+    let result;
     try {
         const id = req.params.id && mongoose.Types.ObjectId.isValid(req.params.id) ? req.params.id : null;
         if(!id) {
@@ -175,12 +176,14 @@ router.delete('/project/:id', [validateToken, authoriseApiAccess(PROJECTS_ACCESS
             error.statusCode = 400;
             next(error);
         } else {
-            const result = await db.removeProject(id, req.remote_user);
+            result = await db.removeProject(id, req.remote_user);
             res.status(204).end();
-            //TODO if project.booking - notify live booking client about deleted project!
         }
     } catch(error) {
         next(error);
+    }
+    if(result && result.booking) {
+        wamp.publish('removeProject', [], db.getNormalizedBookingProject(result));
     }
 });
 

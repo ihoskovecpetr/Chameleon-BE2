@@ -21,6 +21,10 @@ exports.normalizeDocument = (source, removeId) => {
     //project specific
     if(result['onair']) result['onair'] = result['onair'].map(onair => ({_id: onair._id.toString(), date: (onair.date ? dateHelper.dateString(onair.date) : null), state: onair.state, name: onair.name }));
     if(result['timing']) result['timing'] = result['timing'].map(timing => ({date: dateHelper.dateString(timing.date), type: timing.type, category: timing.category, text: timing.text}));
+
+    if(result['timingClient']) result['timingClient'] = result['timingClient'].map(timing => ({date: dateHelper.dateString(timing.date), type: timing.type, subType: timing.subType, text: timing.text, clip: timing.clip}));
+    if(result['timingUpp']) result['timingUpp'] = result['timingUpp'].map(timing => ({date: dateHelper.dateString(timing.date), type: timing.type, subType: timing.subType, text: timing.text, clip: timing.clip}));
+
     if(result['invoice']) result['invoice'] = result['invoice'].map(invoice => ({date: dateHelper.dateString(invoice.date), name: invoice.name}));
     if(result['jobs']) result['jobs'] = result['jobs'].map(job => ({job: job.job, doneDuration: job.doneDuration, plannedDuration: job.plannedDuration}));
     return result;
