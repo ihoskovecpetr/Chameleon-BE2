@@ -87,7 +87,9 @@ module.exports = (project, update) => {
         lead3D: team.lead3D,
         leadMP: team.leadMP,
         created: update && typeof project.created === 'undefined' ? undefined : project.created,
-        budget: update && typeof project.bookingBudget === 'undefined' ? undefined : project.bookingBudget,
+
+        budget: update && typeof project.bookingBudget === 'undefined' ? undefined : project.bookingBudget ? project.bookingBudget._id ? project.bookingBudget._id : project.bookingBudget : null,
+
         K2rid: update && typeof project.K2 === 'undefined' ? undefined : project.K2 && project.K2.rid ? project.K2.rid : null,
         K2client: update && typeof project.K2 === 'undefined' ? undefined : project.K2 && project.K2.client ? project.K2.client : null,
         K2name: update && typeof project.K2 === 'undefined' ? undefined : project.K2 && project.K2.name ? project.K2.name : null,
