@@ -43,6 +43,14 @@ exports.isHoliday = date => {
     return isHoliday(date);
 };
 
+exports.isFutureEventDay = (startDate, index, countToday) => {
+    const date = addDay(startDate, index);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if(countToday) return date >= today;
+    else return date > today;
+};
+
 // *=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*
 
 function getEasterForYear(year) { //SUNDAY
@@ -98,3 +106,5 @@ function isHoliday(date) {
     const dateStringShort = dString.substring(5);
     return dString === easterFridayString || dString === easterMondayString || PUBLIC_HOLIDAYS.indexOf(dateStringShort) >= 0;
 }
+
+

@@ -19,9 +19,9 @@ const logger = require('../logger');
 
 
 const dataHelper = require('../../_common/lib/dataHelper');
+const dateHelper = require('../../_common/lib/dateHelper');
 const projectToBooking = require('../../_common/lib/projectToBooking');
 const budgetDb = require("./mongoDb-budget");
-//const moment = require('moment');
 
 // *******************************************************************************************
 // GET ALL DATA
@@ -107,6 +107,25 @@ exports.updateProject = async (id, updateData, user) => {
 exports.removeProject = async (id, user) => {
     const project = await Project.findOneAndUpdate({_id: id}, {deleted: new Date(), _user: user});
     return await normalizeProject(project);
+};
+
+exports.getProjectBookedData = async id => {
+    const project = await Project.findOne({_id: id}, {events: true}).lean().populate({path: 'events', select: {startDate: true, job: true, efficiency: true, days: true}});
+    if(project) {
+        return project.events.reduce((out, event) => {
+            if(event.job) {
+                if(!out[event.job]) out[event.job] = {booked: 0, remains: 0};
+                event.days.forEach(day => {
+                    const dayDuration = day.duration * event.efficiency / 100;
+                    out[event.job].booked += dayDuration;
+                    if(dateHelper.isFutureEventDay(event.startDate, 1)) {
+                        out[event.job].remains += dayDuration;
+                    }
+                });
+            }
+            return out;
+        }, {});
+    } else return null;
 };
 
 async function updateProjectHours(project, newWork) {

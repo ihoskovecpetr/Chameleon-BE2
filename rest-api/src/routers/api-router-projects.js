@@ -99,6 +99,22 @@ router.get('/project/:id', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FU
        next(error);
    }
 });
+//get project booked data for if
+router.get('/project/:id/booked', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)],  async (req, res, next) => {
+    try {
+        const id = req.params.id && mongoose.Types.ObjectId.isValid(req.params.id) ? req.params.id : null;
+        if(!id) {
+            const error = new Error('Projects - get project booked data. Wrong or mismatched project id.');
+            error.statusCode = 400;
+            next(error);
+        } else {
+            const result = await db.getProjectBookedData(id);
+            res.status(200).json(result);
+        }
+    } catch(error) {
+        next(error);
+    }
+});
 // single booking project
 router.get('/booking/:id', [validateToken, authoriseApiAccess(PROJECTS_ACCESS_FULL)],  async (req, res, next) => {
     try {
