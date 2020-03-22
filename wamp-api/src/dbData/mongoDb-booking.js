@@ -130,26 +130,56 @@ exports.addProject = async (id, project, user) => {
 
 exports.updateProject = async (id, project, user) => { //TODO xBPx
     const newProject = await updateBudgetMinutes(project);
+    //PROJECTS DATA - Update from Booking - project is ver2 - Projects data structure
     if(project.version === 2) {
         const oldProject = await Project.findOne({_id: id});
         const oldBookingProject = projectToBooking(oldProject);
-        //from booking project update project - can update only label, jobs, timing, onair, invoice, note
         if(oldProject) {
-            if(project.label !== undefined) oldProject.name = project.label;
-            if(project.jobs !== undefined) oldProject.work = project.jobs.map(job => ({type: job.job, plannedDuration: job.plannedDuration, doneDuration: job.doneDuration}));
-            if(project.timing !== undefined) oldProject.timing = project.timing.map(t => ({type: t.type, text: t.label, date: t.date, dateTo: t.dateTo, category: t.category}));
-            if(project.onair !== undefined) oldProject.onair = project.onair; //TODO convert booking to project !!!! 2x make conversion function !!!!!!!!!!!
-            if(project.invoice !== undefined) oldProject.invoice = project.invoice;
-            if(project.bookingNotes !== undefined) oldProject.bookingNote = project.bookingNotes;
+            updateProjectByBooking(oldProject, project);
             oldProject._user = user;
             await oldProject.save();
             return {oldProject: dataHelper.normalizeDocument(oldBookingProject, true), newProject: newProject};
         }
+    //BOOKING DATA - Update from Booking - project is Booking data structure
     } else {
         const oldProject = await BookingProject.findOneAndUpdate({_id: id}, {$set: newProject}, {_user: user});
         return {oldProject: dataHelper.normalizeDocument(oldProject, true), newProject: newProject};
     }
 };
+
+function updateProjectByBooking(project, booking) {
+    // name <- label
+    if(booking.label !== undefined) project.name = booking.label;
+    // bookingNote -> bookingNotes
+    if(booking.bookingNotes !== undefined) project.bookingNote = booking.bookingNotes;
+    // team <- producer, manager, supervisor, lead2D, lead3D, leadMP
+    let team = project.team.reduce((out, teamMember) => {
+        teamMember.role.forEach(role => out[role] = teamMember.id);
+        return out;
+    }, {});
+    if(booking.producer) team['PRODUCER'] = booking.producer; else delete team['PRODUCER'];
+    if(booking.manager) team['MANAGER'] = booking.manager; else delete team['MANAGER'];
+    if(booking.supervisor) team['SUPERVISOR'] = booking.supervisor; else delete team['SUPERVISOR'];
+    if(booking.lead2D) team['LEAD_2D'] = booking.lead2D; else delete team['LEAD_2D'];
+    if(booking.lead3D) team['LEAD_3D'] = booking.lead3D; else delete team['LEAD_3D'];
+    if(booking.leadMP) team['LEAD_MP'] = booking.leadMP; else delete team['LEAD_MP'];
+    //not implemented yet
+    if(booking.manager2) team['MANAGER_2'] = booking.manager2; else delete team['MANAGER_2'];
+    if(booking.supervisor2) team['SUPERVISOR_2'] = booking.supervisor2; else delete team['SUPERVISOR_2'];
+    if(booking.colorist) team['COLORIST'] = booking.colorist; else delete team['COLORIST'];
+    if(booking.director) team['DIRECTOR'] = booking.director; else delete team['DIRECTOR'];
+    // ---------
+    team = Object.keys(team).reduce((out, role) => {
+        if(!out[team[role]]) out[team[role]] = [];
+        out[team[role]].push(role);
+        return out
+    }, {});
+    project.team = Object.keys(team).map(id => ({id: id, role: team[id]}));
+    //logger.debug(JSON.stringify(project.team));
+    // timingClient, timingUpp <- timingClient, timingUpp
+    if(booking.timingClient !== undefined) project.timingClient = booking.timingClient;
+    if(booking.timingUpp !== undefined) project.timingUpp = booking.timingUpp;
+}
 
 exports.removeProject = async (id, user) => {
     await BookingProject.findOneAndUpdate({_id: id}, {$set : {deleted: new Date(), _user: user}});//!!!!! Remove from booking - so just r&d project TODO test if it is R&D

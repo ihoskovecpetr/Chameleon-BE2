@@ -73,7 +73,7 @@ const ProjectSchema = new Schema({
         _id: false
     }],
     timingUpp: [{
-        type: {type: String, default: 'GENERAL1'}, //id of timing
+        type: {type: String, default: 'GENERAL'}, //id of timing
         subType: {type: Number, default: 1},
         date: Date,
         text: {type: String, default: ''},
