@@ -19,7 +19,8 @@ mongoose.set('debug', true);
 //const currentMembers = 'subscribed_members_export_4de65ff335.csv';
 //const currentMembers = 'subscribed_members_export_15d17415eb.csv';
 //const currentMembers = 'subscribed_members_export_1bde686f3d.csv';
-const currentMembers = 'subscribed_members_export_c5ed02d3c7.csv';
+//const currentMembers = 'subscribed_members_export_c5ed02d3c7.csv';
+const currentMembers = 'subscribed_members_export_ba473dc14f.csv';
 
 
 //Email,"First Name","Last Name",,,,,,,,,,,,,,,,,,
