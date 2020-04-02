@@ -5,6 +5,7 @@ const PusherWorklogSchema = new Schema({
     _id: String,
     project: {type: Schema.Types.ObjectId},
     job: {type: Schema.Types.ObjectId, ref: 'booking-work-type'},
+    remoteJob: {type: Boolean, default: false},
     operatorJob: {type: Schema.Types.ObjectId, ref: 'booking-work-type', default: null},
     operatorSurname: String,
     operatorName: String,
