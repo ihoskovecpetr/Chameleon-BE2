@@ -70,3 +70,36 @@ function handleError(err, type, throwError) {
     }
     //if(throwError) throw err;
 }
+
+(async () => {
+    const config = {
+        user: 'sql_reklama_booking',
+        password: 'gnkbmlkrls+7',
+        server: `srv-sql01.global.upp.cz\\K2`,
+        database: 'Reklama_booking',
+        options: {
+            encrypt: false
+        }
+    };
+    const sqlQuery = `SELECT TOP 100 ReservationDate, Kod, Zkr, Naz, Prij, Jmno  FROM Dbo.K2WorkAll ORDER BY ReservationDate DESC`;
+    try {
+        const conn = new sql.ConnectionPool(config);
+        connection = await conn.connect();
+        connection.on('error', err => {
+            console.log(err);
+        });
+    } catch(err) {
+        console.log(err);
+    }
+    console.log('Connected.....');
+    try {
+        const data = await new sql.Request(connection).query(sqlQuery);
+        if(data) console.log(data.recordset.map(record => {
+            if(record.Zkr.toLowerCase().indexOf('remote') >= 0)console.log('--- REMOTE ----')
+            return `${(new Date(record.ReservationDate)).toLocaleDateString()} :: ${record.Kod.trim()} :: ${record.Zkr} : ${record.Naz} # ${record.Jmno} ${record.Prij}`
+        }).join('\n'));
+    } catch(err) {
+        console.log(err);
+    }
+
+})();

@@ -680,7 +680,7 @@ exports.getWorklogsForUser = async (user, full) => {
                 id: log._id,
                 operator: log.operatorName.toUpperCase() + ' ' + log.operatorSurname.toUpperCase(),
                 date: moment(log.date).add(12, 'hours').startOf('day').format(),
-                work: `${log.job.shortLabel}${log.remoteJob ? 'r' : ''}`,
+                work: `${log.job.shortLabel}${log.remoteJob ? 'r' : ''}`, //Added to see remote job
                 hours: log.hours,
                 description: log.description,
                 roles: logUserRole,

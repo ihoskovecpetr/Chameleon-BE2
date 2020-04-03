@@ -45,6 +45,8 @@ module.exports = async projectId => {
                     if(logKod === 'OV' && workLog.Zkr.trim() === 'PROGRAMATOR') logKod = 'PG';
                     if(logKod === '2D' && workLog.Zkr.trim() === 'ONLINE PREP') logKod = 'OP';
 
+                    let remoteJob = workLog.Zkr && workLog.Zkr.toLowerCase().indexOf('remote') >= 0;
+
                     // INTERNI_GRADING - ObjectId = 586ce3fca6bf9a09681bd7e0, K2rid = 73005854097557 set as OV !!!!!!
                     if(project.K2rid == '73005854097557') logKod = 'OV';
                     //detect new workTypes - support, development - Kod = 'IT'
@@ -79,6 +81,7 @@ module.exports = async projectId => {
                             operator: operator ? operator.user : null,
                             date: logDate.toDate(),
                             job: job,
+                            remoteJob: remoteJob,
                             operatorJob: operator ? operator.job : null,
                             hours: Math.round(duration / 6) / 10,
                             description: workLog['EX_Popis'].trim()
@@ -94,6 +97,9 @@ module.exports = async projectId => {
 
                     const eff = operator ? efficiency[operator.resource + '@' + job] : null;
                     if (eff) duration = Math.round(duration * eff.sum / eff.count) / 100;
+
+                    if(remoteJob) duration = 0.65 * duration;
+
                     if(duration > 0) return {job: job, duration: duration}; //MAIN MAP OUTPUT
                     else return null;
                 }).reduce((output, item) => {
