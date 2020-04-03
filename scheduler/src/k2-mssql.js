@@ -70,7 +70,7 @@ function handleError(err, type, throwError) {
     }
     //if(throwError) throw err;
 }
-
+/*
 (async () => {
     const config = {
         user: 'sql_reklama_booking',
@@ -103,3 +103,4 @@ function handleError(err, type, throwError) {
     }
 
 })();
+*/
