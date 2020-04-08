@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 #stop on error
+#------------
 set -e
 
 # full list of supported - outputted parts
