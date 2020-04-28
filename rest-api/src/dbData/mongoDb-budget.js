@@ -521,7 +521,7 @@ exports.updateProjectsBudget = async (projectId, budgetId, updateMinutes) => {
         if(changed) {
             const updatedProject = await project.save();
             const normalizedProject = exports.getNormalizedProject(updatedProject.projectId ? projectToBooking(updatedProject) : updatedProject);
-            await exports.logOp('updateProjectBudget', '777777777777777777777777', normalizedProject, null);
+            //await exports.logOp('updateProjectBudget', '777777777777777777777777', normalizedProject, null);
             return normalizedProject;
         } else return exports.getNormalizedProject(project.projectId ? projectToBooking(project) : project);
     } else return null;
