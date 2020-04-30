@@ -284,8 +284,8 @@ module.exports = task => {
             if(task.dataTarget) {
                 followTasks.push({
                     project: task.project._id,
-                    type: 'FEEDBACK_FILL_MANAGER',
-                    target: {role: 'booking:manager'},
+                    type: 'FEEDBACK_FILL_MANAGER', //it is to Producer now
+                    target:  task.project.producer ? task.project.producer : task.project.manager,
                     deadline: moment().add(15, 'days').startOf('day'),
                     dataOrigin: Object.assign(task.dataTarget, {who: task.target})
                 });

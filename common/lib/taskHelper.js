@@ -141,6 +141,12 @@ function addUppTeam(taskData, task, users) {
 function addCurrentTarget(taskData, task, users) {
     if(!taskData.target) return task;
     switch(task.type) {
+        // target - PRODUCER
+        case 'FEEDBACK_FILL_MANAGER':
+            if(taskData.project.producer && taskData.project.producer.toString() !== taskData.target.toString()) {
+                task.currentTarget = {name: users[taskData.project.producer].name, ssoId: users[taskData.project.producer].ssoId, id: taskData.project.producer};
+            }
+            break;
         // target - MANAGER
         case 'ONAIR_SET':
         case 'PUBLISH_MANAGER_SHOW':
@@ -160,7 +166,6 @@ function addCurrentTarget(taskData, task, users) {
         case 'PUBLISH_MANAGER_TEXT_CREATE':
         case 'PUBLISH_MANAGER_TEXT':
         case 'BUDGET_LINK':
-        case 'FEEDBACK_FILL_MANAGER':
             if(taskData.project.manager && taskData.project.manager.toString() !== taskData.target.toString()) {
                 task.currentTarget = {name: users[taskData.project.manager].name, ssoId: users[taskData.project.manager].ssoId, id: taskData.project.manager};
             }
