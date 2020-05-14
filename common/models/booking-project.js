@@ -18,6 +18,12 @@ const BookingProjectSchema = new Schema({
     lead3D: {type: Schema.Types.ObjectId, ref: 'user', default: null},
     leadMP: {type: Schema.Types.ObjectId, ref: 'user', default: null},
     producer: {type: Schema.Types.ObjectId, ref: 'user', default: null},
+
+    //colorist: {type: Schema.Types.ObjectId, ref: 'user', default: null},
+    //director: {type: Schema.Types.ObjectId, ref: 'user', default: null},
+    //manager2: {type: Schema.Types.ObjectId, ref: 'user', default: null},
+    //supervisor2: {type: Schema.Types.ObjectId, ref: 'user', default: null},
+
     created: {type: Date, default: Date.now},
     deleted: {type: Date, default: null},
     offtime: {type: Boolean, default: false},

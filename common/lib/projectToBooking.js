@@ -1,5 +1,7 @@
 'use strict';
 
+const logger = require('../../src/logger');
+
 const TIMING = {
     GO_AHEAD: {id: 'GO_AHEAD', category: 101, label: 'Go Ahead'},
     PPM: {id: 'PPM', category: 102, label: 'PPM'},
@@ -76,7 +78,11 @@ module.exports = (project, update) => {
             });
         });
     }
-
+    let onair = typeof project.clip === 'undefined' ? undefined : project.clip.filter(clip => clip.state !== 'disabled');
+    if(onair) {
+        if(onair.length === 0) onair = [{name: null, date: null, state: "free", _id: 1}]; //_id: 1 is ok, it will never be saved from booking
+        else onair = onair.map(clip => ({name: clip.name, date: clip.onair, state: clip.state, _id: clip._id}));
+    }
     const out = {
         _id: update && typeof project._id === 'undefined' ? undefined : project._id,
         label: update && typeof project.name === 'undefined' ? undefined : project.name,
@@ -94,7 +100,7 @@ module.exports = (project, update) => {
         K2client: update && typeof project.K2 === 'undefined' ? undefined : project.K2 && project.K2.client ? project.K2.client : null,
         K2name: update && typeof project.K2 === 'undefined' ? undefined : project.K2 && project.K2.name ? project.K2.name : null,
         K2projectId: update && typeof project.K2 === 'undefined' ? undefined : project.K2 && project.K2.projectId ? project.K2.projectId : null,
-        onair: update && typeof project.clip === 'undefined' ? undefined : project.clip ? project.clip.map(clip => ({name: clip.name, date: clip.onair, state: clip.state, _id: clip._id})) : [],
+        onair: onair,
         timingClient: update && typeof project.timingClient === 'undefined' ? undefined : project.timingClient,
         timingUpp: update && typeof project.timingUpp === 'undefined' ? undefined : project.timingUpp,
         timing: timing ? timing : undefined,

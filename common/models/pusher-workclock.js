@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-
+const HistoryPlugin = require('../mongoHistoryPlugin');
 const Schema = mongoose.Schema;
 
 const PusherWorkclockSchema = new Schema({
@@ -8,5 +8,8 @@ const PusherWorkclockSchema = new Schema({
     timestamp: {type: Date, default: Date.now},
     __v: { type: Number, select: false}
 });
+
+PusherWorkclockSchema.virtual('_user').set(function(v) {this.__user = v});
+PusherWorkclockSchema.plugin(HistoryPlugin());
 
 module.exports = mongoose.model('pusher-workclock', PusherWorkclockSchema);

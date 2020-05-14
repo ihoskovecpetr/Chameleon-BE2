@@ -19,10 +19,12 @@ const apiRouterBudget = require('./src/routers/api-router-budget');
 const apiRouterAnalytics = require('./src/routers/api-router-analytics');
 const apiRouterAvailability = require('./src/routers/api-router-availability');
 const apiRouterBooking = require('./src/routers/api-router-booking');
+const apiRouterPermissions = require('./src/routers/api-router-permissions');
 
 // *********************************************************************************************************************
 const PORT = 3000;
 const HOST = '0.0.0.0';
+const API_VER = 1;
 // *********************************************************************************************************************
 
 logger.info(`Chameleon RESTful Api version: ${version}, (${process.env.NODE_ENV === 'production' ? 'production' : 'development'})`);
@@ -34,15 +36,16 @@ app.use(bodyParser.json());
 app.use(cookieParser());
 
 // api info
-app.get('/api/v1', validateToken, (req, res) => res.status(200).end('Chameleon RESTful API v.1'));
+app.get(`/api/v${API_VER}`, validateToken, (req, res) => res.status(200).end('Chameleon RESTful API v.1'));
 // api for single applications
-app.use('/api/v1/chameleon', apiRouterChameleon);
-app.use('/api/v1/admin', apiRouterAdmin);
-app.use('/api/v1/projects', apiRouterProjects);
-app.use('/api/v1/budget', apiRouterBudget);
-app.use('/api/v1/analytics', apiRouterAnalytics);
-app.use('/api/v1/availability', apiRouterAvailability);
-app.use('/api/v1/booking', apiRouterBooking);
+app.use(`/api/v${API_VER}/chameleon`, apiRouterChameleon);
+app.use(`/api/v${API_VER}/admin`, apiRouterAdmin);
+app.use(`/api/v${API_VER}/projects`, apiRouterProjects);
+app.use(`/api/v${API_VER}/budget`, apiRouterBudget);
+app.use(`/api/v${API_VER}/analytics`, apiRouterAnalytics);
+app.use(`/api/v${API_VER}/availability`, apiRouterAvailability);
+app.use(`/api/v${API_VER}/booking`, apiRouterBooking);
+app.use(`/api/v${API_VER}/permissions`, apiRouterPermissions);
 
 // *********************************************************************************************************************
 // Error handler

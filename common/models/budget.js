@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
+const HistoryPlugin = require('../mongoHistoryPlugin');
 
 const BudgetSchema = new Schema({
     created:  {type: Date, default: Date.now},
@@ -28,5 +29,8 @@ const BudgetSchema = new Schema({
     multiTotal: {type: Boolean, default: false},
     __v: { type: Number, select: false}
 });
+
+BudgetSchema.virtual('_user').set(function(v) {this.__user = v});
+BudgetSchema.plugin(HistoryPlugin());
 
 module.exports = mongoose.model('budget', BudgetSchema);

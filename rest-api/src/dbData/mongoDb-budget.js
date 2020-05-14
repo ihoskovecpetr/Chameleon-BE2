@@ -476,13 +476,18 @@ exports.getClients = async () => {
 };
 
 // *********************************************************************************************************************
-// get booking projects to pair with  //TODO xBPx *********
+// get booking projects to pair with  //TODO xBPx
 // *********************************************************************************************************************
 exports.getProjects = async include => {
-    let query = {deleted: null, offtime: false, budget: null};
-    if(include) query = {$or: [{_id: include}, query]};
-    const projects = await BookingProject.find(query, {label: true, K2name: true, K2client: true}).lean();
-    return projects.sort((a, b) => a.label.localeCompare(b.label));
+    let queryBookingProject = {deleted: null, offtime: false, budget: null,  mergedToProject: null};
+    let queryProject = {deleted: null, bookingBudget: null};
+    if(include) {
+        queryBookingProject = {$or: [{_id: include}, queryBookingProject]};
+        queryProject = {$or: [{_id: include}, queryProject]};
+    }
+    const bookingProjects = await BookingProject.find(queryBookingProject, {label: true, K2name: true, K2client: true}).lean();
+    const projects = (await Project.find(queryProject, {name: true, K2: true}).lean()).map(project => ({_id: project._id, label: project.name, K2name: project.K2 ? project.K2.name : null, K2client: project.K2 ? project.K2.client : null, version: 2}));
+    return bookingProjects.concat(projects).sort((a, b) => a.label.localeCompare(b.label));
 };
 
 // *********************************************************************************************************************
@@ -499,12 +504,12 @@ exports.updateProjectsBudget = async (projectId, budgetId, updateMinutes) => {
     let changed = false;
     const project = await BookingProject.findOne({_id: projectId}) || await Project.findOne({_id: projectId});
     if(project) {
-        if(project.projectId) { //project
-            if(project.budget && project.budget.booking != budgetId) {
-                project.budget.booking = budgetId;
+        if(project.projectId) { //from project, projectId doesn't exists in bookingProject
+            if(project.bookingBudget != budgetId) {
+                project.bookingBudget = budgetId;
                 changed = true;
             }
-        } else { //booking project
+        } else { // from bookingProject
             if(project.budget != budgetId) {
                 project.budget = budgetId;
                 changed = true;
@@ -520,9 +525,7 @@ exports.updateProjectsBudget = async (projectId, budgetId, updateMinutes) => {
         }
         if(changed) {
             const updatedProject = await project.save();
-            const normalizedProject = exports.getNormalizedProject(updatedProject.projectId ? projectToBooking(updatedProject) : updatedProject);
-            //await exports.logOp('updateProjectBudget', '777777777777777777777777', normalizedProject, null);
-            return normalizedProject;
+            return exports.getNormalizedProject(updatedProject.projectId ? projectToBooking(updatedProject) : updatedProject);
         } else return exports.getNormalizedProject(project.projectId ? projectToBooking(project) : project);
     } else return null;
 };
@@ -547,13 +550,6 @@ exports.getNormalizedProject = source => {
     delete project._id;
     return {id: id, project: project};
 };
-
-// *********************************************************************************************************************
-// logging ops to db (booking)
-// *********************************************************************************************************************
-//exports.logOp = async (type, user, data, err) => {
-//    await BookingOplog.create({type: type, user: user, data: data, success: !err, reason: err});
-//};
 
 // *********************************************************************************************************************
 // helpers
@@ -590,28 +586,28 @@ function resetPlannedMinutes(project) {
 function updatePlannedMinutes(budgetMinutes, project) {
     if(budgetMinutes && project) {
         let changed = false;
-        if(project.projectId) { //project
+        if(project.projectId) { // from project
             project.work.forEach((work, index) => {
-                if(budgetMinutes.jobs[work.job]) {
-                    if(work.plannedDuration !== budgetMinutes.jobs[work.job]) {
-                        project.work[index].plannedDuration = budgetMinutes.jobs[work.job];
+                if(budgetMinutes.jobs[work.type.toString()]) {
+                    if(work.plannedDuration !== budgetMinutes.jobs[work.type.toString()]) {
+                        project.work[index].plannedDuration = budgetMinutes.jobs[work.type.toString()];
                         changed = true;
                     }
-                    budgetMinutes.jobs[work.job] = -1;
+                    budgetMinutes.jobs[work.type.toString()] = -1; //indicate it is used
                 } else if(work.plannedDuration !== 0) {
                     project.work[index].plannedDuration = 0;
                     changed = true;
                 }
             });
             project.work = project.work.filter(work => work.plannedDuration > 0 || work.doneDuration > 0); // remove 0-0 job
-        } else { //booking project
+        } else { // from bookingProject
             project.jobs.forEach((job, index) => {
-                if(budgetMinutes.jobs[job.job]) {
-                    if(job.plannedDuration !== budgetMinutes.jobs[job.job]) {
-                        project.jobs[index].plannedDuration = budgetMinutes.jobs[job.job];
+                if(budgetMinutes.jobs[job.job.toString()]) {
+                    if(job.plannedDuration !== budgetMinutes.jobs[job.job.toString()]) {
+                        project.jobs[index].plannedDuration = budgetMinutes.jobs[job.job.toString()];
                         changed = true;
                     }
-                    budgetMinutes.jobs[job.job] = -1;
+                    budgetMinutes.jobs[job.job.toString()] = -1; //indicate it is used
                 } else if(job.plannedDuration !== 0) {
                     project.jobs[index].plannedDuration = 0;
                     changed = true;
@@ -619,12 +615,12 @@ function updatePlannedMinutes(budgetMinutes, project) {
             });
             project.jobs = project.jobs.filter(job => job.plannedDuration > 0 || job.doneDuration > 0); // remove 0-0 job
         }
-        Object.keys(budgetMinutes.jobs).filter(jobId => budgetMinutes.jobs[jobId] >= 0).forEach(jobId => {
+        Object.keys(budgetMinutes.jobs).filter(jobId => budgetMinutes.jobs[jobId.toString()] >= 0).forEach(jobId => { //at first filter out used (-1)
             changed = true;
             if(project.projectId) { // project
-                project.work.push({doneDuration: 0, type: jobId, plannedDuration: budgetMinutes.jobs[jobId]})
+                project.work.push({doneDuration: 0, type: jobId.toString(), plannedDuration: budgetMinutes.jobs[jobId.toString()]})
             } else { // booking project
-                project.jobs.push({doneDuration: 0, job: jobId, plannedDuration: budgetMinutes.jobs[jobId]})
+                project.jobs.push({doneDuration: 0, job: jobId.toString(), plannedDuration: budgetMinutes.jobs[jobId].toString()})
             }
         });
         if(project.kickBack !== budgetMinutes.kickBack) {
@@ -663,13 +659,13 @@ async function getBudgetMinutes(budgetId, isBudget) {
         budget.parts.filter(part => part.active).forEach(part => {
             part.items.forEach(item => {
                 if(!item.isGroup && item.job && item.numberOfUnits > 0 && item.unitDuration > 0) {
-                    if (!result.jobs[item.job]) result.jobs[item.job] = 0;
+                    if (!result.jobs[item.job.toString()]) result.jobs[item.job.toString()] = 0;
                     let minutes = item.numberOfUnits * item.unitDuration;
                     if(item.generalPrice && item.generalPrice > 0 && item.generalPrice > item.price) {
                         minutes = Math.round(minutes * (item.price / item.generalPrice));
                         result.kickBack = true;
                     }
-                    result.jobs[item.job] += minutes;
+                    result.jobs[item.job.toString()] += minutes;
                 }
             })
         });

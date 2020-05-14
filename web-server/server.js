@@ -43,7 +43,8 @@ const APPLICATIONS = [
     {path: '/booking', file: '/www/html/booking.html', authenticate: true, ignoreExpirationOnMobile: false, clearCookie: false},
     {path: '/budget', file: '/www/html/budget.html', authenticate: true, ignoreExpirationOnMobile: false, clearCookie: false},
     {path: '/analytics', file: '/www/html/analytics.html', authenticate: true, ignoreExpirationOnMobile: false, clearCookie: false},
-    {path: '/pusher', file: '/www/html/pusher.html', authenticate: true, ignoreExpirationOnMobile: true, clearCookie: false}
+    {path: '/pusher', file: '/www/html/pusher.html', authenticate: true, ignoreExpirationOnMobile: true, clearCookie: false},
+    {path: '/permissions', file: '/www/html/permissions.html', authenticate: true, ignoreExpirationOnMobile: false, clearCookie: false}
 ];
 // *********************************************************************************************************************
 

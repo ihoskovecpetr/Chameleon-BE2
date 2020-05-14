@@ -1,7 +1,7 @@
 {
   "name": "chameleon-web-server",
   "log-tag": "web-server",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Chameleon Web Server",
   "author": "Miroslav Kozel <mirek.kozel@gmail.com>",
   "main": "server.js",

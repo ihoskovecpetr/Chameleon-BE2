@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const HistoryPlugin = require('../mongoHistoryPlugin');
 
 const Schema = mongoose.Schema;
 
@@ -18,5 +19,8 @@ const PusherMessageSchema = new Schema({
     confirmed: [{type: Date, default: null}],
     __v: { type: Number, select: false}
 });
+
+PusherMessageSchema.virtual('_user').set(function(v) {this.__user = v});
+PusherMessageSchema.plugin(HistoryPlugin());
 
 module.exports = mongoose.model('pusher-message', PusherMessageSchema);

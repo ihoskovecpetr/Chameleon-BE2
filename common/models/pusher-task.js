@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const HistoryPlugin = require('../mongoHistoryPlugin');
 
 const Schema = mongoose.Schema;
 
@@ -18,5 +19,8 @@ const PusherTaskSchema = new Schema({
     followed: [{type: Schema.Types.ObjectId}],
     __v: { type: Number, select: false}
 });
+
+PusherTaskSchema.virtual('_user').set(function(v) {this.__user = v});
+PusherTaskSchema.plugin(HistoryPlugin());
 
 module.exports = mongoose.model('pusher-task', PusherTaskSchema);

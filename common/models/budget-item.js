@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
+const HistoryPlugin = require('../mongoHistoryPlugin');
 
 const BudgetItemSchema = new Schema({
     label: {type: String, default: ''},
@@ -25,5 +26,8 @@ const BudgetItemSchema = new Schema({
     }],
     __v: { type: Number, select: false}
 });
+
+BudgetItemSchema.virtual('_user').set(function(v) {this.__user = v});
+BudgetItemSchema.plugin(HistoryPlugin());
 
 module.exports = mongoose.model('budget-item', BudgetItemSchema);

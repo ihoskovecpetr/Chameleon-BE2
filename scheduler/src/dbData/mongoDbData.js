@@ -23,7 +23,7 @@ const Holiday = require('../../_common/models/holiday');
 
 const projectToBooking = require('../../_common/lib/projectToBooking');
 
-//const logger = require('../logger');
+const logger = require('../logger');
 
 exports = module.exports;
 
@@ -225,7 +225,8 @@ exports.getProjectsWithShootEvent = async () => {
     const projects = await Project.find({deleted: null, booking: true, bookingType: 'CONFIRMED'}, {events: true, name: true, team: true}).lean().populate('events');
     const users = await exports.getUsers();
     const today = moment().startOf('day');
-    return bookingProjects.concat(projects.map(projectToBooking)).reduce((out, project) => {
+    const totalProjects = bookingProjects.concat(projects.map(projectToBooking));
+    return totalProjects.reduce((out, project) => {
         let eventsWithShoot = project.events.filter(event => event.isShooting).map(event => {return {
             firstDate: moment(event.startDate).startOf('day'),
             lastDate: moment(event.startDate).startOf('day').add(event.days.length - 1,'days')

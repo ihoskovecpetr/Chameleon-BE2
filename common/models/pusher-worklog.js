@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
+const HistoryPlugin = require('../mongoHistoryPlugin');
 
 const PusherWorklogSchema = new Schema({
     _id: String,
@@ -23,5 +24,8 @@ const PusherWorklogSchema = new Schema({
     approved: {type: Boolean, default: false},
     __v: { type: Number, select: false}
 });
+
+PusherWorklogSchema.virtual('_user').set(function(v) {this.__user = v});
+PusherWorklogSchema.plugin(HistoryPlugin());
 
 module.exports = mongoose.model('pusher-worklog', PusherWorklogSchema);

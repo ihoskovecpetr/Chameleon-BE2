@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
+const HistoryPlugin = require('../mongoHistoryPlugin');
 
 const PricelistItemSchema = new Schema({
     group: {type: Schema.Types.ObjectId, ref: 'pricelist-group', default: null},
@@ -17,5 +18,8 @@ const PricelistItemSchema = new Schema({
     order: {type: Number, default: 0},
     __v: { type: Number, select: false}
 });
+
+PricelistItemSchema.virtual('_user').set(function(v) {this.__user = v});
+PricelistItemSchema.plugin(HistoryPlugin());
 
 module.exports = mongoose.model('pricelist-item', PricelistItemSchema);

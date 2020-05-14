@@ -2,7 +2,7 @@
 const mongoose = require('mongoose');
 const moment = require('moment');
 const k2 = require('../k2-mssql');
-//const logger = require('../logger');
+const logger = require('../logger');
 const crypto = require('crypto');
 const ALGORITHM = 'aes128';
 //const SALT = 'ana1yt1c5_tariff_s41t';
@@ -587,6 +587,9 @@ exports.updateOperatorTariffs = async data => {
 // +----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+-
 function onAirSet(onairs) {
     let result = {set: true, empty: false};
+    if(!onairs) { // version 2 (projects) return undefined for not set on-air
+        return {set: false, empty: false};
+    }
     const activeOnair = onairs.filter(onair => onair.state != 'deleted');
     if(activeOnair.length === 0) return {set: false, empty: true};
     activeOnair.forEach(onair => {

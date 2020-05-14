@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const HistoryPlugin = require('../mongoHistoryPlugin');
 
 const Schema = mongoose.Schema;
 
@@ -11,5 +12,8 @@ const PusherWorkRequestSchema = new Schema({
     stageTime: {type: Date, default: Date.now},
     __v: { type: Number, select: false}
 });
+
+PusherWorkRequestSchema.virtual('_user').set(function(v) {this.__user = v});
+PusherWorkRequestSchema.plugin(HistoryPlugin());
 
 module.exports = mongoose.model('pusher-work-request', PusherWorkRequestSchema);

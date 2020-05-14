@@ -1,6 +1,6 @@
 'use strict';
 const mongoose = require('mongoose');
-
+const HistoryPlugin = require('../mongoHistoryPlugin');
 const Schema = mongoose.Schema;
 
 const UserSchema = new Schema({
@@ -15,5 +15,8 @@ const UserSchema = new Schema({
     tlf: {type:String, default: null},
     __v: { type: Number, select: false}
 });
+
+UserSchema.virtual('_user').set(function(v) {this.__user = v});
+UserSchema.plugin(HistoryPlugin());
 
 module.exports = mongoose.model('user', UserSchema);

@@ -23,6 +23,7 @@ module.exports = async projectId => {
                 const workLogPusher = [];
                 const efficiency = await db.getProjectOperatorsEfficiency(project.events);
                 const K2project = await k2.getK2project(project.K2rid);
+
                 //Update K2client and K2name if was changed
                 if(K2project.length > 0) {
                     if (project.K2client !== K2project[0].Zkr) {
@@ -34,10 +35,8 @@ module.exports = async projectId => {
                         projectUpdated = true;
                     }
                 }
-
                 //get worklogs for current project
                 const projectWorkLogs = await k2.getK2workLog(project.K2rid, ['OV', 'SV', '2D', '3D', 'MP', 'BL', 'FL', 'IT']); //internal, supervision, 2D - 1, 3D, Matte Paint, Grading, 2D -2, IT??
-
                 //map projectWorkLogs to {job, duration} and then make map job: duration  + add worklog to workLogPusher (if age < 20? days)
                 const projectJobDurationMap = projectWorkLogs.map(workLog => {
                     let logKod = workLog.Kod.trim();
@@ -131,11 +130,9 @@ module.exports = async projectId => {
                         }
                     }
                 }
-
                 if(removeSome) project.jobs = project.jobs.filter(item => {
                     return item.plannedDuration > 0 || item.doneDuration > 0;
                 });
-
                 if(Object.keys(projectJobDurationMap).length > 0) {
                     Object.keys(projectJobDurationMap).forEach(job => {
                         project.jobs.push({
