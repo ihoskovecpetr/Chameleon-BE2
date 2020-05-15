@@ -5,6 +5,10 @@ const logger = require('../logger');
 module.exports = access => {
     return async function(req, res, next) {
         const remoteUser = req.remote_user;
+        
+        //DEVELOP
+        access = [ 'booking:readonly', 'pusher:app' ]  // DETETE THIS PRO PROD VERSOIN
+        
         if(!remoteUser) {
             const error = new Error('Unauthenticated User! Access Forbidden.');
             error.statusCode = 401;

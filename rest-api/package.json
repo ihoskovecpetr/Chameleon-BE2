@@ -1,7 +1,7 @@
 {
   "name": "chameleon-rest-api",
   "log-tag": "rest-api",
-  "version": "1.1.4",
+  "version": "1.1.5",
   "description": "Chameleon RESTFull Api",
   "author": "Miroslav Kozel <mirek.kozel@gmail.com>",
   "main": "server.js",
@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "activedirectory": "^0.7.2",
+    "ad": "^0.3.2",
     "autobahn": "^18.10.2",
     "body-parser": "^1.18.3",
     "color": "^0.11.1",

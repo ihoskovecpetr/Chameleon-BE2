@@ -3,9 +3,12 @@ const compression = require('compression');
 const express = require('express');
 const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
-const connectDb = require('./_common/mongodb-connect');
-const mongoose = require('mongoose');
+//PRODUCTION
+//const connectDb = require('./src/_common/mongodb-connect');
+//DEV verze
+const connectDb = require('./src/mongodb-connect-develop');
 
+const mongoose = require('mongoose');
 const version = require('./package.json').version;
 const logger = require('./src/logger');
 const wamp = require('./src/wamp');
