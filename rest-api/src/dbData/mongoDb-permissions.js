@@ -98,28 +98,28 @@ exports.getPersons = async () => {
     });
 };
 
-exports.updatePerson = async (id, personData, user) => {
-    personData._user = user;
-    const person = await Person.findOneAndUpdate({_id: id}, personData);
-    if(personData.company) {
-        const oldCompany = person.company.map(company => company.toString());
-        const newCompany = personData.company;
-        const addTo = newCompany.filter(company => oldCompany.indexOf(company) < 0);
-        const removeFrom = oldCompany.filter(company => newCompany.indexOf(company) < 0);
-        if(addTo.length > 0) await Company.update({_id: {$in: addTo}}, {$push: {person: id}}, {multi: true});
-        if(removeFrom.length > 0) await Company.update({_id: {$in: removeFrom}}, {$pull: {person: id}}, {multi: true});
-    }
-    const result = person.toJSON();
-    delete result.__v;
-    Object.assign(result, personData);
-    result.$name = await Person.getHistory(person._id, '/name', {unique: true, limit: 3});
-    return result;
-};
+// exports.updatePerson = async (id, personData, user) => {
+//     personData._user = user;
+//     const person = await Person.findOneAndUpdate({_id: id}, personData);
+//     if(personData.company) {
+//         const oldCompany = person.company.map(company => company.toString());
+//         const newCompany = personData.company;
+//         const addTo = newCompany.filter(company => oldCompany.indexOf(company) < 0);
+//         const removeFrom = oldCompany.filter(company => newCompany.indexOf(company) < 0);
+//         if(addTo.length > 0) await Company.update({_id: {$in: addTo}}, {$push: {person: id}}, {multi: true});
+//         if(removeFrom.length > 0) await Company.update({_id: {$in: removeFrom}}, {$pull: {person: id}}, {multi: true});
+//     }
+//     const result = person.toJSON();
+//     delete result.__v;
+//     Object.assign(result, personData);
+//     result.$name = await Person.getHistory(person._id, '/name', {unique: true, limit: 3});
+//     return result;
+// };
 
-exports.removePerson = async (id, user) => {
-    await Person.findOneAndUpdate({_id: id}, {deleted: new Date(), _user: user});
-    await Company.update({person: id}, {$pull: {person: id}}, {multiple: true});
-};
+// exports.removePerson = async (id, user) => {
+//     await Person.findOneAndUpdate({_id: id}, {deleted: new Date(), _user: user});
+//     await Company.update({person: id}, {$pull: {person: id}}, {multiple: true});
+// };
 
 // *******************************************************************************************
 // UPP USERS - role, name, uid
@@ -148,4 +148,21 @@ exports.getUsersByRole = async (rolesArr) => {
     });
 
     // return await User.find({role: `booking:${role}`}, {role: true, name: true, ssoId: true}).lean(); //role: "booking:3D"
+};
+
+
+exports.getOneUser = async (id) => {
+    try{
+          console.log("FindById id ", id, typeof id)
+    const person = await User.find({_id: id}).lean();
+    console.log("Got one person: ", person.length, id)
+    const histories = await Promise.all(person.map(person => Person.getHistory(person._id, '/name', {unique: true, limit: 3})));
+    return person.map((personOne, i) => {
+        personOne.$name = histories[i];
+        return personOne;
+    });  
+    }catch(err){
+        console.log("ERR: ", err)
+    }
+
 };

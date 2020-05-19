@@ -64,6 +64,24 @@ exports.getOwnGroups = async () => {
     });
 };
 
+exports.getUserInfo = async (sAMAccountName) => {
+    sAMAccountName = "reklama.booking"
+    return new Promise((resolve, reject) => {
+
+        const filter = `(&(objectClass=user)(sAMAccountName=${sAMAccountName})(!(objectClass=computer)))`; //(memberOf=cn=test_group_adv) (sAMAccountName=petra*)
+        const attributes = ['sAMAccountName', 'givenName', 'sn', 'displayName', 'mail', 'memberOf', 'managedObjects'];
+            ad.findUsers({filter, attributes}, (err, data) => {
+                if (err) logger.info(`manager ERR >>>>> ${JSON.stringify(err, undefined, 2)}`);
+                else{
+                    // logger.info(`manager >>>>> ${JSON.stringify(data, undefined, 2)}`);
+                    resolve({
+                        userData: data,
+                    })
+                } 
+            })
+    });
+};
+
 
 exports.getProjectGroups = async (project_name) => {
 
