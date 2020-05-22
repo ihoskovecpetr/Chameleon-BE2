@@ -10,14 +10,10 @@ const validateToken = require('../validateToken');
 const authoriseApiAccess = require('./authoriseApiAccess');
 
 const PERMISSIONS_ACCESS = ['permissions:full'];
-const app = express();
+// const app = express();
 
 module.exports = router;
 
-app.get('permission/name', function(request, res){
-    
-    res.send('Hello World name!')
-  });
 
 // *********************************************************************************************************************
 // PROJECTS CRUD
@@ -46,9 +42,11 @@ router.get('/k2_projects', [validateToken,  authoriseApiAccess(PERMISSIONS_ACCES
 // *********************************************************************************************************************
 // UPP USERS -R-- (role, name, uid)
 // *********************************************************************************************************************
-router.get('/users/role', [validateToken, authoriseApiAccess(PERMISSIONS_ACCESS)],  async (req, res, next) => {
+router.get('/users/all_active', [validateToken, authoriseApiAccess(PERMISSIONS_ACCESS)],  async (req, res, next) => {
+    
+    console.log(`Hitting users/all_active `);    
     try {
-        const users = await db.getUsersRole();
+        const users = await db.getAllActiveUsers();
         res.status(200).json(users);
     } catch(error) {
         next(error);
@@ -80,6 +78,21 @@ router.post('/users/by_role', [validateToken, authoriseApiAccess(PERMISSIONS_ACC
 });
 
 // *********************************************************************************************************************
+// BOOKING EVENTS CRUD
+// *********************************************************************************************************************
+router.get('/booking_events/:id', [validateToken,  authoriseApiAccess(PERMISSIONS_ACCESS)],  async (req, res, next) => {
+    try {
+        console.log("Hitting - /booking_events/:id -  endpoint", req.params.id)
+        const result = await db.getBookingEventsUsers(req.params.id);
+        console.log("result: ", result.length)
+        res.status(200).json(result);
+    } catch(error) {
+        next(error);
+    }
+});
+
+
+// *********************************************************************************************************************
 // AD ldap
 // *********************************************************************************************************************
 router.get('/my_groups', [validateToken, authoriseApiAccess(PERMISSIONS_ACCESS)],  async (req, res, next) => {
@@ -91,16 +104,6 @@ router.get('/my_groups', [validateToken, authoriseApiAccess(PERMISSIONS_ACCESS)]
         next(error);
     }
 });
-
-// router.get('/ad/person_info/:sAMAccountName', [validateToken, authoriseApiAccess(PERMISSIONS_ACCESS)],  async (req, res, next) => {
-//     console.log("Hitting '/ad/person_info")
-//     try {
-//         const result = await ad.getUserInfo(req.params.sAMAccountName);
-//         res.status(200).json(result);
-//     } catch(error) {
-//         next(error);
-//     }
-// });
 
 router.post('/group_members', [validateToken, authoriseApiAccess(PERMISSIONS_ACCESS)],  async (req, res, next) => {
     try {
@@ -128,6 +131,7 @@ router.post('/project/groups_with_members', [validateToken, authoriseApiAccess(P
     console.log("Hitting  ./project/groups_with_members: ", req.body.project_name)
     try {
         const result_project_groups = await ad.getProjectGroups(req.body.project_name)
+        console.log("result_project_groups: ", result_project_groups)
         const arrOfGroupnames = result_project_groups.map(item => item.sAMAccountName)
 
         const result = await ad.getGroupsMembers(arrOfGroupnames);
@@ -139,31 +143,8 @@ router.post('/project/groups_with_members', [validateToken, authoriseApiAccess(P
     }
 });
 
-router.post('/add_members', [validateToken, authoriseApiAccess(PERMISSIONS_ACCESS)],  async (req, res, next) => {
 
-    console.log("Hitting add_members req.body: ", req.body.group, req.body.usersArr)
-
-    try {
-        const result = await ad.addGroupMembers(req.body.group, req.body.usersArr);
-        res.status(200).json(result);  
-    } catch(error) {
-        next(error);
-    }
-});
-
-router.post('/remove_member', [validateToken, authoriseApiAccess(PERMISSIONS_ACCESS)],  async (req, res, next) => {
-
-    console.log("Hitting remove_members req.body: ", req.body.group, req.body.user)
-
-    try {
-        const result = await ad.removeGroupMembers(req.body.group, req.body.user);
-        res.status(200).json(result);  
-    } catch(error) {
-        next(error);
-    }
-});
-
-//SAVE
+//SAVE Groups Members
 
 router.post('/save/:group_name', [validateToken, authoriseApiAccess(PERMISSIONS_ACCESS)],  async (req, res, next) => {
     console.log("Hitting  ./save/:group_name  payload: ", req.params.group_name, req.body.users)
@@ -174,6 +155,7 @@ router.post('/save/:group_name', [validateToken, authoriseApiAccess(PERMISSIONS_
         next(error);
     }
 });
+
 
 
 

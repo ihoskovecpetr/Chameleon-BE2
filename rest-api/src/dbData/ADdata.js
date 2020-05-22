@@ -4,13 +4,23 @@ const ActiveDirectory = require('activedirectory');
 const AD = require('ad');
 const logger = require('../logger');
 
+//DEV
 const configAd = {
-    host: 'Srv-UPP01.global.upp.cz',  // process.env.AUTH_AD_HOST, 
-    ssl: true, // process.env.AUTH_AD_SSL && (process.env.AUTH_AD_SSL === 'true' || process.env.AUTH_AD_SSL === 'TRUE'),
-    baseDn: 'dc=global,dc=upp,dc=cz', // process.env.AUTH_AD_BASE_DN,
-    user: 'reklama.booking', // process.env.AD_USER,
-    password: 'Ztmrsk7*', // process.env.AD_PASSWORD
+    host: 'Srv-UPP01.global.upp.cz', 
+    ssl: true,
+    baseDn: 'dc=global,dc=upp,dc=cz',
+    user: 'reklama.booking', 
+    password: 'Ztmrsk7*',
 };
+
+//PRODUCTION
+// const configAd = {
+//     host: process.env.AUTH_AD_HOST, 
+//     ssl: process.env.AUTH_AD_SSL && (process.env.AUTH_AD_SSL === 'true' || process.env.AUTH_AD_SSL === 'TRUE'),
+//     baseDn: process.env.AUTH_AD_BASE_DN,
+//     user: process.env.AD_USER,
+//     password: process.env.AD_PASSWORD
+// };
 
 const ad = new ActiveDirectory({
     url: `ldap${configAd.ssl ? 's' : ''}://${configAd.host}${configAd.ssl ? ':636' : ''}`,
@@ -167,44 +177,6 @@ exports.getGroupsMembers = async (groupNamesArr) => {
     });
 };
 
-exports.addGroupMembers = async (group, usersArr) => {
-    return new Promise((resolve, reject) => {
-        try{
-
-        let promisses = []
-        usersArr.map(user => {
-
-            promisses.push(
-            new Promise((resolve1, reject1) => {
-                ad2.user(user).addToGroup(group).then(users => {
-                logger.info(`user(${user})addToGroup(${group})  result>>>>> ${JSON.stringify(users, undefined, 2)} `);
-                resolve1(users)
-            }).catch(err => {
-                logger.info(`user(${user})addToGroup(${group})  ERR: >>>>> ${JSON.stringify(err)} `);
-                reject1(err)
-            });    
-        })  
-            ) 
-  
-        })
-
-        Promise.all(promisses).then((values) => {
-            console.log("All Promisses resooolved,", values)
-            resolve({
-                success: true
-            })
-          }).catch(err => {
-            console.log("NOT All Promisses sucss,", err)
-            reject(err)
-        });
-
-    }catch(e){
-        console.log("AD err: ", e)
-    }
-
-    });
-};
-
 exports.removeGroupMembers = async (group, user) => {
     return new Promise((resolve, reject) => {
         try{
@@ -281,23 +253,32 @@ exports.saveNewGroupMembers = async (group_name, users) => {
                 }
     
                 const setNewMembers = () => {
+
+                    console.log("setNewMembers: users arr: ", users, users.length)
     
                     let promisses = []
-                    users.map(userObj => {
-    
-                        console.log(`SPAWNING user ${userObj.sAMAccountName} for: ${group_name}`)   
-                        promisses.push(
-                            ad2.user(userObj.sAMAccountName).addToGroup(group_name).catch((err) => console.log("Spawning err: ", err))
-                        ) 
-                    })
-    
-                    Promise.all(promisses).then((values) => {
-                        console.log("Resolved ALL Proms SPAWNING: ", values)
+                    if(users.length != 0){
+
+                        users.map(userObj => {
+                            console.log(`SPAWNING user ${userObj.sAMAccountName} for: ${group_name}`)   
+                            promisses.push(
+                                ad2.user(userObj.sAMAccountName).addToGroup(group_name).catch((err) => console.log("Spawning err: ", err))
+                            ) 
+                        })
+
+                        Promise.all(promisses).then((values) => {
+                            console.log("Resolved ALL Proms SPAWNING: ", values)
+                            resolve( { "new_mbs_success": true } )
+                        }).catch(err => {
+                            console.log("NOT All Promisses SPAWNING resolved,", err)
+                            reject(err)
+                        });
+
+                    }else{
                         resolve( { "new_mbs_success": true } )
-                      }).catch(err => {
-                        console.log("NOT All Promisses SPAWNING resolved,", err)
-                        reject(err)
-                    });
+                    }
+
+    
                 }
 
             async function gettingRes(){

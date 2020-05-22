@@ -4,7 +4,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
 //PRODUCTION
-//const connectDb = require('./src/_common/mongodb-connect');
+// const connectDb = require('./src/_common/mongodb-connect');
 //DEV verze
 const connectDb = require('./src/mongodb-connect-develop');
 

@@ -10,6 +10,8 @@ const Project = require('../../_common/models/project');
 const BookingProject = require('../../_common/models/booking-project');
 const Person = require('../../_common/models/contact-person');
 const Company = require('../../_common/models/contact-company');
+const BookingEvent = require('../../_common/models/booking-event');
+const BookingResource = require('../../_common/models/booking-resource');
 
 // *******************************************************************************************
 // PROJECTS CRUD
@@ -121,11 +123,15 @@ exports.getPersons = async () => {
 //     await Company.update({person: id}, {$pull: {person: id}}, {multiple: true});
 // };
 
+
 // *******************************************************************************************
 // UPP USERS - role, name, uid
 // *******************************************************************************************
-exports.getUsersRole = async () => {
-    return await User.find({}, {role: true, name: true, ssoId: true}).lean();
+exports.getAllActiveUsers = async () => {
+
+    const result = await User.find({}, {role: true, name: true, ssoId: true, resource: true, access: true}).lean()
+    return result
+
 };
 
 exports.getUsersByRole = async (rolesArr) => {
@@ -133,10 +139,10 @@ exports.getUsersByRole = async (rolesArr) => {
     console.log("ERT: ", rolesArr)
     let promissses = []
     rolesArr.map(role => {
-        promissses.push(User.find({role: `booking:${role}`}, {role: true, name: true, ssoId: true}).lean())
+        promissses.push(User.find({role: `booking:${role}`}, {role: true, name: true, ssoId: true, resource: true, access: true}).lean())
     })
 
- ///ZDEEE
+///ZDEEE
     return Promise.all(promissses).then((values) => {
         console.log("GOT ALL ROLES: ", values.length)
         let resultArr = []
@@ -151,6 +157,7 @@ exports.getUsersByRole = async (rolesArr) => {
 };
 
 
+
 exports.getOneUser = async (id) => {
     try{
           console.log("FindById id ", id, typeof id)
@@ -161,6 +168,81 @@ exports.getOneUser = async (id) => {
         personOne.$name = histories[i];
         return personOne;
     });  
+    }catch(err){
+        console.log("ERR: ", err)
+    }
+
+};
+
+
+// *******************************************************************************************
+// BOOKING EVENTS CRUD
+// *******************************************************************************************
+
+exports.getBookingEventsUsers = async (_id) => {
+    try{
+        console.log("FInd EVENTS FOR Booking _id new ", _id, typeof _id)
+
+        const bookingEvents = await BookingEvent.find({project: _id},{project:true, job: true, operator: true}).lean().populate({path: 'job', select: 'type'});
+        console.log("Got bookingEvents: ", bookingEvents)
+        
+        //odstranit duplicity
+        let eventsObj = {} 
+        bookingEvents.map(event => {
+            if(eventsObj[event.operator]){
+                if(event.job && event.job.type && eventsObj[event.operator].indexOf(event.job.type) === -1) {  // this make sure no item is 2x in arr
+                    eventsObj[event.operator].push(event.job ? event.job.type : null)
+                }
+            }else{
+                if(event.operator){
+                    eventsObj[event.operator] = [event.job ? event.job.type : null]
+                } 
+            }
+        })
+
+        console.log("ROZTRIDENY obj: ", eventsObj)
+
+        return eventsObj
+
+        // let promissses = []
+        // bookingEvents.map(event => {
+        //     if(event.operator){
+        //         promissses.push(BookingResource.find({_id: event.operator}).lean())
+        //     }
+        // })
+        
+        //Returning all RESOURCES derived from operators
+        // const resources = await Promise.all(promissses).then((values) => {
+        //     console.log("GOT ALL Derived Resources: ", values)
+        //     let resourcesArr = []
+        //     resourcesArr = resourcesArr.concat(...values)
+        //     return resourcesArr
+        //   }).catch(err => {
+        //     console.log("DID NOT GET All Resources,", err)
+        //     return err
+        // });
+
+        // let promisssesResources = []
+        // resources.map(resource => {
+        //     if(resource._id){
+        //         promisssesResources.push(User.find({resource: resource._id}).lean())
+        //     }
+        // })
+
+
+        //Returning all USERS derived from resources
+        // const usersFinal = await Promise.all(promisssesResources).then((values) => {
+        //     console.log("GOT ALL DerivedUsers: ", values)
+        //     let usersArr = []
+        //     usersArr = usersArr.concat(...values)
+        //     return usersArr
+        //     }).catch(err => {
+        //     console.log("DID NOT GET All ROLES,", err)
+        //     return err
+        // });
+
+        // return usersFinal
+
     }catch(err){
         console.log("ERR: ", err)
     }
