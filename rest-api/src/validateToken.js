@@ -9,8 +9,8 @@ const AUTH_TOKEN_SECRET = process.env.AUTH_TOKEN_SECRET;
 module.exports = async function(req, res, next) {
     try {
         //DEV
-        req.remote_user = 'petr.hoskovec' // tokenPayload.user;
-        req.remote_user_name = 'Petr Hoskovec' // tokenPayload.userName;
+        req.remote_user = 'miroslav.kozel' // tokenPayload.user;
+        req.remote_user_name = 'Miroslav Kozel' // tokenPayload.userName;
         if(!req.ignoreExpiration) req.token_expiration = 1588723200000 // tokenPayload.exp * 1000;
         
         //PRODUCTION

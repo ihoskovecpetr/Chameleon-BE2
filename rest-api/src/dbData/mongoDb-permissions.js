@@ -20,7 +20,7 @@ const BookingResource = require('../../_common/models/booking-resource');
 exports.getK2Projects = async () => {
     const projects = []
     projects.push(Project.find({deleted: null, archived: null, K2: { $ne: null }},{__v: false}).lean().populate({path: 'person.id company.id', select: 'name'})); //{path: 'person', populate: {path: 'company', select: 'name'}}
-    projects.push(BookingProject.find({deleted: null, archived: false, mergedToProject: null,  K2name: { $ne: null } },{__v: false, 'jobs.__v': false, 'jobs._id': false, 'timing.__v': false, 'timing._id': false, 'invoice.__v': false, 'invoice._id': false, 'onair.__v': false, deleted: false, archived: false, checked: false, mergedToProject: false }).lean());
+    projects.push(BookingProject.find({deleted: null, archived: false, mergedToProject: null,  K2name: { $ne: null }, K2projectId: { $ne: null }  },{__v: false, 'jobs.__v': false, 'jobs._id': false, 'timing.__v': false, 'timing._id': false, 'invoice.__v': false, 'invoice._id': false, 'onair.__v': false, deleted: false, archived: false, checked: false, mergedToProject: false }).lean());
     // const histories = await Promise.all(projects.map(project => Project.getHistory(project._id, '/name', {unique: true, limit: 3})));
     // const result = await BookingProject.find({deleted: null, archived: false, mergedToProject: null,  K2name: { $ne: null } },{__v: false, 'jobs.__v': false, 'jobs._id': false, 'timing.__v': false, 'timing._id': false, 'invoice.__v': false, 'invoice._id': false, 'onair.__v': false, deleted: false, archived: false, checked: false, mergedToProject: false }).lean()
     
