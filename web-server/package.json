@@ -19,7 +19,7 @@
     "fluent-logger": "^3.2.1",
     "jsonwebtoken": "^8.4.0",
     "moment": "^2.22.2",
-    "mongoose": "^5.3.9",
+    "mongoose": "^5.7.5",
     "winston": "^3.1.0"
   },
   "repository": "~mk",
