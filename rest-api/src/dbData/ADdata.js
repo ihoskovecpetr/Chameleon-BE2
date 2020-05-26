@@ -147,7 +147,10 @@ exports.getGroupsMembers = async (groupNamesArr) => {
                         ad.findUsers({filter, attributes}, (err, data) => {
                             if (err) {
                                 logger.info(`getGroupsMembers ERR >>>>> ${JSON.stringify(err, undefined, 2)}`);
-                                reject1()
+                                // reject1()
+                                resolve1({
+                                    [groupName]: null,
+                                })
                             }
                             else{
                                 resolve1({
@@ -230,15 +233,21 @@ exports.saveNewGroupMembers = async (group_name, users) => {
                     }) 
                 }) 
                 
-                const deletemembers = (existingMbs) => {
+                const deletemembers = async (existingMbs) => {
+
+                    try{
+
                     console.log("Deleting Members", existingMbs)
-    
                     let promisses = []
                     existingMbs[group_name].map(userObj => {
     
                         console.log(`DELETING of ${userObj.sAMAccountName} from: ${group_name}`)
                         promisses.push(
-                            ad2.user(userObj.sAMAccountName).removeFromGroup(group_name).catch((err) => console.log("Deleting err: ", err))
+                            ad2.user(userObj.sAMAccountName).removeFromGroup(group_name).then((value) => value).catch((err) => {
+                                console.log("Deleting err: ", err)
+                                return {succ: false}
+                                // reject(err)
+                            })
                         ) 
                     })
     
@@ -249,34 +258,46 @@ exports.saveNewGroupMembers = async (group_name, users) => {
                         console.log("NOT All Promisses REMOVING resolved,", err)
                         reject(err)
                     });
+                }catch(err){
+                    reject(err)
+                }
     
                 }
     
                 const setNewMembers = () => {
 
-                    console.log("setNewMembers: users arr: ", users, users.length)
-    
-                    let promisses = []
-                    if(users.length != 0){
+                    try{
+                        let promisses = []
+                        if(users.length != 0){
 
-                        users.map(userObj => {
-                            console.log(`SPAWNING user ${userObj.sAMAccountName} for: ${group_name}`)   
-                            promisses.push(
-                                ad2.user(userObj.sAMAccountName).addToGroup(group_name).catch((err) => console.log("Spawning err: ", err))
-                            ) 
-                        })
+                            users.map(userObj => {
+                                console.log(`SPAWNING user ${userObj.sAMAccountName} for: ${group_name}`)   
+                                promisses.push(
+                                    ad2.user(userObj.sAMAccountName).addToGroup(group_name).then((value) => value).catch((err) => {
+                                        console.log("Spawning err: ", err)
+                                        return {succ: false}
+                                        // reject(err)
+                                    })
+                                ) 
+                            })
 
-                        Promise.all(promisses).then((values) => {
-                            console.log("Resolved ALL Proms SPAWNING: ", values)
+                            Promise.all(promisses).then((values) => {
+                                console.log("Resolved ALL Proms SPAWNING: ", values)
+                                resolve( { "new_mbs_success": true } )
+                            }).catch(err => {
+                                console.log("NOT All Promisses SPAWNING resolved,", err)
+                                reject(err)
+                            });
+
+                        }else{
                             resolve( { "new_mbs_success": true } )
-                        }).catch(err => {
-                            console.log("NOT All Promisses SPAWNING resolved,", err)
-                            reject(err)
-                        });
+                        }
+                    }catch(err){
 
-                    }else{
-                        resolve( { "new_mbs_success": true } )
+                        resolve( { "new_mbs_success": false } )
                     }
+
+
 
     
                 }
@@ -286,18 +307,19 @@ exports.saveNewGroupMembers = async (group_name, users) => {
 
                 let existingMbs = await promisseGetMbs
 
-                deletemembers(existingMbs)
+                deletemembers(existingMbs).catch(err => {
+                    console.log("Catching unhandled Err DELETING: ABOVE ", err)
+                })
 
                 }catch(err){
                     console.log("Ctched err: ", err)
                 }
 
-
-
-
             }
 
-            gettingRes()
+            gettingRes().catch(err => {
+                console.log("Catched this from ABOVE: ", err)
+            })
 
     }catch(e){
         console.log("AD err: ", e)
