@@ -184,7 +184,7 @@ exports.getBookingEventsUsers = async (_id) => {
         console.log("FInd EVENTS FOR Booking _id new ", _id, typeof _id)
 
         const bookingEvents = await BookingEvent.find({project: _id},{project:true, job: true, operator: true}).lean().populate({path: 'job', select: 'type'});
-        console.log("Got bookingEvents: ", bookingEvents)
+        // console.log("Got bookingEvents: ", bookingEvents)
         
         //odstranit duplicity
         let eventsObj = {} 

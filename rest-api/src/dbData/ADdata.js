@@ -13,6 +13,14 @@ const configAd = {
     password: 'Ztmrsk7*',
 };
 
+const configAdSuperUser = {
+    host: 'Srv-UPP01.global.upp.cz', 
+    ssl: true,
+    baseDn: 'dc=global,dc=upp,dc=cz',
+    user: 'adv.test.hoskovec',  // 'reklama.booking', 
+    password: 'sJ+xXkQYh6sd', // 'Ztmrsk7*',
+};
+
 //PRODUCTION
 // const configAd = {
 //     host: process.env.AUTH_AD_HOST, 
@@ -30,13 +38,59 @@ const ad = new ActiveDirectory({
     password: `${configAd.password}`
 });
 
-var ad2 = new AD({
+const adAll = new ActiveDirectory({
     url: `ldap${configAd.ssl ? 's' : ''}://${configAd.host}${configAd.ssl ? ':636' : ''}`,
+    baseDN: 'OU=ADV,OU=Projects,OU=Specials,DC=global,DC=upp,DC=cz',
+    tlsOptions: {rejectUnauthorized: false},
+    username: `${configAd.user}`,
+    password: `${configAd.password}`
+});
+
+var ad2 = new AD({
+    url: `ldap${configAdSuperUser.ssl ? 's' : ''}://${configAdSuperUser.host}${configAdSuperUser.ssl ? ':636' : ''}`,
     strictDN: false,
     tlsOptions: {rejectUnauthorized: false},
-    user: `${configAd.user}@global.upp.cz`,
-    pass: `${configAd.password}`
+    user: `${configAdSuperUser.user}@global.upp.cz`,
+    pass: `${configAdSuperUser.password}`
 });
+
+exports.getAllGroups = async () => {
+
+    return new Promise((resolve, reject) => {
+        const filter = `(&(objectClass=group)(sAMAccountName=adv_*)(!(sAMAccountName=*_manager)))`; //(memberOf=cn=test_group_adv) (sAMAccountName=petra*)
+        const attributes = ['name', 'managedObjects', 'managedBy', 'member', 'uppAdvGroupAttribute'];
+            adAll.findGroups({filter, attributes}, (err, data) => {
+
+                if (err) logger.info(`manager ERR >>>>> ${JSON.stringify(err, undefined, 2)}`);
+                else{
+                    // logger.info(`manager >>>>> ${JSON.stringify(data, undefined, 2)}`);
+                    console.log("All groups found here >> : >> ", data.length)
+                    resolve({
+                        allGroups: data,
+                    })
+                } 
+            })
+    });
+};
+
+exports.getAllManagerGroups = async () => {
+
+    return new Promise((resolve, reject) => {
+        const filter = `(&(objectClass=group)(sAMAccountName=adv_*_manager))`; //(memberOf=cn=test_group_adv) (sAMAccountName=petra*)
+        const attributes = ['name', 'managedObjects', 'managedBy', 'member', 'uppAdvGroupAttribute'];
+            adAll.findGroups({filter, attributes}, (err, data) => {
+
+                if (err) logger.info(`manager ERR >>>>> ${JSON.stringify(err, undefined, 2)}`);
+                else{
+                    // logger.info(`manager >>>>> ${JSON.stringify(data, undefined, 2)}`);
+                    console.log("All manager groups found here >> : >> ", data.length)
+                    resolve({
+                        allGroups: data,
+                    })
+                } 
+            })
+    });
+};
 
 
 exports.getUser = async uid => {
@@ -93,22 +147,50 @@ exports.getUserInfo = async (sAMAccountName) => {
 };
 
 
-exports.getProjectGroups = async (project_name) => {
-
-    console.log("getProjectGroups project_name: ", project_name)
+exports.getProjectManagerGroups = async (project_id) => {
 
     return new Promise((resolve, reject) => {
-
-        const filter = `(&(sAMAccountName=*${project_name}*))`; //(memberOf=cn=test_group_adv) (sAMAccountName=petra*) ${project_name}
+        const filter = `(&(sAMAccountName=adv_${project_id}_manager))`; //(memberOf=cn=test_group_adv) (sAMAccountName=petra*) ${project_name}
         const attributes = ['sAMAccountName', 'sn', 'displayName', 'mail', 'memberOf', 'managedObjects']; //'givenName', 'sn', 'displayName', 'mail', 'memberOf', 'managedObjects'
             ad.find({filter, attributes}, (err, data) => {
-                if (err || !data.groups) logger.info(`getProjectGroups ERR >>>>> ${JSON.stringify(err, undefined, 2)}`);
-                else if(data.groups){
-                    logger.info(`getProjectGroups DATA >>>>> ${JSON.stringify(data, undefined, 2)}`);
+                console.log("getProjectManagerGroups result: err, data ", err, data)
+                if (err || !data || !data.groups) logger.info(`getProjectManagerGroups ERR >>>>> ${JSON.stringify(err, undefined, 2)}`);
+                else if(data && data.groups){
+                    console.log(`getProjectManagerGroups DATA >>>>> ${JSON.stringify(data, undefined, 2)}`);
                     resolve(
                         data.groups,
                     )
-                } 
+                } else{
+                    resolve(
+                        "No Groups"
+                    )
+                }
+            })
+    });
+};
+
+
+exports.getProjectGroups = async (project_id) => {
+
+    console.log("getProjectGroups project_id: ", project_id)
+
+    return new Promise((resolve, reject) => {
+
+        const filter = `(&(sAMAccountName=adv_${project_id}*)(!(sAMAccountName=*_manager)))`; //(memberOf=cn=test_group_adv) (sAMAccountName=petra*) ${project_name}
+        const attributes = ['sAMAccountName', 'sn', 'displayName', 'mail', 'memberOf', 'managedObjects']; //'givenName', 'sn', 'displayName', 'mail', 'memberOf', 'managedObjects'
+            ad.find({filter, attributes}, (err, data) => {
+                console.log("getProjectGroups result: err, data ", err, data)
+                if (err || !data || !data.groups) logger.info(`getProjectGroups ERR >>>>> ${JSON.stringify(err, undefined, 2)}`);
+                else if(data && data.groups){
+                    console.log(`getProjectGroups DATA >>>>> ${JSON.stringify(data, undefined, 2)}`);
+                    resolve(
+                        data.groups,
+                    )
+                } else{
+                    resolve(
+                        "No Groups"
+                    )
+                }
             })
     });
 };

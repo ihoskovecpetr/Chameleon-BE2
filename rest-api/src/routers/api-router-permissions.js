@@ -95,6 +95,26 @@ router.get('/booking_events/:id', [validateToken,  authoriseApiAccess(PERMISSION
 // *********************************************************************************************************************
 // AD ldap
 // *********************************************************************************************************************
+router.get('/all_groups', [validateToken, authoriseApiAccess(PERMISSIONS_ACCESS)],  async (req, res, next) => {
+    console.log("Hitting all_groups")
+    try {
+        const result = await ad.getAllGroups();
+        res.status(200).json(result);
+    } catch(error) {
+        next(error);
+    }
+});
+
+router.get('/all_manager_groups', [validateToken, authoriseApiAccess(PERMISSIONS_ACCESS)],  async (req, res, next) => {
+    console.log("Hitting all_manager_groups")
+    try {
+        const result = await ad.getAllManagerGroups();
+        res.status(200).json(result);
+    } catch(error) {
+        next(error);
+    }
+});
+
 router.get('/my_groups', [validateToken, authoriseApiAccess(PERMISSIONS_ACCESS)],  async (req, res, next) => {
     console.log("Hitting My GROUPS")
     try {
@@ -127,15 +147,36 @@ router.post('/groups_members', [validateToken, authoriseApiAccess(PERMISSIONS_AC
     }
 });
 
-router.post('/project/groups_with_members', [validateToken, authoriseApiAccess(PERMISSIONS_ACCESS)],  async (req, res, next) => {
-    console.log("Hitting  ./project/groups_with_members: ", req.body.project_name)
-    try {
-        const result_project_groups = await ad.getProjectGroups(req.body.project_name)
-        console.log("result_project_groups: ", result_project_groups)
-        const arrOfGroupnames = result_project_groups.map(item => item.sAMAccountName)
 
+router.post('/project/manager_group', [validateToken, authoriseApiAccess(PERMISSIONS_ACCESS)],  async (req, res, next) => {
+    console.log("Hitting  ./project/manager_group: ", req.body.project_id)
+    try {
+        const result_project_groups = await ad.getProjectManagerGroups(req.body.project_id)
+        console.log("result_project_group: ", result_project_groups)
+        const arrOfGroupnames = result_project_groups.map(item => {
+            return (item.sAMAccountName)
+        })
+            console.log("groups: ", arrOfGroupnames)
         const result = await ad.getGroupsMembers(arrOfGroupnames);
-        console.log("groups: ", arrOfGroupnames)
+        console.log("Groups and their Mbs: ", result)
+        res.status(200).json(result); 
+ 
+    } catch(error) {
+        next(error);
+    }
+});
+
+router.post('/project/groups_with_members', [validateToken, authoriseApiAccess(PERMISSIONS_ACCESS)],  async (req, res, next) => {
+    console.log("Hitting  ./project/groups_with_members: ", req.body.project_id)
+    try {
+        const result_project_groups = await ad.getProjectGroups(req.body.project_id)
+        console.log("result_project_groups: ", result_project_groups)
+        const arrOfGroupnames = result_project_groups.map(item => {
+            return (item.sAMAccountName)
+        })
+            console.log("groups: ", arrOfGroupnames)
+        const result = await ad.getGroupsMembers(arrOfGroupnames);
+        console.log("Groups and their Mbs: ", result)
         res.status(200).json(result); 
  
     } catch(error) {
