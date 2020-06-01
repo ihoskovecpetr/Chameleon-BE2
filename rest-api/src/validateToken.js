@@ -9,8 +9,8 @@ const AUTH_TOKEN_SECRET = process.env.AUTH_TOKEN_SECRET;
 module.exports = async function(req, res, next) {
     try {
         //DEV
-        req.remote_user = 'miroslav.kozel' // tokenPayload.user;
-        req.remote_user_name = 'Miroslav Kozel' // tokenPayload.userName;
+        req.remote_user = 'petr.hoskovec' // tokenPayload.user;
+        req.remote_user_name = 'Petr Hoskovec' // tokenPayload.userName;
         if(!req.ignoreExpiration) req.token_expiration = 1588723200000 // tokenPayload.exp * 1000;
         
         //PRODUCTION
@@ -18,6 +18,8 @@ module.exports = async function(req, res, next) {
         // req.remote_user = tokenPayload.user;
         // req.remote_user_name = tokenPayload.userName;
         // if(!req.ignoreExpiration) req.token_expiration = tokenPayload.exp * 1000;
+        
+        //
         next();
     } catch (e) {
         const app = getApplication(req);

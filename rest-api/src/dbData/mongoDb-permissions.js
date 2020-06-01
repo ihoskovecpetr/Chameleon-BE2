@@ -184,13 +184,12 @@ exports.getBookingEventsUsers = async (_id) => {
         console.log("FInd EVENTS FOR Booking _id new ", _id, typeof _id)
 
         const bookingEvents = await BookingEvent.find({project: _id},{project:true, job: true, operator: true}).lean().populate({path: 'job', select: 'type'});
-        // console.log("Got bookingEvents: ", bookingEvents)
         
         //odstranit duplicity
         let eventsObj = {} 
         bookingEvents.map(event => {
             if(eventsObj[event.operator]){
-                if(event.job && event.job.type && eventsObj[event.operator].indexOf(event.job.type) === -1) {  // this make sure no item is 2x in arr
+                if(event.job && event.job.type && eventsObj[event.operator].indexOf(event.job.type) === -1) {  // this makes sure no item is 2x in arr
                     eventsObj[event.operator].push(event.job ? event.job.type : null)
                 }
             }else{
@@ -199,52 +198,49 @@ exports.getBookingEventsUsers = async (_id) => {
                 } 
             }
         })
-
         console.log("ROZTRIDENY obj: ", eventsObj)
-
         return eventsObj
-
-        // let promissses = []
-        // bookingEvents.map(event => {
-        //     if(event.operator){
-        //         promissses.push(BookingResource.find({_id: event.operator}).lean())
-        //     }
-        // })
-        
-        //Returning all RESOURCES derived from operators
-        // const resources = await Promise.all(promissses).then((values) => {
-        //     console.log("GOT ALL Derived Resources: ", values)
-        //     let resourcesArr = []
-        //     resourcesArr = resourcesArr.concat(...values)
-        //     return resourcesArr
-        //   }).catch(err => {
-        //     console.log("DID NOT GET All Resources,", err)
-        //     return err
-        // });
-
-        // let promisssesResources = []
-        // resources.map(resource => {
-        //     if(resource._id){
-        //         promisssesResources.push(User.find({resource: resource._id}).lean())
-        //     }
-        // })
-
-
-        //Returning all USERS derived from resources
-        // const usersFinal = await Promise.all(promisssesResources).then((values) => {
-        //     console.log("GOT ALL DerivedUsers: ", values)
-        //     let usersArr = []
-        //     usersArr = usersArr.concat(...values)
-        //     return usersArr
-        //     }).catch(err => {
-        //     console.log("DID NOT GET All ROLES,", err)
-        //     return err
-        // });
-
-        // return usersFinal
-
     }catch(err){
         console.log("ERR: ", err)
     }
+};
 
+// *******************************************************************************************
+// BOOKING PROJECTS CRUD
+// *******************************************************************************************
+
+exports.getBookingProjectsCast = async (k2projectId) => {
+    try{
+        console.log("FInd getBookingProjectsCast FOR Booking k2projectId new ", k2projectId, typeof k2projectId)
+
+        // const bookingEvents = await BookingEvent.find({project: _id},{project:true, job: true, operator: true}).lean().populate({path: 'job', select: 'type'});
+        const bookingBosses = await BookingProject.find({K2projectId: k2projectId},{manager:true, supervisor: true, lead3D: true, lead2D: true, leadMP: true}).lean(); // .populate({path: 'manager', select: 'type'});
+        console.log("Got bookingBosses: ", bookingBosses)
+        
+        //odstranit duplicity
+        let ManagersObj = {} 
+        let formKey
+        Object.keys(bookingBosses[0]).map(key => {
+            switch(key){
+                case 'manager':
+                    formKey = 'MA' 
+                    break;
+                case 'supervisor':
+                    formKey = 'SV' 
+                    break;
+                  default:
+                    formKey = key 
+            }
+            console.log("Iterace: bookingBosses: ", key, formKey, bookingBosses[0][key])
+            if(ManagersObj[bookingBosses[0][key]]){
+                ManagersObj[bookingBosses[0][key]].push(formKey)
+            }else{
+                ManagersObj[bookingBosses[0][key]] = [formKey]
+            }
+        })
+        console.log("ROZTRIDENY ManagersObj: ", ManagersObj)
+        return ManagersObj
+    }catch(err){
+        console.log("ERR: ", err)
+    }
 };

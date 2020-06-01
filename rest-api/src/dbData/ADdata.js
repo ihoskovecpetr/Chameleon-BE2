@@ -3,6 +3,7 @@
 const ActiveDirectory = require('activedirectory');
 const AD = require('ad');
 const logger = require('../logger');
+const helperMethods = require('./helperMethods');
 
 //DEV
 const configAd = {
@@ -170,19 +171,19 @@ exports.getProjectManagerGroups = async (project_id) => {
 };
 
 
-exports.getProjectGroups = async (project_id) => {
+exports.getProjectNormalGroups = async (project_id) => {
 
-    console.log("getProjectGroups project_id: ", project_id)
+    console.log("getProjectNormalGroups project_id: ", project_id)
 
     return new Promise((resolve, reject) => {
 
         const filter = `(&(sAMAccountName=adv_${project_id}*)(!(sAMAccountName=*_manager)))`; //(memberOf=cn=test_group_adv) (sAMAccountName=petra*) ${project_name}
         const attributes = ['sAMAccountName', 'sn', 'displayName', 'mail', 'memberOf', 'managedObjects']; //'givenName', 'sn', 'displayName', 'mail', 'memberOf', 'managedObjects'
             ad.find({filter, attributes}, (err, data) => {
-                console.log("getProjectGroups result: err, data ", err, data)
-                if (err || !data || !data.groups) logger.info(`getProjectGroups ERR >>>>> ${JSON.stringify(err, undefined, 2)}`);
+                // console.log("getProjectNormalGroups result: err, data ", err, data)
+                if (err || !data || !data.groups) logger.info(`getProjectNormalGroups ERR >>>>> ${JSON.stringify(err, undefined, 2)}`);
                 else if(data && data.groups){
-                    console.log(`getProjectGroups DATA >>>>> ${JSON.stringify(data, undefined, 2)}`);
+                    // console.log(`getProjectNormalGroups DATA >>>>> ${JSON.stringify(data, undefined, 2)}`);
                     resolve(
                         data.groups,
                     )
@@ -195,21 +196,21 @@ exports.getProjectGroups = async (project_id) => {
     });
 };
 
-exports.getGroupMembers = async (groupName) => {
-    return new Promise((resolve, reject) => {
+// exports.getGroupMembers = async (groupName) => {
+//     return new Promise((resolve, reject) => {
 
-        const filter = `(&(objectClass=user)(memberOf=CN=${groupName},OU=ADV,OU=Projects,OU=Specials,DC=global,DC=upp,DC=cz))`; //(memberOf=cn=test_group_adv) (sAMAccountName=petra*)
-        const attributes = ['sAMAccountName', 'givenName', 'sn', 'displayName', 'mail', 'memberOf'];
-            ad.findUsers({filter, attributes}, (err, data) => {
-                if (err) logger.info(`findUsers ERR >>>>> ${JSON.stringify(err, undefined, 2)}`);
-                else{
-                    resolve({
-                        userData: data,
-                    })
-                } 
-            })
-    });
-};
+//         const filter = `(&(objectClass=user)(memberOf=CN=${groupName},OU=ADV,OU=Projects,OU=Specials,DC=global,DC=upp,DC=cz))`; //(memberOf=cn=test_group_adv) (sAMAccountName=petra*)
+//         const attributes = ['sAMAccountName', 'givenName', 'sn', 'displayName', 'mail', 'memberOf'];
+//             ad.findUsers({filter, attributes}, (err, data) => {
+//                 if (err) logger.info(`findUsers ERR >>>>> ${JSON.stringify(err, undefined, 2)}`);
+//                 else{
+//                     resolve({
+//                         userData: data,
+//                     })
+//                 } 
+//             })
+//     });
+// };
 
 exports.getGroupsMembers = async (groupNamesArr) => {
     return new Promise((resolve, reject) => {
@@ -286,9 +287,7 @@ exports.removeGroupMembers = async (group, user) => {
 
 exports.saveNewGroupMembers = async (group_name, users) => {
 
-
     // FIND all members of group_name >> REMOVE them >> ADD users to group_name
-
     return new Promise((resolve, reject) => {
         try{
 
@@ -397,6 +396,180 @@ exports.saveNewGroupMembers = async (group_name, users) => {
                     console.log("Ctched err: ", err)
                 }
 
+            }
+
+            gettingRes().catch(err => {
+                console.log("Catched this from ABOVE: ", err)
+            })
+
+    }catch(e){
+        console.log("AD err: ", e)
+    }
+    });
+}
+
+
+
+exports.saveNewGroupManagers = async (group_name, newUsers) => {
+
+
+    console.log("ad saveNewGroupManagers: ", group_name, newUsers)
+    // FIND all members of group_name >> REMOVE them >> ADD newUsers to group_name
+    return new Promise((resolve, reject) => {
+        try{
+            const filter = `(&(objectClass=user)(memberOf=CN=${group_name},OU=ADV,OU=Projects,OU=Specials,DC=global,DC=upp,DC=cz))`;
+            const attributes = ['sAMAccountName', 'givenName', 'sn', 'displayName', 'mail', 'memberOf'];
+            let promisseGetMbs = new Promise((resolve1, reject1) => {
+                    ad.findUsers({filter, attributes}, (err, data) => {
+                        if (err) {
+                            logger.info(`getGroupsMembers ERR >>>>> ${JSON.stringify(err, undefined, 2)}`);
+                            reject1()
+                        }
+                        else if(data){
+                            resolve1({
+                                [group_name]: data,
+                            })
+                        } else{
+                            resolve1({
+                                [group_name]: [],
+                            })  
+                        }
+                    }) 
+                }) 
+                
+                // const deletemembers = (existingMbs) => {
+
+                //     try{
+
+                //     console.log("Deleting Members", existingMbs)
+                //     let promisses = []
+                //     existingMbs.map(userObj => {
+    
+                //         console.log(`DELETING MANAGER of ${userObj.sAMAccountName} from: ${group_name}`)
+                //         promisses.push(
+                //             ad2.user(userObj.sAMAccountName).removeFromGroup(group_name).then((value) => value).catch((err) => {
+                //                 console.log("Deleting err: ", err)
+                //                 return {succ: false}
+                //                 // reject(err)
+                //             })
+                //         ) 
+                //     })
+    
+                //     Promise.all(promisses).then((values) => {
+                //         console.log("Resolved ALL Proms REMOVING: ", values)
+                //         setNewMembers()
+                //       }).catch(err => {
+                //         console.log("NOT All Promisses REMOVING resolved,", err)
+                //         reject(err)
+                //     });
+                // }catch(err){
+                //     reject(err)
+                // }
+    
+                // }
+    
+                // const setNewMembers = (newMbs) => {
+
+                //     try{
+                //         let promisses = []
+                //         if(newMbs.length != 0){
+
+                //             newMbs.map(userObj => {
+                //                 console.log(`SPAWNING Manager ${userObj.sAMAccountName} for: ${group_name}`)   
+                //                 promisses.push(
+                //                     ad2.user(userObj.sAMAccountName).addToGroup(group_name).then((value) => value).catch((err) => {
+                //                         console.log("Spawning err: ", err)
+                //                         return {succ: false}
+                //                         // reject(err)
+                //                     })
+                //                 ) 
+                //             })
+
+                //             Promise.all(promisses).then((values) => {
+                //                 console.log("Resolved ALL Proms SPAWNING Manager: ", values)
+                //                 resolve( { "new_mbs_success": true } )
+                //             }).catch(err => {
+                //                 console.log("NOT All Promisses SPAWNING Manager resolved,", err)
+                //                 reject(err)
+                //             });
+
+                //         }else{
+                //             resolve( { "new_mbs_success": true } )
+                //         }
+                //     }catch(err){
+
+                //         resolve( { "new_mbs_success": false } )
+                //     }
+                // }
+
+                const spawnAndDeleteMembers = (newMbs, deleteMbs) => {
+                    
+                    console.log("spawnAndDeleteMembers", newMbs, deleteMbs)
+
+                    try{
+                        let promisses = []
+                        if(newMbs.length != 0){
+
+                            newMbs.map(userObj => {
+                                console.log(`SPAWNING Manager ${userObj.sAMAccountName} for: ${group_name}`)   
+                                promisses.push(
+                                    ad2.user(userObj.sAMAccountName).addToGroup(group_name).then((value) => value).catch((err) => {
+                                        console.log("Spawning err: ", err)
+                                        return {succ: false}
+                                        // reject(err)
+                                    })
+                                ) 
+                            })
+                        }
+                        if(deleteMbs.length != 0){
+                            deleteMbs.map(userObj => {
+                                console.log(`DELETING MANAGER of ${userObj.sAMAccountName} from: ${group_name}`)
+                                promisses.push(
+                                    ad2.user(userObj.sAMAccountName).removeFromGroup(group_name).then((value) => value).catch((err) => {
+                                        console.log("Deleting err: ", err)
+                                        return {succ: false}
+                                        // reject(err)
+                                    })
+                                ) 
+                            })
+                        }
+
+                        Promise.all(promisses).then((values) => {
+                            console.log("Resolved ALL ALL: ", values)
+                            resolve( { "new_mbs_success": true } )
+                        }).catch(err => {
+                            console.log("NOT All Promisses ALL resolved,", err)
+                            reject(err)
+                        });
+
+                    }catch(err){
+                        console.log("Some ERROR in ALL ALL: ", err)
+                        resolve( { "new_mbs_success": false } )
+                    }
+                }
+
+
+
+            async function gettingRes(){
+                try{
+
+                let existingMbs = await promisseGetMbs
+
+                // console.log("COMPARE EXIST AND NEW: ", existingMbs, newUsers)
+                console.log("ABOUT TOFILTER OUT ADMIN: ", existingMbs[group_name])
+                existingMbs[group_name] = existingMbs[group_name].filter(user => user.sAMAccountName != 'adv.test.hoskovec')
+                console.log("FILTER ADM: ", existingMbs[group_name])
+
+                console.log("TOO TOFILTER OUT ADMIN: ", newUsers)
+                newUsers = newUsers.filter(user => user.sAMAccountName != 'adv.test.hoskovec')
+                console.log("TOO FILTER ADM: ", newUsers)
+                const sorterManagers= helperMethods.sortMembers(existingMbs[group_name], newUsers)
+                // console.log("newNewOnes: ", sorterManagers, sorterManagers.newDeleted)
+                spawnAndDeleteMembers(sorterManagers.newNewOnes, sorterManagers.newDeleted)
+
+                }catch(err){
+                    console.log("Ctched err: ", err)
+                }
             }
 
             gettingRes().catch(err => {
