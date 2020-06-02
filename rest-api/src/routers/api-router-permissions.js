@@ -10,6 +10,8 @@ const validateToken = require('../validateToken');
 const authoriseApiAccess = require('./authoriseApiAccess');
 
 const PERMISSIONS_ACCESS = ['permissions:full'];
+const PERMISSIONS_ACCESS_RW = ['permissions:readWrite', 'permissions:full'];
+const PERMISSIONS_ACCESS_RO = ['permissions:readWrite', 'permissions:full','permissions:readOnly'];
 // const app = express();
 
 module.exports = router;
@@ -18,7 +20,7 @@ module.exports = router;
 // *********************************************************************************************************************
 // PROJECTS CRUD
 // *********************************************************************************************************************
-router.get('/k2_projects', [validateToken,  authoriseApiAccess(PERMISSIONS_ACCESS)],  async (req, res, next) => {
+router.get('/k2_projects', [validateToken,  authoriseApiAccess(PERMISSIONS_ACCESS_RO)],  async (req, res, next) => {
     try {
         console.log("Hitting K2 Projects endpoint")
         const result = await db.getK2Projects();
