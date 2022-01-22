@@ -24,7 +24,7 @@
     "moment-timezone": "^0.5.26",
     "mongoose": "^5.3.9",
     "mssql": "^4.3.0",
-    "nanoid": "^2.0.0",
+    "nanoid": "^3.1.31",
     "pdfmake": "^0.1.40",
     "winston": "^3.1.0"
   },
