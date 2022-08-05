@@ -8,7 +8,7 @@
     "dotenv": "^6.2.0",
     "fs-extra": "^7.0.1",
     "moment": "^2.24.0",
-    "mongoose": "^5.3.16"
+    "mongoose": "^5.7.5"
   },
   "repository": "~mk",
   "license": "UNLICENSED"
